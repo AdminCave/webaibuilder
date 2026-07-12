@@ -3,13 +3,15 @@
  * packages/core, jeder Handler hinter der Sender-Validierung.
  */
 
-import { app, ipcMain } from 'electron';
+import { app, ipcMain, shell } from 'electron';
 
+import { detectBackends } from '@webaibuilder/agents';
 import type { IpcArgs, IpcChannel, IpcResult } from '@webaibuilder/core';
 import { IpcChannels } from '@webaibuilder/core';
 
 import { currentSha } from '@webaibuilder/versioning';
 
+import { isAllowedExternalUrl } from '../shared/backends';
 import {
   DesktopIpcChannels,
   type DesktopIpcArgs,
@@ -17,15 +19,24 @@ import {
   type DesktopIpcResult,
 } from '../shared/channels';
 import { initAppSession } from './appSession';
+import { BackendService, FileAckStore } from './backendService';
 import { realDeployEngine } from './deployEngine';
 import { DeployHistoryStore } from './deployHistory';
 import { DeployService } from './deployService';
 import { DeployTargetService } from './deployTargets';
-import { defaultRegistryOptions, deployHistoryFilePath, settingsFilePath } from './paths';
+import { KillSwitchStore } from './killSwitch';
+import {
+  backendAcksFilePath,
+  backendsConfigUrl,
+  defaultRegistryOptions,
+  deployHistoryFilePath,
+  killSwitchCacheFilePath,
+  settingsFilePath,
+} from './paths';
 import { initProjectRegistry } from './registry';
 import { getSecretsService } from './secrets';
 import { isTrustedIpcSender } from './security';
-import { AgentSettingsStore } from './settingsStore';
+import { applySettingsUpdate, AgentSettingsStore } from './settingsStore';
 
 /** `ipcMain.handle` mit Typen aus der IpcInvokeMap + Sender-Validierung. */
 function handle<C extends IpcChannel>(
@@ -80,6 +91,21 @@ export function registerIpcHandlers(): void {
     emitTargets: (message) => session.pushDeployTargets(message),
   });
 
+  // --- M4: Backend-Erkennung + Remote-Kill-Switch (PLAN §3/§4) ---
+  const killSwitch = new KillSwitchStore({
+    cacheFilePath: killSwitchCacheFilePath(),
+    remoteUrl: backendsConfigUrl(),
+  });
+  // Fire-and-forget: blockiert NIE den Start; fail-safe (Cache → Default).
+  killSwitch.refreshInBackground();
+  const backends = new BackendService({
+    // Lose typisiert übernommen — resilient gegen additive Änderungen an
+    // BackendAvailability in @webaibuilder/agents (paralleler Umbau).
+    detect: () => detectBackends(),
+    killSwitch,
+    acks: new FileAckStore(backendAcksFilePath()),
+  });
+
   handle(IpcChannels.ping, () => ({
     ok: true,
     time: new Date().toISOString(),
@@ -109,7 +135,11 @@ export function registerIpcHandlers(): void {
   handleDesktop(DesktopIpcChannels.checkpointsList, () => session.listCheckpoints());
   handleDesktop(DesktopIpcChannels.checkpointsRestore, (id) => session.restore(id));
   handleDesktop(DesktopIpcChannels.settingsGet, () => settings.get());
-  handleDesktop(DesktopIpcChannels.settingsSet, (input) => settings.set(input));
+  // Abo-Backends dürfen nur aktiv werden, wenn sie nach Erkennung + Kill-Switch +
+  // Bestätigung nutzbar sind — der Main-Prozess erzwingt das autoritativ.
+  handleDesktop(DesktopIpcChannels.settingsSet, (input) =>
+    applySettingsUpdate(settings, backends, input),
+  );
 
   // --- M3: Deploy-Ziel-CRUD + Deploy/Rollback/Test/Drift/Historie ---
   handleDesktop(DesktopIpcChannels.deployTargetsList, (projectId) => deployTargets.list(projectId));
@@ -132,4 +162,15 @@ export function registerIpcHandlers(): void {
     deploy.drift(projectId, targetId),
   );
   handleDesktop(DesktopIpcChannels.deployHistory, (projectId) => deploy.listHistory(projectId));
+
+  // --- M4: Backend-Erkennung, Kill-Switch-Merge, Bestätigung, Onboarding-Links ---
+  handleDesktop(DesktopIpcChannels.backendsList, () => backends.availability());
+  handleDesktop(DesktopIpcChannels.backendsRefresh, () => backends.refresh());
+  handleDesktop(DesktopIpcChannels.backendsAck, (backendId) => backends.acknowledge(backendId));
+  handleDesktop(DesktopIpcChannels.backendsOpenHint, async (url) => {
+    // Nur offizielle Vendor-Domains (https) öffnen — nie eine beliebige URL.
+    if (!isAllowedExternalUrl(url)) return { opened: false };
+    await shell.openExternal(url);
+    return { opened: true };
+  });
 }

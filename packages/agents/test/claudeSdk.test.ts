@@ -137,14 +137,22 @@ describe('Factory & Detection', () => {
     expect(claude.capabilities()).toEqual({ resume: true, partialText: true, cost: true });
   });
 
-  it('createBackend wirft für M4-Backends und fehlenden byok-Key', () => {
-    expect(() => createBackend('gemini-cli', {})).toThrow(/M4/);
-    expect(() => createBackend('codex', {})).toThrow(/M4/);
+  it('createBackend erzeugt die vier M4-CLI-Backends; byok ohne Key wirft', () => {
+    expect(createBackend('claude-cli', {}).id).toBe('claude-cli');
+    expect(createBackend('codex', {}).id).toBe('codex');
+    expect(createBackend('gemini-cli', {}).id).toBe('gemini-cli');
+    expect(createBackend('grok-cli', {}).id).toBe('grok-cli');
+    expect(createBackend('gemini-cli', {}).capabilities()).toEqual({
+      resume: false,
+      partialText: true,
+      cost: false,
+    });
     expect(() => createBackend('byok', {})).toThrow(/API-Key/);
   });
 
-  it('detectBackends meldet byok verfügbar, CLIs (noch) nicht', async () => {
-    const list = await detectBackends();
+  it('detectBackends meldet byok verfügbar, CLIs ohne Installation nicht', async () => {
+    // Injizierter which-Fake: nichts installiert (kein echter PATH-/CLI-Zugriff).
+    const list = await detectBackends({ which: async () => null, keyEnv: {} });
     const byId = Object.fromEntries(list.map((b) => [b.id, b]));
     expect(byId.byok?.installed).toBe(true);
     expect(byId['gemini-cli']?.installed).toBe(false);

@@ -1,9 +1,17 @@
 /**
- * KI-Backend-Einstellungen (PLAN §4/§6, M2).
+ * KI-Backend-Einstellungen (PLAN §4/§6, M2 + M4).
  *
- * In M2 sind die erreichbaren Backends `byok` (Vercel AI SDK, eigener
- * API-Key + Provider + Modell) und `claude-sdk` (@anthropic-ai/claude-agent-sdk,
- * API-Key + Modell). Die übrigen Backends kommen in M4.
+ * Turn-treibendes Backend kann jedes der sechs Backends sein:
+ *  - API-Key-Backends: `byok` (Vercel AI SDK, eigener API-Key + Provider +
+ *    Modell) und `claude-sdk` (@anthropic-ai/claude-agent-sdk, API-Key + Modell).
+ *  - Abo-/CLI-Backends (M4): `claude-cli`, `codex`, `gemini-cli`, `grok-cli` —
+ *    sie spawnen die vom Nutzer selbst installierte, selbst eingeloggte offizielle
+ *    Vendor-CLI (PLAN §3). Sie brauchen KEINEN app-verwalteten API-Key und haben
+ *    kein Provider-/Modell-Konzept; Modell/Provider bleiben für sie bewusst leer.
+ *
+ * Ob ein Abo-Backend überhaupt als aktives Backend gesetzt werden darf, prüft der
+ * Main-Prozess autoritativ gegen die Erkennung + Kill-Switch + Bestätigung
+ * (siehe main/settingsStore.ts `applySettingsUpdate` und shared/backends.ts).
  *
  * Secret-Handling (PLAN §4, Sicherheit): Der API-Key wird NICHT im Klartext auf
  * die Platte geschrieben (Linux-Plaintext-Falle). Seit M3 liegt er im
@@ -19,13 +27,26 @@
 
 import type { BackendId } from '@webaibuilder/core';
 
-/** In M2 nutzbare Backends. */
-export type ActiveBackendId = Extract<BackendId, 'byok' | 'claude-sdk'>;
+import { isSubscriptionBackend } from './backends';
+
+/**
+ * Als aktives (turn-treibendes) Backend nutzbare IDs — seit M4 alle sechs.
+ * Ob ein Abo-Backend tatsächlich gesetzt werden darf, entscheidet zusätzlich der
+ * Main-Prozess anhand der Erkennung (installiert/eingeloggt/Kill-Switch/Hinweis).
+ */
+export type ActiveBackendId = BackendId;
 
 /** Provider für den `byok`-Adapter (Vercel AI SDK v6). */
 export type ByokProvider = 'anthropic' | 'openai' | 'google' | 'xai';
 
-export const ACTIVE_BACKEND_IDS: readonly ActiveBackendId[] = ['byok', 'claude-sdk'];
+export const ACTIVE_BACKEND_IDS: readonly ActiveBackendId[] = [
+  'byok',
+  'claude-sdk',
+  'claude-cli',
+  'codex',
+  'gemini-cli',
+  'grok-cli',
+];
 export const BYOK_PROVIDERS: readonly ByokProvider[] = ['anthropic', 'openai', 'google', 'xai'];
 
 /** Persistierbarer, secret-freier Teil der Einstellungen. */
@@ -117,8 +138,13 @@ export function coerceAgentSettings(value: unknown): AgentSettingsData {
   return mergeAgentSettings(DEFAULT_AGENT_SETTINGS, value as AgentSettingsInput);
 }
 
-/** Modell, das effektiv an `createBackend` geht (Override oder Provider-Default). */
+/**
+ * Modell, das effektiv an `createBackend` geht (Override oder Provider-Default).
+ * Abo-/CLI-Backends haben kein Modell-Konzept — die Vendor-CLI bestimmt es
+ * selbst; hier bleibt es leer (createBackend ignoriert es für CLI-Backends).
+ */
 export function effectiveModel(data: AgentSettingsData): string {
+  if (isSubscriptionBackend(data.backendId)) return '';
   if (data.model.trim() !== '') return data.model.trim();
   if (data.backendId === 'claude-sdk') return DEFAULT_CLAUDE_MODEL;
   return DEFAULT_BYOK_MODEL[data.provider];

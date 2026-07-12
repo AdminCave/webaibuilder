@@ -12,6 +12,12 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import {
+  backendDisplayName,
+  isSubscriptionBackend,
+  subscriptionActivationError,
+  type BackendPickerState,
+} from '../shared/backends';
+import {
   coerceAgentSettings,
   effectiveModel,
   mergeAgentSettings,
@@ -59,9 +65,14 @@ export class AgentSettingsStore {
    * ob der OS-Schlüsselbund genutzt wird oder der In-Memory-Fallback aktiv ist.
    */
   get(): AgentSettings {
+    // Abo-/CLI-Backends haben keinen app-verwalteten Key — `hasApiKey` darf sie
+    // nicht gaten (der Login liegt allein bei der Vendor-CLI, PLAN §3).
+    const hasApiKey = isSubscriptionBackend(this.data.backendId)
+      ? false
+      : this.secrets.hasApiKey(this.data.backendId, this.data.provider);
     return {
       ...this.data,
-      hasApiKey: this.secrets.hasApiKey(this.data.backendId, this.data.provider),
+      hasApiKey,
       keychainAvailable: this.secrets.keychainAvailable().available,
     };
   }
@@ -87,8 +98,13 @@ export class AgentSettingsStore {
     return this.get();
   }
 
-  /** Der API-Key für `createBackend` (nur im Main-Prozess), oder undefined. */
+  /**
+   * Der API-Key für `createBackend` (nur im Main-Prozess), oder undefined.
+   * Für Abo-/CLI-Backends immer undefined — sie nutzen den eigenen Login der
+   * Vendor-CLI und bekommen von der App keinen Key (PLAN §3).
+   */
   currentApiKey(): string | undefined {
+    if (isSubscriptionBackend(this.data.backendId)) return undefined;
     return this.secrets.getApiKey(this.data.backendId, this.data.provider) ?? undefined;
   }
 
@@ -100,4 +116,36 @@ export class AgentSettingsStore {
   currentBackendId(): AgentSettingsData['backendId'] {
     return this.data.backendId;
   }
+}
+
+/** Nur der von {@link applySettingsUpdate} benötigte Teil des BackendService. */
+export interface SubscriptionReadinessSource {
+  availability(): Promise<BackendPickerState>;
+}
+
+/**
+ * Wendet ein Einstellungs-Update an und setzt dabei die AUTORITATIVE
+ * Aktivierungsprüfung für Abo-Backends durch (PLAN §3/§4): Wird als aktives
+ * Backend ein Abo-Backend gewählt, muss es nach derselben Erkennung +
+ * Kill-Switch + Bestätigung, die auch die UI sieht, nutzbar sein — sonst wird
+ * das Update mit einer deutschen, handlungsleitenden Meldung abgelehnt und NICHT
+ * persistiert. So kann `appSession` nie eine CLI starten, die der Nutzer gar
+ * nicht verwenden kann. API-Key-Backends laufen ungehindert durch.
+ */
+export async function applySettingsUpdate(
+  store: AgentSettingsStore,
+  readiness: SubscriptionReadinessSource,
+  input: AgentSettingsInput,
+): Promise<AgentSettings> {
+  const target = input.backendId;
+  if (target !== undefined && isSubscriptionBackend(target)) {
+    const state = await readiness.availability();
+    const view = state.backends.find((b) => b.backendId === target);
+    const message =
+      view === undefined
+        ? `${backendDisplayName(target)} ist nicht verfügbar.`
+        : subscriptionActivationError(view);
+    if (message !== null) throw new Error(message);
+  }
+  return store.set(input);
 }

@@ -12,6 +12,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type { IpcRendererEvent } from 'electron';
 
 import type {
+  BackendId,
   PermissionDecision,
   ProjectCreateInput,
   ProjectUpdateInput,
@@ -85,6 +86,13 @@ const bridge: WabBridge & WabDesktopBridge = {
   settings: {
     get: () => ipcRenderer.invoke(DesktopIpcChannels.settingsGet),
     set: (input: AgentSettingsInput) => ipcRenderer.invoke(DesktopIpcChannels.settingsSet, input),
+  },
+  backends: {
+    list: () => ipcRenderer.invoke(DesktopIpcChannels.backendsList),
+    refresh: () => ipcRenderer.invoke(DesktopIpcChannels.backendsRefresh),
+    acknowledge: (backendId: BackendId) =>
+      ipcRenderer.invoke(DesktopIpcChannels.backendsAck, backendId),
+    openHint: (url: string) => ipcRenderer.invoke(DesktopIpcChannels.backendsOpenHint, url),
   },
   deploy: {
     listTargets: (projectId: string) =>

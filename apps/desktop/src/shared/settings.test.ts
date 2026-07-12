@@ -30,6 +30,12 @@ describe('mergeAgentSettings', () => {
     const next = mergeAgentSettings(DEFAULT_AGENT_SETTINGS, { apiKey: 'geheim' });
     expect(next).not.toHaveProperty('apiKey');
   });
+
+  it('akzeptiert Abo-/CLI-Backends als aktives Backend (M4)', () => {
+    for (const id of ['claude-cli', 'codex', 'gemini-cli', 'grok-cli'] as const) {
+      expect(mergeAgentSettings(DEFAULT_AGENT_SETTINGS, { backendId: id }).backendId).toBe(id);
+    }
+  });
 });
 
 describe('coerceAgentSettings', () => {
@@ -44,6 +50,12 @@ describe('coerceAgentSettings', () => {
       provider: 'openai',
       model: 'x',
     });
+  });
+
+  it('liest ein Abo-/CLI-Backend als aktives Backend ein (M4)', () => {
+    expect(coerceAgentSettings({ backendId: 'claude-cli', provider: 'anthropic', model: '' })).toEqual(
+      { backendId: 'claude-cli', provider: 'anthropic', model: '' },
+    );
   });
 });
 
@@ -66,5 +78,11 @@ describe('effectiveModel', () => {
 
   it('lässt das Modell für andere byok-Provider leer (Backend-Default)', () => {
     expect(effectiveModel({ backendId: 'byok', provider: 'openai', model: '' })).toBe('');
+  });
+
+  it('liefert für Abo-/CLI-Backends immer ein leeres Modell (die CLI bestimmt es)', () => {
+    // Auch ein gesetzter Override wird ignoriert — CLI-Backends haben kein Modell-Konzept.
+    expect(effectiveModel({ backendId: 'claude-cli', provider: 'anthropic', model: 'egal' })).toBe('');
+    expect(effectiveModel({ backendId: 'codex', provider: 'openai', model: '' })).toBe('');
   });
 });

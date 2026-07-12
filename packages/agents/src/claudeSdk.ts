@@ -26,6 +26,7 @@ import type {
   AgentCapabilities,
   AgentEvent,
   AgentTurnRequest,
+  PermissionDecision,
   PermissionPolicy,
   PermissionScope,
   TurnStopReason,
@@ -56,9 +57,22 @@ export function mapPermissionMode(policy: PermissionPolicy): PermissionMode {
   return ruleFor(policy, 'edit-in-site') === 'allow' ? 'acceptEdits' : 'default';
 }
 
-function pathFromInput(input: Record<string, unknown>): string | undefined {
+export function pathFromInput(input: Record<string, unknown>): string | undefined {
   const candidate = input.file_path ?? input.path ?? input.notebook_path;
   return typeof candidate === 'string' ? candidate : undefined;
+}
+
+/**
+ * Synchrone Scope-Klassifikation nur nach Tool-Name (ohne FS/realpath).
+ * Für die CLI-Adapter, deren Permission-Prompt aus dem Vendor-Prozess kommt
+ * und synchron auf ein `permission-request` gemappt werden muss.
+ */
+export function classifyScopeByName(toolName: string): PermissionScope {
+  if (SHELL_TOOLS.has(toolName)) return 'shell';
+  if (NETWORK_TOOLS.has(toolName)) return 'network';
+  if (EDIT_TOOLS.has(toolName)) return 'edit-in-site';
+  // Unbekannte Tools fail-safe als Shell behandeln → Prompt/Deny.
+  return 'shell';
 }
 
 /** Klassifiziert einen Tool-Aufruf in einen Policy-Scope (bzw. `read`). */
@@ -85,7 +99,7 @@ export async function classifyTool(
   return 'shell';
 }
 
-function toolDisplayName(toolName: string): string {
+export function toolDisplayName(toolName: string): string {
   if (toolName === 'Write') return 'Datei schreiben';
   if (EDIT_TOOLS.has(toolName)) return 'Datei bearbeiten';
   if (toolName === 'Read' || toolName === 'NotebookRead') return 'Datei lesen';
@@ -96,7 +110,7 @@ function toolDisplayName(toolName: string): string {
   return toolName;
 }
 
-function scopeDescription(scope: PermissionScope, toolName: string): string {
+export function scopeDescription(scope: PermissionScope, toolName: string): string {
   switch (scope) {
     case 'shell':
       return `Darf ich den Shell-Befehl "${toolName}" ausführen?`;
@@ -146,6 +160,9 @@ class ClaudeSdkBackend implements AgentBackend {
     const turnId = randomUUID();
     const queue = new AsyncQueue<AgentEvent>();
     const toolNames = new Map<string, string>(); // tool_use_id → toolName
+    // Offene Permission-Anfragen: requestId → Resolver, der die Entscheidung des
+    // Nutzers (aus dem `yield`-Rückkanal) an den wartenden canUseTool reicht.
+    const pending = new Map<string, (decision: PermissionDecision | undefined) => void>();
     let sessionId: string | undefined = req.sessionId;
     let costUsd: number | undefined;
     let stopReason: TurnStopReason = 'end';
@@ -164,18 +181,23 @@ class ClaudeSdkBackend implements AgentBackend {
               : `Zugriff verweigert (${klass}).`,
         };
       }
-      // prompt → sichtbar machen; ohne Rückkanal in M2 fail-safe verweigern.
-      queue.push({
-        type: 'permission-request',
-        requestId: randomUUID(),
-        scope: klass,
-        description: scopeDescription(klass, toolName),
-        payload: { tool: toolName, input },
+      // prompt → sichtbar machen UND auf die Nutzer-Entscheidung warten. Der
+      // Rückkanal ist der Rückgabewert des `yield` (Desktop treibt den Iterator
+      // mit `next(decision)`). Wird der Generator ohne Entscheidung durchlaufen,
+      // resolved der Rückkanal auf `undefined` → fail-safe deny.
+      const requestId = randomUUID();
+      const decision = await new Promise<PermissionDecision | undefined>((resolve) => {
+        pending.set(requestId, resolve);
+        queue.push({
+          type: 'permission-request',
+          requestId,
+          scope: klass,
+          description: scopeDescription(klass, toolName),
+          payload: { tool: toolName, input },
+        });
       });
-      return {
-        behavior: 'deny',
-        message: 'Erlaubnis erforderlich — in dieser Version noch nicht bestätigbar (kommt mit der Chat-UI).',
-      };
+      if (decision?.allow) return { behavior: 'allow', updatedInput: input };
+      return { behavior: 'deny', message: 'Vom Nutzer abgelehnt.' };
     };
 
     const options: Options = {
@@ -279,10 +301,23 @@ class ClaudeSdkBackend implements AgentBackend {
 
     try {
       for await (const event of queue) {
-        yield event;
+        const resume = yield event;
+        // Antwort des Nutzers auf ein permission-request an den wartenden
+        // canUseTool zurückreichen (fail-safe deny, wenn `resume` undefined ist).
+        if (event.type === 'permission-request') {
+          const resolve = pending.get(event.requestId);
+          if (resolve) {
+            pending.delete(event.requestId);
+            resolve(resume as PermissionDecision | undefined);
+          }
+        }
       }
       await pump;
     } finally {
+      // Noch offene Anfragen fail-safe verwerfen (z. B. bei Abbruch), damit
+      // canUseTool nicht ewig hängt.
+      for (const resolve of pending.values()) resolve(undefined);
+      pending.clear();
       this.#query = null;
       this.#controller = null;
     }

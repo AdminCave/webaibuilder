@@ -1062,3 +1062,203 @@ select.field__input {
   font-size: var(--text-xs);
   line-height: var(--lh-normal);
 }
+
+/* ---- KI-Backends: Erkennung, Kill-Switch, Onboarding (M4) ---- */
+
+.backends {
+  display: grid;
+  gap: var(--space-4);
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-5);
+}
+
+.backends__head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.backends__title {
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-snug);
+  color: var(--text-strong);
+}
+
+.backends__refresh {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-3);
+}
+
+.backends__loading {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.backends__group {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.backends__group-title {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+  color: var(--text-subtle);
+}
+
+.backends__group-hint {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--lh-relaxed);
+}
+
+.backends__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.backend-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-inset);
+  padding: var(--space-3) var(--space-4);
+}
+
+.backend-row--disabled {
+  opacity: 0.7;
+}
+
+.backend-row__main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.backend-row__name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-base);
+  font-weight: var(--fw-medium);
+  color: var(--text-strong);
+}
+
+.backend-row__status {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--type-mono-weight);
+  color: var(--text-muted);
+}
+
+.backend-row__status--off {
+  color: var(--warning);
+}
+
+.backend-row__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.backend-row__btn {
+  font-size: var(--text-xs);
+  padding: var(--space-1) var(--space-3);
+}
+
+/* „experimentell"-Tag — Hairline-Pill, keine Füllung/Farbe außer Ton */
+.backend-tag {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--type-mono-weight);
+  color: var(--text-subtle);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  padding: 0 var(--space-2);
+}
+
+.backend-pill {
+  align-self: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--type-mono-weight);
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-pill);
+  padding: 0 var(--space-2);
+}
+
+/* Fuß-Zeile einer Zeile: Grund/Hinweis/Link, volle Breite */
+.backend-row__foot {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: var(--space-1);
+}
+
+.backend-row__reason {
+  color: var(--warning);
+  font-size: var(--text-xs);
+  line-height: var(--lh-normal);
+}
+
+.backend-row__note {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--lh-normal);
+}
+
+/* Onboarding-/Terms-Link: textueller Button (kein <a> — Navigation ist deny) */
+.backend-link {
+  justify-self: start;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.backend-link:hover {
+  color: var(--accent-hover);
+}
+
+/* Claude-Abo-Hinweis (Feature-Flag, PLAN §3) */
+.backend-notice {
+  display: grid;
+  gap: var(--space-2);
+  border: 1px solid var(--accent-border);
+  background: var(--accent-muted);
+  border-radius: var(--radius-card);
+  padding: var(--space-4);
+}
+
+.backend-notice__title {
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-strong);
+}
+
+.backend-notice__text {
+  font-size: var(--text-sm);
+  color: var(--text);
+  line-height: var(--lh-relaxed);
+}
+
+.backend-notice__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}

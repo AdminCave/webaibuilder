@@ -38,3 +38,23 @@ export function settingsFilePath(): string {
 export function deployHistoryFilePath(): string {
   return join(app.getPath('userData'), 'deploy-history.json');
 }
+
+/** Cache der zuletzt geladenen Remote-Kill-Switch-Config (M4, PLAN §3). */
+export function killSwitchCacheFilePath(): string {
+  return join(app.getPath('userData'), 'backends-cache.json');
+}
+
+/** Persistierte Bestätigungen der Backend-Hinweise (M4, Claude-Abo-Ack). */
+export function backendAcksFilePath(): string {
+  return join(app.getPath('userData'), 'backend-acks.json');
+}
+
+/**
+ * URL der AdminCave-gehosteten `backends.json` für den Remote-Kill-Switch
+ * (PLAN §3 Regel 3). Über `WAB_BACKENDS_CONFIG_URL` überschreibbar. Der Abruf ist
+ * fail-safe (Netzfehler → Cache → gebündelter Default) und blockiert nie den
+ * Start. Platzhalter-Default, final in M5 zu setzen.
+ */
+export function backendsConfigUrl(): string {
+  return process.env['WAB_BACKENDS_CONFIG_URL'] ?? 'https://updates.admincave.dev/webaibuilder/backends.json';
+}

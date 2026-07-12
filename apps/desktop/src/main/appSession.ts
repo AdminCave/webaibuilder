@@ -18,6 +18,7 @@ import type {
   AgentBackend,
   AgentEvent,
   AgentTurnRequest,
+  BackendId,
   Checkpoint,
   PermissionDecision,
   Project,
@@ -67,7 +68,10 @@ export class AppSession {
   constructor(
     private readonly registry: ProjectRegistry,
     private readonly settings: {
-      currentBackendId(): 'byok' | 'claude-sdk';
+      // Jedes der sechs Backends kann das aktive sein (M4). Für Abo-/CLI-Backends
+      // liefert `currentApiKey()` bewusst undefined und `currentModel()` "" — die
+      // Vendor-CLI bestimmt Login und Modell selbst (PLAN §3).
+      currentBackendId(): BackendId;
       currentApiKey(): string | undefined;
       currentModel(): string;
     },
@@ -142,6 +146,12 @@ export class AppSession {
     }
     const turnRunId = runId.trim() === '' ? randomUUID() : runId;
 
+    // Backend-agnostisch: `createBackend` treibt seit M4 auch die Abo-/CLI-Backends
+    // (claude-cli/codex/gemini-cli/grok-cli). Für sie ist `apiKey` undefined und
+    // `model` leer — sie spawnen die selbst installierte, selbst eingeloggte
+    // Vendor-CLI (PLAN §3). Ist die CLI nicht auffindbar/eingeloggt, meldet der
+    // Adapter ein `error`-AgentEvent mit deutschem Installations-/Login-Hinweis
+    // (kein rohes ENOENT) — das fließt unten durch `consumeTurn` an die UI.
     const backend = createBackend(this.settings.currentBackendId(), {
       apiKey: this.settings.currentApiKey(),
       model: this.settings.currentModel(),

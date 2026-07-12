@@ -10,10 +10,24 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { BackendId } from '@webaibuilder/core';
+
+import {
+  buildAvailabilityViews,
+  coerceKillSwitchConfig,
+  resolveKillSwitch,
+  type BackendPickerState,
+  type KillSwitchConfig,
+  type RawBackendAvailability,
+} from '../shared/backends';
 import { SecretsService, type KeyringEntry, type KeyringEntryFactory } from './secrets';
-import { AgentSettingsStore } from './settingsStore';
+import {
+  AgentSettingsStore,
+  applySettingsUpdate,
+  type SubscriptionReadinessSource,
+} from './settingsStore';
 
 function fakeKeyringFactory(): KeyringEntryFactory {
   const store = new Map<string, string>();
@@ -97,6 +111,120 @@ describe('AgentSettingsStore — abgeleitete Flags', () => {
     store.set({ provider: 'openai' });
     expect(store.get().hasApiKey).toBe(true);
     expect(store.currentApiKey()).toBe('sk-openai');
+  });
+});
+
+describe('AgentSettingsStore — Abo-/CLI-Backends brauchen keinen Key', () => {
+  it('hasApiKey ist false und currentApiKey undefined, obwohl ein Anthropic-Key vorliegt', () => {
+    const secrets = new SecretsService({ forceFallback: true });
+    const store = new AgentSettingsStore(filePath, secrets);
+
+    // Anthropic-Key hinterlegen (byok) — er darf ein Abo-Backend NICHT gaten.
+    store.set({ backendId: 'byok', provider: 'anthropic', apiKey: 'sk-ant' });
+    expect(store.get().hasApiKey).toBe(true);
+
+    // Auf ein Abo-/CLI-Backend wechseln: kein app-verwalteter Key (PLAN §3).
+    store.set({ backendId: 'claude-cli' });
+    expect(store.get().hasApiKey).toBe(false);
+    expect(store.currentApiKey()).toBeUndefined();
+    // Modell ist für CLI-Backends leer (die CLI bestimmt es selbst).
+    expect(store.currentModel()).toBe('');
+    expect(store.currentBackendId()).toBe('claude-cli');
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Main-Gate: Abo-Backend nur aktiv, wenn bereit (injizierte Fakes)     */
+/* ------------------------------------------------------------------ */
+
+function raw(id: BackendId, over: Partial<RawBackendAvailability> = {}): RawBackendAvailability {
+  return { backendId: id, installed: true, loggedIn: true, ...over };
+}
+
+function readiness(
+  raws: RawBackendAvailability[],
+  acked: BackendId[] = [],
+  remote: KillSwitchConfig | null = null,
+): SubscriptionReadinessSource {
+  const state: BackendPickerState = {
+    backends: buildAvailabilityViews(raws, resolveKillSwitch(remote), new Set(acked)),
+    acknowledged: [...acked],
+  };
+  return { availability: () => Promise.resolve(state) };
+}
+
+describe('applySettingsUpdate — autoritative Aktivierungsprüfung', () => {
+  it('persistiert ein bereites Abo-Backend als aktives Backend', async () => {
+    const store = new AgentSettingsStore(filePath, new SecretsService({ forceFallback: true }));
+    const src = readiness([raw('codex', { installed: true, loggedIn: true })]);
+
+    const next = await applySettingsUpdate(store, src, { backendId: 'codex' });
+    expect(next.backendId).toBe('codex');
+    expect(next.hasApiKey).toBe(false);
+    expect(store.currentBackendId()).toBe('codex');
+    expect(store.currentApiKey()).toBeUndefined();
+  });
+
+  it('lehnt ein nicht installiertes Abo-Backend ab und persistiert NICHT', async () => {
+    const store = new AgentSettingsStore(filePath, new SecretsService({ forceFallback: true }));
+    const src = readiness([raw('codex', { installed: false })]);
+
+    await expect(applySettingsUpdate(store, src, { backendId: 'codex' })).rejects.toThrow(
+      /nicht installiert/,
+    );
+    expect(store.currentBackendId()).toBe('byok'); // unverändert (Default)
+  });
+
+  it('lehnt ein nicht eingeloggtes Abo-Backend ab', async () => {
+    const store = new AgentSettingsStore(filePath, new SecretsService({ forceFallback: true }));
+    const src = readiness([raw('gemini-cli', { installed: true, loggedIn: false })]);
+
+    await expect(applySettingsUpdate(store, src, { backendId: 'gemini-cli' })).rejects.toThrow(
+      /nicht eingeloggt/,
+    );
+    expect(store.currentBackendId()).toBe('byok');
+  });
+
+  it('lehnt ein per Kill-Switch deaktiviertes Abo-Backend mit dem Grund ab', async () => {
+    const store = new AgentSettingsStore(filePath, new SecretsService({ forceFallback: true }));
+    const remote = coerceKillSwitchConfig({
+      backends: { 'grok-cli': { enabled: false, reason: 'xAI-Pfad pausiert.' } },
+    });
+    const src = readiness([raw('grok-cli', { installed: true, loggedIn: true })], [], resolveKillSwitch(remote));
+
+    await expect(applySettingsUpdate(store, src, { backendId: 'grok-cli' })).rejects.toThrow(
+      'xAI-Pfad pausiert.',
+    );
+    expect(store.currentBackendId()).toBe('byok');
+  });
+
+  it('claude-cli: erst nach Bestätigung aktivierbar', async () => {
+    const store = new AgentSettingsStore(filePath, new SecretsService({ forceFallback: true }));
+    const notAcked = readiness([raw('claude-cli', { installed: true, loggedIn: true })]);
+    await expect(applySettingsUpdate(store, notAcked, { backendId: 'claude-cli' })).rejects.toThrow(
+      /Bestätige zuerst/,
+    );
+    expect(store.currentBackendId()).toBe('byok');
+
+    const acked = readiness([raw('claude-cli', { installed: true, loggedIn: true })], ['claude-cli']);
+    const next = await applySettingsUpdate(store, acked, { backendId: 'claude-cli' });
+    expect(next.backendId).toBe('claude-cli');
+    expect(store.currentBackendId()).toBe('claude-cli');
+  });
+
+  it('API-Key-Backends laufen ungehindert durch (keine Erkennung nötig)', async () => {
+    const store = new AgentSettingsStore(filePath, new SecretsService({ forceFallback: true }));
+    const src = readiness([]);
+    const spy = vi.spyOn(src, 'availability');
+
+    const next = await applySettingsUpdate(store, src, {
+      backendId: 'claude-sdk',
+      apiKey: 'sk-ant',
+    });
+    expect(next.backendId).toBe('claude-sdk');
+    expect(next.hasApiKey).toBe(true);
+    // Für API-Key-Backends wird die Abo-Erkennung gar nicht konsultiert.
+    expect(spy).not.toHaveBeenCalled();
   });
 });
 

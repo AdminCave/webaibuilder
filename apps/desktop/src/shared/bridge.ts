@@ -13,14 +13,16 @@
  * Umgebungsneutral (kein node/electron/DOM).
  */
 
-import type { Checkpoint, PermissionDecision } from '@webaibuilder/core';
+import type { BackendId, Checkpoint, PermissionDecision } from '@webaibuilder/core';
 
+import type { BackendPickerState } from './backends';
 import type {
   AgentEventMessage,
   ChatSendResult,
   CheckpointsMessage,
   DeployProgressMessage,
   DeployTargetsMessage,
+  OpenHintResult,
   PreviewEventMessage,
   SessionInfo,
 } from './channels';
@@ -41,8 +43,11 @@ import type { AgentSettings, AgentSettingsInput } from './settings';
  * v3 (M3): Deploy-Oberfläche — Ziel-CRUD (Passwort → Schlüsselbund),
  *          Verbindungstest, Veröffentlichen/Rollback mit Fortschritts-Push,
  *          Drift-Erkennung, Deploy-Historie.
+ * v4 (M4): Backend-Erkennung (alle sechs Backends) + Kill-Switch-Merge,
+ *          „neu prüfen", einmalige Bestätigung des Claude-Abo-Hinweises,
+ *          Öffnen offizieller Onboarding-Links (allowlisted, extern).
  */
-export const WAB_DESKTOP_BRIDGE_VERSION = 3;
+export const WAB_DESKTOP_BRIDGE_VERSION = 4;
 
 /** Meldet ein Push-Abo wieder ab. */
 export type Unsubscribe = () => void;
@@ -75,6 +80,17 @@ export interface WabDesktopBridge {
   settings: {
     get(): Promise<AgentSettings>;
     set(input: AgentSettingsInput): Promise<AgentSettings>;
+  };
+
+  backends: {
+    /** Aktueller Zustand aller sechs Backends (Detection + Kill-Switch-Merge). */
+    list(): Promise<BackendPickerState>;
+    /** Erzwingt eine frische Detection („neu prüfen"). */
+    refresh(): Promise<BackendPickerState>;
+    /** Bestätigt einen Backend-Hinweis einmalig (Claude-Abo). */
+    acknowledge(backendId: BackendId): Promise<BackendPickerState>;
+    /** Öffnet einen offiziellen Onboarding-Link im externen Browser (allowlisted). */
+    openHint(url: string): Promise<OpenHintResult>;
   };
 
   deploy: {

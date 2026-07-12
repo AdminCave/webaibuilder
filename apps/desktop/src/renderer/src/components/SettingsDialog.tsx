@@ -1,14 +1,20 @@
 import { useState } from 'react';
 
+import type { BackendId } from '@webaibuilder/core';
+
 import {
-  ACTIVE_BACKEND_IDS,
+  APIKEY_BACKEND_IDS,
+  isSubscriptionBackend,
+  type ApiKeyBackendId,
+} from '../../../shared/backends';
+import {
   BYOK_PROVIDERS,
   DEFAULT_AGENT_SETTINGS,
   KEYCHAIN_UNAVAILABLE_WARNING,
-  type ActiveBackendId,
   type AgentSettings,
   type ByokProvider,
 } from '../../../shared/settings';
+import { BackendPicker } from './BackendPicker';
 
 interface SettingsDialogProps {
   initial: AgentSettings | null;
@@ -16,7 +22,7 @@ interface SettingsDialogProps {
   onSaved: (settings: AgentSettings) => void;
 }
 
-const BACKEND_LABEL: Record<ActiveBackendId, string> = {
+const BACKEND_LABEL: Record<ApiKeyBackendId, string> = {
   byok: 'Eigener API-Key (byok)',
   'claude-sdk': 'Claude (Agent-SDK, API-Key)',
 };
@@ -28,16 +34,32 @@ const PROVIDER_LABEL: Record<ByokProvider, string> = {
   xai: 'xAI',
 };
 
+/** Nur API-Key-Backends können im Formular oben konfiguriert werden. */
+function initialKeyBackend(active: BackendId): ApiKeyBackendId {
+  return isSubscriptionBackend(active) ? 'byok' : active;
+}
+
 /**
- * Minimale Einstellungen (PLAN §6): aktives Backend, für byok zusätzlich
- * Provider + Modell, sowie der API-Key. Der Key liegt im OS-Schlüsselbund
- * (M3, secrets.ts) — der Renderer setzt/löscht ihn nur, bekommt ihn nie zurück
- * (nur `hasApiKey` + `keychainAvailable`). Fehlt der Schlüsselbund, wird der Key
- * nur sitzungsweise gehalten und der Nutzer gewarnt. Deutsche Copy, Du-Form.
+ * Einstellungen (PLAN §6): aktives Backend + Schlüssel/Modell.
+ *
+ * Zwei Aktivierungswege:
+ *  - API-Key-Backends (byok/claude-sdk) werden oben konfiguriert (Provider,
+ *    Modell, Key) und mit „Speichern" aktiviert. Der Key liegt im OS-Schlüsselbund
+ *    (M3, secrets.ts) — der Renderer setzt/löscht ihn nur, bekommt ihn nie zurück.
+ *  - Abo-Backends (claude-cli/codex/gemini-cli/grok-cli) werden unten unter
+ *    „KI-Backends" ausgewählt; „Verwenden" setzt sie sofort als aktives Backend
+ *    (der Main-Prozess prüft installiert/eingeloggt/Kill-Switch/Hinweis). Sie
+ *    brauchen KEINEN Key — der Login liegt bei der eigenen CLI (PLAN §3).
+ *
+ * Deutsche Copy, Du-Form.
  */
 export function SettingsDialog({ initial, onClose, onSaved }: SettingsDialogProps): React.JSX.Element {
   const base = initial ?? { ...DEFAULT_AGENT_SETTINGS, hasApiKey: false, keychainAvailable: true };
-  const [backendId, setBackendId] = useState<ActiveBackendId>(base.backendId);
+  // Aktuell aktives (turn-treibendes) Backend — jedes der sechs. Wird bei jeder
+  // erfolgreichen Aktivierung aus der Server-Antwort aktualisiert.
+  const [active, setActive] = useState<AgentSettings>(base);
+  // Formular für das oben konfigurierbare API-Key-Backend.
+  const [keyBackend, setKeyBackend] = useState<ApiKeyBackendId>(initialKeyBackend(base.backendId));
   const [provider, setProvider] = useState<ByokProvider>(base.provider);
   const [model, setModel] = useState(base.model);
   const [apiKey, setApiKey] = useState('');
@@ -46,20 +68,25 @@ export function SettingsDialog({ initial, onClose, onSaved }: SettingsDialogProp
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  function adopt(next: AgentSettings): void {
+    setActive(next);
+    setKeychainAvailable(next.keychainAvailable);
+    onSaved(next);
+  }
+
   async function save(): Promise<void> {
     setBusy(true);
     setError(null);
     try {
       const next = await window.wab.settings.set({
-        backendId,
+        backendId: keyBackend,
         provider,
         model,
         // Leerer Key = unverändert lassen; getippter Key wird gesetzt.
         ...(apiKey.trim() !== '' ? { apiKey: apiKey.trim() } : {}),
       });
       setHasApiKey(next.hasApiKey);
-      setKeychainAvailable(next.keychainAvailable);
-      onSaved(next);
+      adopt(next);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Speichern fehlgeschlagen.');
@@ -75,8 +102,7 @@ export function SettingsDialog({ initial, onClose, onSaved }: SettingsDialogProp
       const next = await window.wab.settings.set({ apiKey: null });
       setApiKey('');
       setHasApiKey(next.hasApiKey);
-      setKeychainAvailable(next.keychainAvailable);
-      onSaved(next);
+      adopt(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Löschen fehlgeschlagen.');
     } finally {
@@ -84,10 +110,21 @@ export function SettingsDialog({ initial, onClose, onSaved }: SettingsDialogProp
     }
   }
 
+  /**
+   * Aktiviert ein bereites Abo-Backend als aktives Backend. Wirft mit deutscher
+   * Meldung, wenn der Main-Prozess die Aktivierung ablehnt (nicht bereit) — der
+   * Picker zeigt die Meldung dann an der Zeile an. Der Dialog bleibt offen, damit
+   * die Auswahl als „aktiv" sichtbar wird.
+   */
+  async function activateSubscription(id: BackendId): Promise<void> {
+    const next = await window.wab.settings.set({ backendId: id });
+    adopt(next);
+  }
+
   return (
     <div className="modal" role="dialog" aria-modal="true" aria-label="Einstellungen">
       <div className="modal__backdrop" onClick={onClose} />
-      <div className="modal__panel">
+      <div className="modal__panel modal__panel--wide">
         <header className="modal__header">
           <h2 className="modal__title">Einstellungen</h2>
         </header>
@@ -100,21 +137,25 @@ export function SettingsDialog({ initial, onClose, onSaved }: SettingsDialogProp
           }}
         >
           <label className="field">
-            <span className="field__label">KI-Backend</span>
+            <span className="field__label">Backend mit API-Key</span>
             <select
               className="field__input"
-              value={backendId}
-              onChange={(e) => setBackendId(e.target.value as ActiveBackendId)}
+              value={keyBackend}
+              onChange={(e) => setKeyBackend(e.target.value as ApiKeyBackendId)}
             >
-              {ACTIVE_BACKEND_IDS.map((id) => (
+              {APIKEY_BACKEND_IDS.map((id) => (
                 <option key={id} value={id}>
                   {BACKEND_LABEL[id]}
                 </option>
               ))}
             </select>
+            <span className="field__hint">
+              „Speichern" macht dieses API-Key-Backend zum aktiven. Abo-Backends laufen über deine
+              eigene CLI — Status und Auswahl unten unter „KI-Backends".
+            </span>
           </label>
 
-          {backendId === 'byok' && (
+          {keyBackend === 'byok' && (
             <label className="field">
               <span className="field__label">Provider</span>
               <select
@@ -137,7 +178,7 @@ export function SettingsDialog({ initial, onClose, onSaved }: SettingsDialogProp
               className="field__input"
               type="text"
               value={model}
-              placeholder={backendId === 'claude-sdk' ? 'claude-opus-4-8' : 'z. B. claude-opus-4-8'}
+              placeholder={keyBackend === 'claude-sdk' ? 'claude-opus-4-8' : 'z. B. claude-opus-4-8'}
               onChange={(e) => setModel(e.target.value)}
             />
             <span className="field__hint">Leer lassen für das Standardmodell des Backends.</span>
@@ -167,6 +208,12 @@ export function SettingsDialog({ initial, onClose, onSaved }: SettingsDialogProp
                 : 'Ohne Systemschlüsselbund bleibt der Key nur für diese Sitzung im Speicher. Beim nächsten Start musst du ihn erneut eingeben.'}
             </span>
           </label>
+
+          <BackendPicker
+            activeBackendId={active.backendId}
+            activeHasApiKey={active.hasApiKey}
+            onActivate={activateSubscription}
+          />
 
           {error !== null && (
             <p className="form-error" role="alert">

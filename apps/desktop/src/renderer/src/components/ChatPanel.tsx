@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 
-import type { ActiveBackendId } from '../../../shared/settings';
+import type { BackendId } from '@webaibuilder/core';
+
+import { activeBackendStatusLabel } from '../../../shared/backends';
 import type { AssistantMessage, ChatState, PendingPermission } from '../../../shared/chatState';
 import type { WabPreviewEvent } from '../../../shared/preview';
 
@@ -9,7 +11,7 @@ type PageError = Extract<WabPreviewEvent, { type: 'page-error' }>;
 interface ChatPanelProps {
   chat: ChatState;
   backendReady: boolean;
-  backendId: ActiveBackendId | null;
+  backendId: BackendId | null;
   onSend: (prompt: string) => void;
   onInterrupt: () => void;
   onPermission: (requestId: string, allow: boolean) => void;
@@ -17,11 +19,6 @@ interface ChatPanelProps {
   onFixError: () => void;
   onDismissError: () => void;
 }
-
-const BACKEND_LABEL: Record<ActiveBackendId, string> = {
-  byok: 'Eigener API-Key',
-  'claude-sdk': 'Claude (API)',
-};
 
 export function ChatPanel({
   chat,
@@ -50,8 +47,10 @@ export function ChatPanel({
     setDraft('');
   }
 
+  // Für API-Key-Backends spiegelt `backendReady` den hinterlegten Key; Abo-/CLI-
+  // Backends sind ohne Key bereit (Login liegt bei der eigenen CLI).
   const chipLabel =
-    backendId === null ? 'kein Backend' : `${BACKEND_LABEL[backendId]}${backendReady ? '' : ' · kein Key'}`;
+    backendId === null ? 'kein Backend' : activeBackendStatusLabel(backendId, backendReady);
 
   return (
     <section className="panel panel--chat" aria-label="Chat">

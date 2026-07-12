@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
+import type { BackendPickerState } from './backends';
 import {
   DesktopIpcChannels,
   DesktopIpcEvents,
   type ChatSendInput,
   type DeployProgressMessage,
-  type DesktopIpcEventMap,
   type DesktopIpcInvokeMap,
+  type DesktopIpcEventMap,
+  type OpenHintResult,
   type SessionInfo,
 } from './channels';
 import type { DeployRunOutcome, DeployTargetInput } from './deploy';
@@ -74,5 +76,29 @@ describe('Desktop-IPC-Kanäle', () => {
     expect(saveArgs[0]).toBe('p1');
     expect(outcome.status).toBe('error');
     expect(progress.event.type).toBe('connecting');
+  });
+
+  it('typisiert die Backend-Kanäle (Args/Result, M4)', () => {
+    // list/refresh: keine Args, BackendPickerState als Result.
+    const listArgs: DesktopIpcInvokeMap[typeof DesktopIpcChannels.backendsList]['args'] = [];
+    const pickerState: DesktopIpcInvokeMap[typeof DesktopIpcChannels.backendsRefresh]['result'] = {
+      backends: [],
+      acknowledged: ['claude-cli'],
+    } satisfies BackendPickerState;
+
+    // ack: [BackendId]; openhint: [url] → { opened }.
+    const ackArgs: DesktopIpcInvokeMap[typeof DesktopIpcChannels.backendsAck]['args'] = ['claude-cli'];
+    const openArgs: DesktopIpcInvokeMap[typeof DesktopIpcChannels.backendsOpenHint]['args'] = [
+      'https://docs.claude.com/en/docs/claude-code/setup',
+    ];
+    const openResult: DesktopIpcInvokeMap[typeof DesktopIpcChannels.backendsOpenHint]['result'] = {
+      opened: true,
+    } satisfies OpenHintResult;
+
+    expect(listArgs).toHaveLength(0);
+    expect(pickerState.acknowledged).toContain('claude-cli');
+    expect(ackArgs[0]).toBe('claude-cli');
+    expect(openArgs[0]).toContain('claude.com');
+    expect(openResult.opened).toBe(true);
   });
 });

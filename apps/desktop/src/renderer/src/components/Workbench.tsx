@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import type { Project } from '@webaibuilder/core';
 
+import { isSubscriptionBackend } from '../../../shared/backends';
 import { markDeployedCheckpoints } from '../../../shared/deploy';
 import type { AgentSettings } from '../../../shared/settings';
 import type { Theme } from '../App';
@@ -61,8 +62,11 @@ export function Workbench({
   }, [deployStatus, onDeployStatusChange]);
   useEffect(() => () => onDeployStatusChange(null), [onDeployStatusChange]);
 
-  // Beide M2-Backends (byok, claude-sdk) brauchen einen API-Key.
-  const backendReady = settings !== null && settings.hasApiKey;
+  // API-Key-Backends (byok, claude-sdk) brauchen einen hinterlegten Key. Abo-/
+  // CLI-Backends brauchen keinen — der Main-Prozess hat ihre Nutzbarkeit bei der
+  // Auswahl bereits geprüft (installiert/eingeloggt/Kill-Switch/Hinweis, PLAN §3).
+  const backendReady =
+    settings !== null && (isSubscriptionBackend(settings.backendId) || settings.hasApiKey);
 
   // „Deployed"-Badge: den Checkpoint markieren, dessen SHA dem last_deployed-
   // Stand des aktiven Ziels entspricht (löst den M1-Platzhalter auf).

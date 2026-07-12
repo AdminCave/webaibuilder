@@ -11,8 +11,9 @@
  * gemeinsam genutzt.
  */
 
-import type { AgentEvent, Checkpoint, PermissionDecision } from '@webaibuilder/core';
+import type { AgentEvent, BackendId, Checkpoint, PermissionDecision } from '@webaibuilder/core';
 
+import type { BackendPickerState } from './backends';
 import type {
   DeployHistoryRecord,
   DeployRunOutcome,
@@ -62,6 +63,14 @@ export const DesktopIpcChannels = {
   deployDrift: 'wab:v1:deploy:drift',
   /** Deploy-Historie eines Projekts auflisten. */
   deployHistory: 'wab:v1:deploy:history',
+  /** KI-Backends erkennen + Kill-Switch-Merge (aus dem Cache, M4). */
+  backendsList: 'wab:v1:backends:list',
+  /** Backends neu prüfen (erzwingt frische Detection, M4). */
+  backendsRefresh: 'wab:v1:backends:refresh',
+  /** Einen Backend-Hinweis einmalig bestätigen (Claude-Abo, M4). */
+  backendsAck: 'wab:v1:backends:ack',
+  /** Offiziellen Onboarding-Link im externen Browser öffnen (allowlisted, M4). */
+  backendsOpenHint: 'wab:v1:backends:openhint',
 } as const;
 
 export type DesktopIpcChannel = (typeof DesktopIpcChannels)[keyof typeof DesktopIpcChannels];
@@ -148,6 +157,12 @@ export interface DeployTargetsMessage {
   targets: DeployTargetView[];
 }
 
+/** Ergebnis von {@link DesktopIpcChannels.backendsOpenHint}. */
+export interface OpenHintResult {
+  /** true = Link war erlaubt und wurde an den externen Browser übergeben. */
+  opened: boolean;
+}
+
 /* ---------------- Verträge pro Kanal ---------------- */
 
 export interface DesktopIpcInvokeMap {
@@ -195,6 +210,10 @@ export interface DesktopIpcInvokeMap {
     args: [projectId: string];
     result: DeployHistoryRecord[];
   };
+  [DesktopIpcChannels.backendsList]: { args: []; result: BackendPickerState };
+  [DesktopIpcChannels.backendsRefresh]: { args: []; result: BackendPickerState };
+  [DesktopIpcChannels.backendsAck]: { args: [backendId: BackendId]; result: BackendPickerState };
+  [DesktopIpcChannels.backendsOpenHint]: { args: [url: string]; result: OpenHintResult };
 }
 
 export type DesktopIpcArgs<C extends DesktopIpcChannel> = DesktopIpcInvokeMap[C]['args'];
