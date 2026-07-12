@@ -1,15 +1,30 @@
 import type { PingResult } from '@webaibuilder/core';
 
+import type { ActiveBackendId, AgentSettings } from '../../../shared/settings';
+
 interface StatusBarProps {
   ping: PingResult | null;
+  settings: AgentSettings | null;
+  costUsd: number | null;
 }
 
-export function StatusBar({ ping }: StatusBarProps): React.JSX.Element {
+const BACKEND_LABEL: Record<ActiveBackendId, string> = {
+  byok: 'Eigener API-Key',
+  'claude-sdk': 'Claude (API)',
+};
+
+export function StatusBar({ ping, settings, costUsd }: StatusBarProps): React.JSX.Element {
+  const backendLabel =
+    settings === null
+      ? '—'
+      : `${BACKEND_LABEL[settings.backendId]}${settings.hasApiKey ? '' : ' (kein Key)'}`;
+  const costLabel = costUsd === null ? '—' : `${costUsd.toFixed(costUsd < 0.01 ? 4 : 2)} $`;
+
   return (
     <footer className="statusbar">
-      <span className="statusbar__item">Backend: —</span>
-      <span className="statusbar__item">Kosten: —</span>
-      <span className="statusbar__item">Deploy: —</span>
+      <span className="statusbar__item">Backend: {backendLabel}</span>
+      <span className="statusbar__item">Kosten: {costLabel}</span>
+      <span className="statusbar__item">Deploy: — (M3)</span>
       <span className="statusbar__spacer" />
       <span className="statusbar__item">
         {ping === null

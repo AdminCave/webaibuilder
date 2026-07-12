@@ -7,7 +7,9 @@ import { defineConfig } from 'vitest/config';
  */
 export default defineConfig({
   test: {
-    include: ['src/main/**/*.test.ts'],
+    // Headless-Tests: Main-Prozess-Registry + reine shared-Logik (Reducer,
+    // Permission-Automat, Fehler-Templating, Settings). Kein Electron/DOM nötig.
+    include: ['src/main/**/*.test.ts', 'src/shared/**/*.test.ts'],
     environment: 'node',
   },
 });

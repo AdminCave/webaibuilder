@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 
 import type { PingResult, Project, StarterTemplate } from '@webaibuilder/core';
 
-import { ChatPanel } from './components/ChatPanel';
-import { PreviewPanel } from './components/PreviewPanel';
+import type { AgentSettings } from '../../shared/settings';
+import { SettingsDialog } from './components/SettingsDialog';
 import { StartScreen } from './components/StartScreen';
 import { StatusBar } from './components/StatusBar';
-import { TimelineSidebar } from './components/TimelineSidebar';
 import { Titlebar } from './components/Titlebar';
+import { Workbench } from './components/Workbench';
 
 export type Theme = 'dark' | 'light';
 
@@ -20,6 +20,9 @@ export function App(): React.JSX.Element {
   const [projects, setProjects] = useState<Project[]>([]);
   const [templates, setTemplates] = useState<StarterTemplate[]>([]);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
+  const [settings, setSettings] = useState<AgentSettings | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [costUsd, setCostUsd] = useState<number | null>(null);
 
   useEffect(() => {
     if (theme === 'light') {
@@ -43,6 +46,10 @@ export function App(): React.JSX.Element {
       .list()
       .then(setTemplates)
       .catch(() => setTemplates([]));
+    window.wab.settings
+      .get()
+      .then(setSettings)
+      .catch(() => setSettings(null));
   }, []);
 
   return (
@@ -54,6 +61,7 @@ export function App(): React.JSX.Element {
         onToggleTheme={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
         projectName={activeProject?.name}
         onShowProjects={activeProject === null ? undefined : () => setActiveProject(null)}
+        onOpenSettings={() => setShowSettings(true)}
       />
       {activeProject === null ? (
         <StartScreen
@@ -67,12 +75,23 @@ export function App(): React.JSX.Element {
         />
       ) : (
         <main className={swapped ? 'workbench workbench--swapped' : 'workbench'}>
-          <ChatPanel />
-          <PreviewPanel theme={theme} />
-          <TimelineSidebar />
+          <Workbench
+            project={activeProject}
+            theme={theme}
+            settings={settings}
+            onCostChange={setCostUsd}
+          />
         </main>
       )}
-      <StatusBar ping={ping} />
+      <StatusBar ping={ping} settings={settings} costUsd={costUsd} />
+
+      {showSettings && (
+        <SettingsDialog
+          initial={settings}
+          onClose={() => setShowSettings(false)}
+          onSaved={(next) => setSettings(next)}
+        />
+      )}
     </div>
   );
 }

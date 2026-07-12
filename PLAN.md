@@ -163,7 +163,8 @@ Der Markt-Report sieht die beste Zahlungsbereitschaft bei IT-Dienstleistern, die
 
 - [x] **M0 — Fundament**: pnpm-Monorepo, gehärtete Electron-Shell, React-Renderer mit Drei-Panel-Layout, Design-Tokens vendored, CI. Typecheck/Build/Lint grün.
 - [x] **M1 — Workspace-Kern**: `versioning` (git-Checkpoints, Restore-als-neuer-Commit, 15 Tests), `preview` (Loopback-Server + Token + Live-Reload + Fehler-Shim, 8 Tests), Projekt-Registry (better-sqlite3, 12 Tests) + 3 statische Starter-Templates. 35 Tests grün.
-- [ ] **M2 — KI-Chat** (byok + claude-sdk)
+- [x] **M2 — KI-Chat**: `agents` mit `byok` (Vercel AI SDK v7, sandboxed Datei-Tools, Pfad-Containment inkl. Symlink-Schutz) + `claude-sdk` (17 Tests); Desktop-Integration: Preview-Lebenszyklus, Agent-Event-Streaming, Chat-UI mit Tool-Chips + Permission-Prompt + „Fehler beheben", Checkpoint pro Turn, Timeline mit Wiederherstellen (40 Tests). 80 Tests grün.
+  - Offener Naht-Punkt: Permission-Rückkanal — Adapter verweigert fail-safe, Desktop nutzt Generator-`next(decision)`. Sauberer Fix: `resolve`-Callback am `permission-request`-Event in core. Reconcilen in M4 (erst bei Shell-/Netz-Tools tragend). API-Key liegt aktuell nur im Main-Prozess-Speicher → OS-Keychain in M3.
 - [ ] **M3 — Deploy-Engine**
 - [ ] **M4 — Abo-Backends**
 - [ ] **M5 — Release-Politur**

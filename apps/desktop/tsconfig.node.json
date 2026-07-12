@@ -4,5 +4,11 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["src/main/**/*", "src/preload/**/*", "electron.vite.config.ts", "vitest.config.ts"]
+  "include": [
+    "src/main/**/*",
+    "src/preload/**/*",
+    "src/shared/**/*",
+    "electron.vite.config.ts",
+    "vitest.config.ts"
+  ]
 }

@@ -1,16 +1,18 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import type { Theme } from '../App';
 
 interface PreviewPanelProps {
   theme: Theme;
+  /** Vollständige Preview-URL inkl. Token, oder null (startet noch / Fehler). */
+  previewUrl: string | null;
+  port: number | null;
+  status: 'opening' | 'ready' | 'error';
+  openError: string | null;
 }
 
-/**
- * Platzhalter-Inhalt fürs sandboxed iframe. Ab M1 zeigt das iframe den
- * loopback-Preview-Server (127.0.0.1 + Token) aus packages/preview.
- */
-function placeholderDoc(theme: Theme): string {
+/** Platzhalter-Inhalt, solange keine Preview-URL vorliegt. */
+function placeholderDoc(theme: Theme, message: string): string {
   const bg = theme === 'dark' ? '#000000' : '#ffffff';
   const text = theme === 'dark' ? '#ededee' : '#16181c';
   const muted = theme === 'dark' ? '#9aa1a8' : '#565c64';
@@ -23,31 +25,60 @@ function placeholderDoc(theme: Theme): string {
   .card{border:1px solid ${border};border-radius:16px;padding:24px 28px;max-width:340px}
   strong{display:block;color:${text};font-weight:600;margin-bottom:6px}
 </style></head><body>
-  <div class="card"><strong>Noch keine Vorschau</strong>
-  Die Live-Vorschau startet, sobald dein erstes Projekt angelegt ist.</div>
+  <div class="card"><strong>Vorschau</strong>${message}</div>
 </body></html>`;
 }
 
-export function PreviewPanel({ theme }: PreviewPanelProps): React.JSX.Element {
-  const doc = useMemo(() => placeholderDoc(theme), [theme]);
+export function PreviewPanel({
+  theme,
+  previewUrl,
+  port,
+  status,
+  openError,
+}: PreviewPanelProps): React.JSX.Element {
+  const [reloadNonce, setReloadNonce] = useState(0);
+
+  const placeholderMessage =
+    status === 'error'
+      ? (openError ?? 'Die Vorschau konnte nicht starten.')
+      : 'Die Live-Vorschau startet …';
+  const doc = useMemo(() => placeholderDoc(theme, placeholderMessage), [theme, placeholderMessage]);
+
+  const portLabel = port === null ? '127.0.0.1:—' : `127.0.0.1:${port}`;
 
   return (
     <section className="panel panel--preview" aria-label="Vorschau">
       <header className="panel__header">
         <h1 className="panel__title">Vorschau</h1>
-        <span className="chip">127.0.0.1:—</span>
+        <span className="chip">{portLabel}</span>
         <div className="panel__header-actions">
-          <button type="button" className="btn" disabled title="Verfügbar, sobald die Vorschau läuft">
+          <button
+            type="button"
+            className="btn"
+            disabled={previewUrl === null}
+            title="Vorschau neu laden"
+            onClick={() => setReloadNonce((n) => n + 1)}
+          >
             Neu laden
           </button>
         </div>
       </header>
-      <iframe
-        className="preview__frame"
-        title="Live-Vorschau"
-        sandbox=""
-        srcDoc={doc}
-      />
+      {previewUrl === null ? (
+        <iframe className="preview__frame" title="Live-Vorschau" sandbox="" srcDoc={doc} />
+      ) : (
+        <iframe
+          // Remount erzwingt einen harten Reload; die Auto-Reload-Verbindung
+          // (WebSocket-Shim aus packages/preview) läuft unabhängig weiter.
+          key={reloadNonce}
+          className="preview__frame"
+          title="Live-Vorschau"
+          // allow-scripts: die KI-Seite enthält JS + den Reload-/Fehler-Shim.
+          // allow-same-origin: der loopback-Origin ist token-geschützt; ohne ihn
+          // funktionieren Subressourcen/Storage der Seite nicht zuverlässig.
+          sandbox="allow-scripts allow-same-origin"
+          src={previewUrl}
+        />
+      )}
     </section>
   );
 }

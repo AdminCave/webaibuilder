@@ -2,6 +2,7 @@ import { join } from 'node:path';
 
 import { BrowserWindow, app } from 'electron';
 
+import { getAppSession } from './appSession';
 import { registerIpcHandlers } from './ipc';
 import { devRendererUrl, hardenWebContents, installPermissionHandlers } from './security';
 
@@ -24,6 +25,9 @@ function createMainWindow(): void {
       webviewTag: false,
     },
   });
+
+  // Der Main-Prozess streamt Preview-/Agent-/Checkpoint-Events an dieses Fenster.
+  getAppSession().setWindow(win);
 
   win.once('ready-to-show', () => win.show());
 
@@ -58,6 +62,15 @@ void app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
   });
+});
+
+// Preview-Server, Watcher und laufende Turns sauber herunterfahren.
+app.on('before-quit', () => {
+  try {
+    void getAppSession().closeProject();
+  } catch {
+    // Session noch nicht initialisiert (sehr früher Quit) — nichts zu schließen.
+  }
 });
 
 app.on('window-all-closed', () => {

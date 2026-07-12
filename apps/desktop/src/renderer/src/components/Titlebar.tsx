@@ -9,6 +9,8 @@ interface TitlebarProps {
   projectName?: string | undefined;
   /** Zurück zur Projektübersicht; undefined = Button ausblenden. */
   onShowProjects?: (() => void) | undefined;
+  /** Öffnet die Backend-Einstellungen. */
+  onOpenSettings: () => void;
 }
 
 export function Titlebar({
@@ -18,6 +20,7 @@ export function Titlebar({
   onToggleTheme,
   projectName,
   onShowProjects,
+  onOpenSettings,
 }: TitlebarProps): React.JSX.Element {
   return (
     <header className="titlebar">
@@ -50,6 +53,14 @@ export function Titlebar({
           onClick={onToggleTheme}
         >
           {theme === 'dark' ? 'Hell' : 'Dunkel'}
+        </button>
+        <button
+          type="button"
+          className="btn"
+          title="KI-Backend & API-Key"
+          onClick={onOpenSettings}
+        >
+          Einstellungen
         </button>
       </div>
     </header>

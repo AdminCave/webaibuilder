@@ -12,7 +12,10 @@
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit"
   },
   "dependencies": {
+    "@webaibuilder/agents": "workspace:*",
     "@webaibuilder/core": "workspace:*",
+    "@webaibuilder/preview": "workspace:*",
+    "@webaibuilder/versioning": "workspace:*",
     "better-sqlite3": "^12.11.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"

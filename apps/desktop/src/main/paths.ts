@@ -28,3 +28,8 @@ export function defaultRegistryOptions(): ProjectRegistryOptions {
     templatesRoot: templatesRoot(),
   };
 }
+
+/** Pfad der secret-freien Backend-Einstellungen (M2). */
+export function settingsFilePath(): string {
+  return join(app.getPath('userData'), 'agent-settings.json');
+}
