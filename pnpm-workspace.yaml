@@ -2,6 +2,14 @@ packages:
   - apps/*
   - packages/*
 
+# Flaches node_modules (npm-artiges Layout). electron-builder findet damit die
+# (transitiven) Produktions-Deps der gebundelten Workspace-Pakete zuverlässig und
+# rebuildet native Module korrekt fürs Packen (electron-builder + pnpm, siehe
+# electron-userland/electron-builder#6389 und SETUP.md). ABI-neutral: `pnpm install`
+# baut weiter für System-Node, `pnpm -r test` bleibt grün. (In pnpm ≥10.6 gehört
+# node-linker hierher, nicht in .npmrc.)
+nodeLinker: hoisted
+
 # pnpm blockiert Postinstall-Skripte standardmäßig; Electron braucht seins
 # (Binary-Download), esbuild lädt sein natives Binary.
 allowBuilds:
@@ -9,5 +17,6 @@ allowBuilds:
   cpu-features: false
   dtrace-provider: false
   electron: true
+  electron-winstaller: false
   esbuild: true
   ssh2: true

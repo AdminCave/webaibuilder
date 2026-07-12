@@ -30,6 +30,7 @@ import {
   type DesktopIpcEvent,
   type DesktopIpcEventPayload,
   type PreviewEventMessage,
+  type UpdateStatus,
 } from '../shared/channels';
 import {
   WAB_DESKTOP_BRIDGE_VERSION,
@@ -37,6 +38,8 @@ import {
   type WabDesktopBridge,
 } from '../shared/bridge';
 import type { DeployTargetInput } from '../shared/deploy';
+import type { RendererErrorReport } from '../shared/logging';
+import type { OnboardingStateInput } from '../shared/onboarding';
 import type { AgentSettingsInput } from '../shared/settings';
 
 /** Abonniert einen Push-Kanal und liefert die Abmelde-Funktion. */
@@ -110,6 +113,23 @@ const bridge: WabBridge & WabDesktopBridge = {
     drift: (projectId: string, targetId: string) =>
       ipcRenderer.invoke(DesktopIpcChannels.deployDrift, projectId, targetId),
     history: (projectId: string) => ipcRenderer.invoke(DesktopIpcChannels.deployHistory, projectId),
+  },
+  update: {
+    onStatus: (listener: (status: UpdateStatus) => void) =>
+      subscribe(DesktopIpcEvents.update, listener),
+    restart: () => ipcRenderer.invoke(DesktopIpcChannels.updateRestart),
+  },
+  onboarding: {
+    get: () => ipcRenderer.invoke(DesktopIpcChannels.onboardingGet),
+    set: (input: OnboardingStateInput) =>
+      ipcRenderer.invoke(DesktopIpcChannels.onboardingSet, input),
+  },
+  logs: {
+    info: () => ipcRenderer.invoke(DesktopIpcChannels.logsInfo),
+    report: (report: RendererErrorReport) =>
+      ipcRenderer.invoke(DesktopIpcChannels.logsReport, report),
+    tail: (lines: number) => ipcRenderer.invoke(DesktopIpcChannels.logsTail, lines),
+    openFolder: () => ipcRenderer.invoke(DesktopIpcChannels.logsOpen),
   },
   events: {
     onAgentEvent: (listener: (message: AgentEventMessage) => void) =>

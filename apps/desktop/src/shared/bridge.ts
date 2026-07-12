@@ -22,9 +22,13 @@ import type {
   CheckpointsMessage,
   DeployProgressMessage,
   DeployTargetsMessage,
+  LogLocation,
+  LogTailResult,
+  OpenFolderResult,
   OpenHintResult,
   PreviewEventMessage,
   SessionInfo,
+  UpdateStatus,
 } from './channels';
 import type {
   DeployHistoryRecord,
@@ -34,6 +38,8 @@ import type {
   WabDriftResult,
   WabPreflightResult,
 } from './deploy';
+import type { RendererErrorReport } from './logging';
+import type { OnboardingState, OnboardingStateInput } from './onboarding';
 import type { AgentSettings, AgentSettingsInput } from './settings';
 
 /**
@@ -46,8 +52,12 @@ import type { AgentSettings, AgentSettingsInput } from './settings';
  * v4 (M4): Backend-Erkennung (alle sechs Backends) + Kill-Switch-Merge,
  *          „neu prüfen", einmalige Bestätigung des Claude-Abo-Hinweises,
  *          Öffnen offizieller Onboarding-Links (allowlisted, extern).
+ * v5 (M5): Auto-Update — `update.onStatus`-Push (electron-updater-Status) +
+ *          `update.restart` („jetzt neu starten", wendet das geladene Update an).
+ * v6 (M5): Erst-Start-Onboarding (`onboarding.get`/`set`, `hasOnboarded`) +
+ *          lokale Fehlerberichte/Logs (`logs.info`/`report`/`tail`/`openFolder`).
  */
-export const WAB_DESKTOP_BRIDGE_VERSION = 4;
+export const WAB_DESKTOP_BRIDGE_VERSION = 6;
 
 /** Meldet ein Push-Abo wieder ab. */
 export type Unsubscribe = () => void;
@@ -115,6 +125,31 @@ export interface WabDesktopBridge {
     drift(projectId: string, targetId: string): Promise<WabDriftResult>;
     /** Deploy-Historie des Projekts (neueste zuerst). */
     history(projectId: string): Promise<DeployHistoryRecord[]>;
+  };
+
+  update: {
+    /** Abonniert den Auto-Update-Status (checking/available/downloading/ready/error). */
+    onStatus(listener: (status: UpdateStatus) => void): Unsubscribe;
+    /** Wendet ein geladenes Update an und startet neu (quitAndInstall). */
+    restart(): Promise<void>;
+  };
+
+  onboarding: {
+    /** Aktueller Onboarding-Zustand (`hasOnboarded`). */
+    get(): Promise<OnboardingState>;
+    /** Setzt den Zustand (Flow abschließen oder „erneut zeigen"). */
+    set(input: OnboardingStateInput): Promise<OnboardingState>;
+  };
+
+  logs: {
+    /** Speicherort der lokalen Log-Dateien (Ordner + aktive Datei). */
+    info(): Promise<LogLocation>;
+    /** Meldet einen Renderer-JS-Fehler ins lokale Log (kein Remote). */
+    report(report: RendererErrorReport): Promise<void>;
+    /** Die letzten `lines` Log-Zeilen als Text („Logs kopieren"). */
+    tail(lines: number): Promise<LogTailResult>;
+    /** Öffnet den lokalen Log-Ordner im Dateimanager. */
+    openFolder(): Promise<OpenFolderResult>;
   };
 
   events: {

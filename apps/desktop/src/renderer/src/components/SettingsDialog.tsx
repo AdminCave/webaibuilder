@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import type { BackendId } from '@webaibuilder/core';
 
@@ -20,7 +20,12 @@ interface SettingsDialogProps {
   initial: AgentSettings | null;
   onClose: () => void;
   onSaved: (settings: AgentSettings) => void;
+  /** Startet den Einführungs-Flow erneut (schließt den Dialog). */
+  onReplayOnboarding: () => void;
 }
+
+/** Anzahl Log-Zeilen, die „Logs kopieren" in die Zwischenablage legt. */
+const LOG_TAIL_LINES = 500;
 
 const BACKEND_LABEL: Record<ApiKeyBackendId, string> = {
   byok: 'Eigener API-Key (byok)',
@@ -53,7 +58,12 @@ function initialKeyBackend(active: BackendId): ApiKeyBackendId {
  *
  * Deutsche Copy, Du-Form.
  */
-export function SettingsDialog({ initial, onClose, onSaved }: SettingsDialogProps): React.JSX.Element {
+export function SettingsDialog({
+  initial,
+  onClose,
+  onSaved,
+  onReplayOnboarding,
+}: SettingsDialogProps): React.JSX.Element {
   const base = initial ?? { ...DEFAULT_AGENT_SETTINGS, hasApiKey: false, keychainAvailable: true };
   // Aktuell aktives (turn-treibendes) Backend — jedes der sechs. Wird bei jeder
   // erfolgreichen Aktivierung aus der Server-Antwort aktualisiert.
@@ -215,6 +225,8 @@ export function SettingsDialog({ initial, onClose, onSaved }: SettingsDialogProp
             onActivate={activateSubscription}
           />
 
+          <HelpLogsSection onReplayOnboarding={onReplayOnboarding} />
+
           {error !== null && (
             <p className="form-error" role="alert">
               {error}
@@ -238,5 +250,122 @@ export function SettingsDialog({ initial, onClose, onSaved }: SettingsDialogProp
         </form>
       </div>
     </div>
+  );
+}
+
+/**
+ * Kopiert Text möglichst robust in die Zwischenablage: erst die moderne Async-
+ * Clipboard-API, sonst der execCommand-Fallback (funktioniert auch ohne
+ * Clipboard-Permission im gehärteten Renderer). Rein renderer-seitig — kein
+ * zusätzlicher Main-Prozess-Kanal.
+ */
+async function copyToClipboard(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    /* Fällt auf execCommand zurück. */
+  }
+  try {
+    const area = document.createElement('textarea');
+    area.value = text;
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(area);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * „Einführung & Fehlerberichte" (M5): erneut das Onboarding zeigen und der
+ * lokale Log-Zugang (Pfad anzeigen, Ordner öffnen, letzte Zeilen kopieren).
+ * Alles rein lokal (PLAN §1) — es wird nichts an einen Server gesendet.
+ */
+function HelpLogsSection({
+  onReplayOnboarding,
+}: {
+  onReplayOnboarding: () => void;
+}): React.JSX.Element {
+  const [logFile, setLogFile] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    window.wab.logs
+      .info()
+      .then((info) => {
+        if (!cancelled) setLogFile(info.file);
+      })
+      .catch(() => {
+        if (!cancelled) setLogFile(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function copyLogs(): Promise<void> {
+    setFeedback(null);
+    try {
+      const { text } = await window.wab.logs.tail(LOG_TAIL_LINES);
+      if (text.trim() === '') {
+        setFeedback('Es gibt noch keine Log-Einträge.');
+        return;
+      }
+      const ok = await copyToClipboard(text);
+      setFeedback(ok ? 'Die letzten Log-Zeilen liegen in der Zwischenablage.' : 'Kopieren fehlgeschlagen.');
+    } catch {
+      setFeedback('Logs konnten nicht gelesen werden.');
+    }
+  }
+
+  return (
+    <section className="help-logs" aria-label="Einführung & Fehlerberichte">
+      <h3 className="help-logs__title">Einführung & Fehlerberichte</h3>
+
+      <div className="help-logs__row">
+        <div className="help-logs__text">
+          <span className="help-logs__label">Einführung</span>
+          <span className="field__hint">Zeigt den Willkommens-Flow erneut.</span>
+        </div>
+        <button type="button" className="btn help-logs__btn" onClick={onReplayOnboarding}>
+          Einführung erneut zeigen
+        </button>
+      </div>
+
+      <div className="help-logs__row">
+        <div className="help-logs__text">
+          <span className="help-logs__label">Fehler &amp; Logs</span>
+          <span className="field__hint">
+            Läuft etwas schief, landen die Details in einem lokalen Log auf deinem Rechner. Es wird
+            nichts an einen Server gesendet.
+          </span>
+          {logFile !== null && <span className="help-logs__path">{logFile}</span>}
+        </div>
+        <div className="help-logs__actions">
+          <button
+            type="button"
+            className="btn help-logs__btn"
+            onClick={() => void window.wab.logs.openFolder().catch(() => undefined)}
+          >
+            Ordner öffnen
+          </button>
+          <button type="button" className="btn help-logs__btn" onClick={() => void copyLogs()}>
+            Logs kopieren
+          </button>
+        </div>
+      </div>
+
+      {feedback !== null && (
+        <p className="help-logs__feedback" role="status">
+          {feedback}
+        </p>
+      )}
+    </section>
   );
 }

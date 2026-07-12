@@ -13,7 +13,9 @@
     "test": "pnpm -r run test",
     "typecheck": "pnpm -r run typecheck",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "package": "pnpm --filter @webaibuilder/desktop package",
+    "package:linux": "pnpm --filter @webaibuilder/desktop package:linux"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

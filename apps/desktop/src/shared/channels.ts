@@ -23,6 +23,8 @@ import type {
   WabDriftResult,
   WabPreflightResult,
 } from './deploy';
+import type { RendererErrorReport } from './logging';
+import type { OnboardingState, OnboardingStateInput } from './onboarding';
 import type { WabPreviewEvent } from './preview';
 import type { AgentSettings, AgentSettingsInput } from './settings';
 
@@ -71,6 +73,20 @@ export const DesktopIpcChannels = {
   backendsAck: 'wab:v1:backends:ack',
   /** Offiziellen Onboarding-Link im externen Browser öffnen (allowlisted, M4). */
   backendsOpenHint: 'wab:v1:backends:openhint',
+  /** „Jetzt neu starten": geladenes Update anwenden (quitAndInstall, M5). */
+  updateRestart: 'wab:v1:update:restart',
+  /** Onboarding-Zustand lesen (`hasOnboarded`, M5). */
+  onboardingGet: 'wab:v1:onboarding:get',
+  /** Onboarding-Zustand setzen (abschließen / erneut zeigen, M5). */
+  onboardingSet: 'wab:v1:onboarding:set',
+  /** Log-Speicherort (Ordner + Datei) für die „Fehler & Logs"-Anzeige (M5). */
+  logsInfo: 'wab:v1:logs:info',
+  /** Renderer meldet einen JS-Fehler ins lokale Log (M5). */
+  logsReport: 'wab:v1:logs:report',
+  /** Die letzten N Log-Zeilen holen („Logs kopieren", M5). */
+  logsTail: 'wab:v1:logs:tail',
+  /** Den lokalen Log-Ordner im Dateimanager öffnen (M5). */
+  logsOpen: 'wab:v1:logs:open',
 } as const;
 
 export type DesktopIpcChannel = (typeof DesktopIpcChannels)[keyof typeof DesktopIpcChannels];
@@ -88,6 +104,8 @@ export const DesktopIpcEvents = {
   deploy: 'wab:v1:event:deploy',
   /** Frische Deploy-Ziel-Liste (nach Deploy/Rollback → neue last_deployed-SHA). */
   targets: 'wab:v1:event:targets',
+  /** Auto-Update-Status (electron-updater, M5) — app-global, projektunabhängig. */
+  update: 'wab:v1:event:update',
 } as const;
 
 export type DesktopIpcEvent = (typeof DesktopIpcEvents)[keyof typeof DesktopIpcEvents];
@@ -163,6 +181,39 @@ export interface OpenHintResult {
   opened: boolean;
 }
 
+/** Speicherort der lokalen Log-Dateien (M5, „Fehler & Logs"). */
+export interface LogLocation {
+  /** Verzeichnis der Log-Dateien (`<userData>/logs`). */
+  dir: string;
+  /** Pfad der aktiven Log-Datei (`<userData>/logs/app.log`). */
+  file: string;
+}
+
+/** Ergebnis der „Logs kopieren"-Aktion: die letzten N Zeilen als Text. */
+export interface LogTailResult {
+  text: string;
+}
+
+/** Ergebnis des Öffnens des Log-Ordners (M5). */
+export interface OpenFolderResult {
+  /** true = der Ordner wurde an den Dateimanager übergeben. */
+  opened: boolean;
+}
+
+/**
+ * Auto-Update-Status (M5, electron-updater). Als Push über
+ * {@link DesktopIpcEvents.update} an den Renderer. Diskriminierte Union, damit
+ * die UI nur den `ready`-Zustand als Handlungsaufforderung zeigt.
+ */
+export type UpdateStatus =
+  | { phase: 'idle' }
+  | { phase: 'checking' }
+  | { phase: 'available'; version: string }
+  | { phase: 'not-available' }
+  | { phase: 'downloading'; version: string; percent: number }
+  | { phase: 'ready'; version: string }
+  | { phase: 'error'; message: string };
+
 /* ---------------- Verträge pro Kanal ---------------- */
 
 export interface DesktopIpcInvokeMap {
@@ -214,6 +265,16 @@ export interface DesktopIpcInvokeMap {
   [DesktopIpcChannels.backendsRefresh]: { args: []; result: BackendPickerState };
   [DesktopIpcChannels.backendsAck]: { args: [backendId: BackendId]; result: BackendPickerState };
   [DesktopIpcChannels.backendsOpenHint]: { args: [url: string]; result: OpenHintResult };
+  [DesktopIpcChannels.updateRestart]: { args: []; result: void };
+  [DesktopIpcChannels.onboardingGet]: { args: []; result: OnboardingState };
+  [DesktopIpcChannels.onboardingSet]: {
+    args: [input: OnboardingStateInput];
+    result: OnboardingState;
+  };
+  [DesktopIpcChannels.logsInfo]: { args: []; result: LogLocation };
+  [DesktopIpcChannels.logsReport]: { args: [report: RendererErrorReport]; result: void };
+  [DesktopIpcChannels.logsTail]: { args: [lines: number]; result: LogTailResult };
+  [DesktopIpcChannels.logsOpen]: { args: []; result: OpenFolderResult };
 }
 
 export type DesktopIpcArgs<C extends DesktopIpcChannel> = DesktopIpcInvokeMap[C]['args'];
@@ -226,6 +287,7 @@ export interface DesktopIpcEventMap {
   [DesktopIpcEvents.checkpoints]: CheckpointsMessage;
   [DesktopIpcEvents.deploy]: DeployProgressMessage;
   [DesktopIpcEvents.targets]: DeployTargetsMessage;
+  [DesktopIpcEvents.update]: UpdateStatus;
 }
 
 export type DesktopIpcEventPayload<C extends DesktopIpcEvent> = DesktopIpcEventMap[C];

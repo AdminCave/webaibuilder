@@ -154,10 +154,11 @@ Der Markt-Report sieht die beste Zahlungsbereitschaft bei IT-Dienstleistern, die
 
 - [ ] Genehmigungsanfrage an Anthropic formulieren (Abo-Modus, „unless previously approved"-Carve-out)
 - [ ] Produktname final? (Arbeitstitel: Web AI Builder)
-- [ ] Lizenz/OSS-Frage: offen wie Dyad (Apache + FSL für Pro-Teile) oder closed?
-- [ ] Verteilung: GitHub Releases reicht für v1?
+- [ ] Lizenz/OSS-Frage: offen wie Dyad (Apache + FSL für Pro-Teile) oder closed? — **Owner-Entscheidung, noch offen.** README weist die Lizenz als TBD aus; bewusst noch KEINE `LICENSE`-Datei.
 - [ ] Vor Launch: Vendor-Terms-Recheck (§3)
-- [ ] M5-Packaging: better-sqlite3 sauber für Electron-ABI bauen (@electron/rebuild / electron-builder install-app-deps); Test- vs. GUI-Build trennen (siehe SETUP.md)
+- [ ] App-Icons final + Code-Signing/Notarisierung (Windows-Cert, macOS-Notarisierung) für die gepackten Installer scharfschalten
+- [x] Verteilung: GitHub Releases reicht für v1 — in M5 eingerichtet (electron-builder + `release.yml` bauen auf Tag-Push für alle drei Plattformen)
+- [x] M5-Packaging: better-sqlite3/Electron-ABI — **gelöst.** electron-builder rebuildet die App-Deps automatisch beim Packen (`npmRebuild`); der install-/test-Pfad bleibt node-ABI (kein Postinstall-Rebuild). Siehe SETUP.md.
 
 ## 11. Fortschritt
 
@@ -168,4 +169,7 @@ Der Markt-Report sieht die beste Zahlungsbereitschaft bei IT-Dienstleistern, die
 - [x] **M3 — Deploy-Engine**: `deploy`-Paket mit Transport-Abstraktion (SFTP/FTP/FTPS), Hash-Manifest-Sync mit Delta-Upload, Preflight/Capability-Probe, Rollback, Drift-Erkennung — gegen echte In-Process-Server getestet (16 Tests, beide Transporte). Keychain-Migration (`@napi-rs/keyring`, Fallback + Warnung). Desktop: Zielverwaltung, „Verbindung testen", „Veröffentlichen" mit Live-Fortschritt, „Deployed"-Badge in der Timeline, Drift-Warnung, „diese Version deployen" pro Checkpoint, Deploy-Historie. 158 Tests grün (Desktop 102).
 - [x] **M4 — Abo-Backends**: vier CLI-Adapter (`claude-cli`, `codex`, `gemini-cli`, `grok-cli`) — spawnen die offizielle, vom Nutzer installierte + eingeloggte Vendor-CLI, kein Token-/Base-URL-Handling (43 Agents-Tests). Permission-Rückkanal sauber rekonziliert (über `requestId` + Generator-Rückgabewert, ohne Core-Änderung). Echte Backend-Erkennung (installiert? eingeloggt?), Onboarding-Deeplinks, fail-safe Remote-Kill-Switch pro Anbieter, Claude-Abo-Feature-Flag + Hinweis/Bestätigung. Abo-Backend als aktives Backend wählbar mit Readiness-Gate im Main-Prozess. 248 Tests grün (Desktop 166).
   - Compliance verifiziert: nur offizielle CLIs, keine Token-/Base-URL-Zuweisungen im Code (nur Kommentare, die die Regel festhalten).
-- [ ] **M5 — Release-Politur**
+- [x] **M5 — Release-Politur**: zwei Teile.
+  - *Teil 1 (Packaging/Auto-Update):* electron-builder (deb + AppImage, NSIS, dmg), electron-updater gegen GitHub Releases mit Update-Hinweis in der UI, Release-CI auf Tag-Push. `nodeLinker: hoisted` + Rebuild-beim-Packen lösen die Electron-ABI-Frage, ohne den node-ABI-Testpfad zu berühren.
+  - *Teil 2 (Onboarding/Fehlerberichte/Docs):* deutsches Erst-Start-Onboarding (drei Screens — Willkommen · KI wählen · Webspace — AdminCave-DS, überspringbar, aus den Einstellungen erneut aufrufbar; `hasOnboarded` unter `<userData>`). Robuste, **rein lokale** Fehler-/Log-Erfassung: process-/app-Hooks (`uncaughtException`/`unhandledRejection`/`render-process-gone`/`child-process-gone`/`console-message`) + typisierter Renderer-Report-Kanal → rotierende Datei unter `<userData>/logs/` (Größen-Cap, letzte N Dateien), secret-förmige Felder werden vor dem Schreiben gescrubbt; UI-Zugang „Fehler & Logs" (Pfad, Ordner öffnen, letzte Zeilen kopieren). **Kein Remote-Versand** (DSGVO/Local-first, §1); optionaler Remote-Report bleibt bewusst als OFF/opt-in-TODO ohne Endpunkt. Docs: README, CONTRIBUTING, SETUP-Ergänzung. Bridge-Oberfläche additiv auf v6 (`onboarding.*`, `logs.*`). 289 Tests grün (Desktop 207), 6 Projekte.
+  - Lizenz absichtlich offen gelassen (Owner-Entscheidung, §10): README nennt sie TBD, es liegt keine `LICENSE`-Datei bei.

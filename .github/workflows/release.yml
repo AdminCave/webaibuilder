@@ -1,0 +1,68 @@
+# Release-Build — baut Installer für alle drei Plattformen und lädt sie samt
+# Auto-Update-Metadaten (latest.yml / latest-linux.yml / latest-mac.yml) zu
+# GitHub Releases hoch. Läuft ausschließlich auf einem Versions-Tag `v*`.
+#
+# Der reguläre CI-Job (Lint/Typecheck/Build/Test) bleibt in ci.yml und ist von
+# diesem Workflow unberührt.
+#
+# ABI-Hinweis: `pnpm install` baut die nativen Module (better-sqlite3,
+# @napi-rs/keyring) für System-Node. electron-builder rebuildet sie beim Packen
+# über `npmRebuild` für Electrons ABI (electron-builder.yml). Das node-linker=
+# hoisted-Layout (.npmrc) sorgt dafür, dass electron-builder sie im Monorepo
+# findet.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# electron-builder legt für den Tag ein (Draft-)GitHub-Release an und lädt die
+# Artefakte hoch — dafür braucht der GITHUB_TOKEN Schreibrechte auf contents.
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4 # nutzt packageManager (pnpm@11) aus package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Alle Pakete + Renderer/Main/Preload bauen (topologische Reihenfolge).
+      - run: pnpm build
+
+      # Für die aktuelle OS konfigurierte Targets bauen (Linux: AppImage+deb,
+      # Windows: nsis, macOS: dmg) und zu GitHub Releases veröffentlichen.
+      # `--publish always` lädt Artefakte + Update-Metadaten hoch.
+      - name: Package + publish
+        run: pnpm --filter @webaibuilder/desktop exec electron-builder --publish always
+        env:
+          # electron-builder liest GH_TOKEN für den GitHub-Provider.
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # --- TODO(user): Code-Signing-Secrets ergänzen ---------------------
+          # Windows (Authenticode / Azure Trusted Signing):
+          #   CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          #   CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          # macOS (Signierung + Notarisierung):
+          #   CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          #   CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          #   APPLE_ID: ${{ secrets.APPLE_ID }}
+          #   APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          #   APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Ohne diese Secrets entstehen unsignierte Builds (Linux ist ok;
+          # Windows/macOS zeigen Sicherheitswarnungen bzw. Gatekeeper blockt).
+          # ------------------------------------------------------------------

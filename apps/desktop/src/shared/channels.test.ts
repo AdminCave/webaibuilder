@@ -8,10 +8,13 @@ import {
   type DeployProgressMessage,
   type DesktopIpcInvokeMap,
   type DesktopIpcEventMap,
+  type LogLocation,
   type OpenHintResult,
   type SessionInfo,
 } from './channels';
 import type { DeployRunOutcome, DeployTargetInput } from './deploy';
+import type { RendererErrorReport } from './logging';
+import type { OnboardingState, OnboardingStateInput } from './onboarding';
 
 describe('Desktop-IPC-Kanäle', () => {
   it('sind eindeutig und folgen der Namenskonvention', () => {
@@ -76,6 +79,35 @@ describe('Desktop-IPC-Kanäle', () => {
     expect(saveArgs[0]).toBe('p1');
     expect(outcome.status).toBe('error');
     expect(progress.event.type).toBe('connecting');
+  });
+
+  it('typisiert die Onboarding- und Log-Kanäle (Args/Result, M5)', () => {
+    // onboarding.get: keine Args, OnboardingState als Result.
+    const getArgs: DesktopIpcInvokeMap[typeof DesktopIpcChannels.onboardingGet]['args'] = [];
+    const state: DesktopIpcInvokeMap[typeof DesktopIpcChannels.onboardingGet]['result'] = {
+      hasOnboarded: true,
+      completedAt: '2026-07-13T00:00:00.000Z',
+    } satisfies OnboardingState;
+    const setArgs: DesktopIpcInvokeMap[typeof DesktopIpcChannels.onboardingSet]['args'] = [
+      { hasOnboarded: false } satisfies OnboardingStateInput,
+    ];
+
+    // logs.report: [RendererErrorReport]; logs.tail: [lines] → { text }.
+    const reportArgs: DesktopIpcInvokeMap[typeof DesktopIpcChannels.logsReport]['args'] = [
+      { kind: 'error', message: 'boom', line: 12 } satisfies RendererErrorReport,
+    ];
+    const tail: DesktopIpcInvokeMap[typeof DesktopIpcChannels.logsTail]['result'] = { text: 'z' };
+    const info: DesktopIpcInvokeMap[typeof DesktopIpcChannels.logsInfo]['result'] = {
+      dir: '/u/logs',
+      file: '/u/logs/app.log',
+    } satisfies LogLocation;
+
+    expect(getArgs).toHaveLength(0);
+    expect(state.hasOnboarded).toBe(true);
+    expect(setArgs[0].hasOnboarded).toBe(false);
+    expect(reportArgs[0].kind).toBe('error');
+    expect(tail.text).toBe('z');
+    expect(info.file).toContain('app.log');
   });
 
   it('typisiert die Backend-Kanäle (Args/Result, M4)', () => {

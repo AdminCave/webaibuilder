@@ -24,13 +24,17 @@ import { realDeployEngine } from './deployEngine';
 import { DeployHistoryStore } from './deployHistory';
 import { DeployService } from './deployService';
 import { DeployTargetService } from './deployTargets';
+import { logRendererError } from './errorReporting';
 import { KillSwitchStore } from './killSwitch';
+import { getLogger } from './logger';
+import { OnboardingStore } from './onboardingStore';
 import {
   backendAcksFilePath,
   backendsConfigUrl,
   defaultRegistryOptions,
   deployHistoryFilePath,
   killSwitchCacheFilePath,
+  onboardingStateFilePath,
   settingsFilePath,
 } from './paths';
 import { initProjectRegistry } from './registry';
@@ -106,6 +110,9 @@ export function registerIpcHandlers(): void {
     acks: new FileAckStore(backendAcksFilePath()),
   });
 
+  // --- M5: Erst-Start-Onboarding + lokale Fehlerberichte/Logs ---
+  const onboarding = new OnboardingStore(onboardingStateFilePath());
+
   handle(IpcChannels.ping, () => ({
     ok: true,
     time: new Date().toISOString(),
@@ -172,5 +179,24 @@ export function registerIpcHandlers(): void {
     if (!isAllowedExternalUrl(url)) return { opened: false };
     await shell.openExternal(url);
     return { opened: true };
+  });
+
+  // --- M5: Onboarding-Zustand ---
+  handleDesktop(DesktopIpcChannels.onboardingGet, () => onboarding.get());
+  handleDesktop(DesktopIpcChannels.onboardingSet, (input) => onboarding.set(input));
+
+  // --- M5: lokale Fehlerberichte & Logs (kein Remote, PLAN §1) ---
+  handleDesktop(DesktopIpcChannels.logsInfo, () => {
+    const logger = getLogger();
+    return { dir: logger.dir, file: logger.filePath };
+  });
+  handleDesktop(DesktopIpcChannels.logsReport, (report) => {
+    logRendererError(getLogger(), report);
+  });
+  handleDesktop(DesktopIpcChannels.logsTail, (lines) => ({ text: getLogger().tail(lines) }));
+  handleDesktop(DesktopIpcChannels.logsOpen, async () => {
+    // shell.openPath öffnet den Ordner im Dateimanager; '' = Erfolg.
+    const error = await shell.openPath(getLogger().dir);
+    return { opened: error === '' };
   });
 }

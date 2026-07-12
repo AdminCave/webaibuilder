@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 
 import type { PingResult, Project, StarterTemplate } from '@webaibuilder/core';
 
+import { shouldShowOnboarding } from '../../shared/onboarding';
 import type { AgentSettings } from '../../shared/settings';
+import { Onboarding } from './components/Onboarding';
 import { SettingsDialog } from './components/SettingsDialog';
 import { StartScreen } from './components/StartScreen';
 import { StatusBar } from './components/StatusBar';
 import { Titlebar } from './components/Titlebar';
+import { UpdateNotice } from './components/UpdateNotice';
 import { Workbench } from './components/Workbench';
 
 export type Theme = 'dark' | 'light';
@@ -22,6 +25,7 @@ export function App(): React.JSX.Element {
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [settings, setSettings] = useState<AgentSettings | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [costUsd, setCostUsd] = useState<number | null>(null);
   const [deployStatus, setDeployStatus] = useState<string | null>(null);
 
@@ -51,7 +55,17 @@ export function App(): React.JSX.Element {
       .get()
       .then(setSettings)
       .catch(() => setSettings(null));
+    // Onboarding nur beim ersten Start zeigen (fail-open: bei Fehler zeigen).
+    window.wab.onboarding
+      .get()
+      .then((state) => setShowOnboarding(shouldShowOnboarding(state)))
+      .catch(() => setShowOnboarding(true));
   }, []);
+
+  function completeOnboarding(): void {
+    setShowOnboarding(false);
+    void window.wab.onboarding.set({ hasOnboarded: true }).catch(() => undefined);
+  }
 
   return (
     <div className="app">
@@ -87,11 +101,27 @@ export function App(): React.JSX.Element {
       )}
       <StatusBar ping={ping} settings={settings} costUsd={costUsd} deployStatus={deployStatus} />
 
+      <UpdateNotice />
+
+      {showOnboarding && (
+        <Onboarding
+          onComplete={completeOnboarding}
+          onOpenSettings={() => {
+            completeOnboarding();
+            setShowSettings(true);
+          }}
+        />
+      )}
+
       {showSettings && (
         <SettingsDialog
           initial={settings}
           onClose={() => setShowSettings(false)}
           onSaved={(next) => setSettings(next)}
+          onReplayOnboarding={() => {
+            setShowSettings(false);
+            setShowOnboarding(true);
+          }}
         />
       )}
     </div>

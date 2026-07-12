@@ -3,8 +3,18 @@ import { join } from 'node:path';
 import { BrowserWindow, app } from 'electron';
 
 import { getAppSession } from './appSession';
+import { installErrorReporting } from './errorReporting';
 import { registerIpcHandlers } from './ipc';
+import { initLogger } from './logger';
+import { logsDir } from './paths';
 import { devRendererUrl, hardenWebContents, installPermissionHandlers } from './security';
+import { initUpdater } from './updater';
+
+// Fehlerberichte so früh wie möglich verdrahten (M5, PLAN §1/§6): lokaler,
+// rotierender Datei-Logger + process-/app-Fehler-Hooks. Rein lokal, kein Remote.
+// `app.getPath('userData')` ist im Main-Prozess schon vor `ready` verfügbar.
+const logger = initLogger(logsDir());
+installErrorReporting(logger);
 
 function createMainWindow(): void {
   const win = new BrowserWindow({
@@ -28,6 +38,10 @@ function createMainWindow(): void {
 
   // Der Main-Prozess streamt Preview-/Agent-/Checkpoint-Events an dieses Fenster.
   getAppSession().setWindow(win);
+
+  // Auto-Update (M5): prüft/lädt im Hintergrund, meldet den Status an dieses
+  // Fenster; No-op im Dev (siehe updater.ts).
+  initUpdater(win);
 
   win.once('ready-to-show', () => win.show());
 

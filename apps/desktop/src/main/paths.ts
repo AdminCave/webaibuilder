@@ -49,6 +49,16 @@ export function backendAcksFilePath(): string {
   return join(app.getPath('userData'), 'backend-acks.json');
 }
 
+/** Zustand des Erst-Start-Onboardings (M5, `hasOnboarded`-Flag). */
+export function onboardingStateFilePath(): string {
+  return join(app.getPath('userData'), 'onboarding-state.json');
+}
+
+/** Verzeichnis der rotierenden Log-Dateien (M5, Fehlerberichte — lokal). */
+export function logsDir(): string {
+  return join(app.getPath('userData'), 'logs');
+}
+
 /**
  * URL der AdminCave-gehosteten `backends.json` für den Remote-Kill-Switch
  * (PLAN §3 Regel 3). Über `WAB_BACKENDS_CONFIG_URL` überschreibbar. Der Abruf ist
