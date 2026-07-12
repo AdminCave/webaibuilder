@@ -1,0 +1,10 @@
+packages:
+  - apps/*
+  - packages/*
+
+# pnpm blockiert Postinstall-Skripte standardmäßig; Electron braucht seins
+# (Binary-Download), esbuild lädt sein natives Binary.
+allowBuilds:
+  better-sqlite3: true
+  electron: true
+  esbuild: true

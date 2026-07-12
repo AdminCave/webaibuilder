@@ -1,0 +1,25 @@
+{
+  "name": "@webaibuilder/versioning",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Versionierung: echtes git pro Workspace, Checkpoints, Restore-als-neuer-Commit, benannte Versionen. Electron-frei.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@webaibuilder/core": "workspace:*",
+    "isomorphic-git": "^1.38.6",
+    "simple-git": "^3.36.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1"
+  }
+}

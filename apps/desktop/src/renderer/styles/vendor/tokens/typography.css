@@ -1,0 +1,66 @@
+/* ============================================================
+   AdminCave — Typography
+   Geist for everything; Geist Mono for code, tags, metadata.
+   Tight tracking on display sizes; generous line-height on body.
+   ============================================================ */
+
+:root {
+  /* Families */
+  --font-sans: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+
+  /* Weights */
+  --fw-light:    300; /* @kind font */
+  --fw-regular:  400; /* @kind font */
+  --fw-medium:   500; /* @kind font */
+  --fw-semibold: 600; /* @kind font */
+  --fw-bold:     700; /* @kind font */
+  --fw-black:    800; /* @kind font */
+
+  /* Type scale (px values, fluid-friendly) */
+  --text-xs:   0.75rem;    /* 12 — micro labels, mono tags */
+  --text-sm:   0.8125rem;  /* 13 — secondary, captions */
+  --text-base: 0.9375rem;  /* 15 — body default */
+  --text-md:   1rem;       /* 16 — comfortable body */
+  --text-lg:   1.125rem;   /* 18 — lead paragraph */
+  --text-xl:   1.375rem;   /* 22 — card titles */
+  --text-2xl:  1.75rem;    /* 28 — section heads */
+  --text-3xl:  2.25rem;    /* 36 — page titles */
+  --text-4xl:  3rem;       /* 48 — display */
+  --text-5xl:  4rem;       /* 64 — hero */
+  --text-6xl:  5.25rem;    /* 84 — mega hero */
+
+  /* Line heights */
+  --lh-none:    1;    /* @kind font */
+  --lh-tight:   1.08; /* @kind font */
+  --lh-snug:    1.22; /* @kind font */
+  --lh-normal:  1.5;  /* @kind font */
+  --lh-relaxed: 1.65; /* @kind font */
+
+  /* Letter spacing */
+  --ls-tighter: -0.03em; /* @kind font */
+  --ls-tight:   -0.02em; /* @kind font */
+  --ls-snug:    -0.01em; /* @kind font */
+  --ls-normal:  0;       /* @kind font */
+  --ls-wide:    0.02em;  /* @kind font */
+  --ls-caps:    0.06em;  /* @kind font */ /* uppercase eyebrows */
+
+  /* Semantic roles */
+  --type-display-size:   var(--text-5xl);
+  --type-display-weight: var(--fw-semibold);
+  --type-display-ls:     var(--ls-tighter);
+  --type-display-lh:     var(--lh-tight);
+
+  --type-title-size:     var(--text-3xl);
+  --type-title-weight:   var(--fw-semibold);
+  --type-title-ls:       var(--ls-tight);
+  --type-title-lh:       var(--lh-snug);
+
+  --type-body-size:      var(--text-base);
+  --type-body-weight:    var(--fw-regular);
+  --type-body-lh:        var(--lh-normal);
+
+  --type-mono-size:      var(--text-xs);
+  --type-mono-weight:    var(--fw-medium);
+  --type-mono-ls:        var(--ls-normal);
+}

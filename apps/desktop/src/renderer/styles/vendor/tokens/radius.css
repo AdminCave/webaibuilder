@@ -1,0 +1,20 @@
+/* ============================================================
+   AdminCave — Radius
+   Fully-round pills for buttons & chips; generous radii on
+   cards and panels.
+   ============================================================ */
+
+:root {
+  --radius-xs:   6px;
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;   /* default card */
+  --radius-xl:   20px;
+  --radius-2xl:  28px;   /* large panels, hero cards */
+  --radius-pill: 999px;  /* buttons, chips, avatars, tabs */
+
+  /* Aliases */
+  --radius-card:  var(--radius-lg);
+  --radius-input: var(--radius-pill);
+  --radius-field: 12px;  /* multiline inputs / textareas */
+}

@@ -1,0 +1,19 @@
+{
+  "templates": [
+    {
+      "id": "einseiter",
+      "name": "Einseiter",
+      "description": "Eine Landingpage mit Hero, Angebot und Kontakt — alles auf einer Seite."
+    },
+    {
+      "id": "mehrseiter",
+      "name": "Mehrseiter",
+      "description": "Drei Seiten (Start, Über, Kontakt) mit gemeinsamer Navigation und Fußzeile."
+    },
+    {
+      "id": "leer",
+      "name": "Leer",
+      "description": "Nur eine minimale Startseite — wenn du bei null anfangen willst."
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@webaibuilder/deploy",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Deploy-Engine (das Herzstück): Hash-Manifest-Sync über SFTP/FTPS, Rollback, Preflight. Electron-frei.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@webaibuilder/core": "workspace:*"
+  }
+}

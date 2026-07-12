@@ -1,0 +1,35 @@
+/* ============================================================
+   AdminCave — Elevation & Motion
+   Dark theme leans on hairline borders, not shadows. Shadows
+   are soft and only meaningful on the light theme / popovers.
+   ============================================================ */
+
+:root {
+  /* Shadows — dark: near-invisible, depth comes from borders */
+  --shadow-none: none;
+  --shadow-sm:   0 1px 2px rgba(0,0,0,0.40);
+  --shadow-md:   0 4px 16px rgba(0,0,0,0.45);
+  --shadow-lg:   0 12px 40px rgba(0,0,0,0.55);
+  --shadow-pop:  0 8px 28px rgba(0,0,0,0.60);
+
+  /* Focus ring composite */
+  --ring-width: 3px; /* @kind other */
+  --ring-shadow: 0 0 0 var(--ring-width) var(--ring);
+
+  /* Motion — quick, confident, no bounce */
+  --dur-instant: 80ms;  /* @kind other */
+  --dur-fast:    140ms; /* @kind other */
+  --dur-base:    200ms; /* @kind other */
+  --dur-slow:    320ms; /* @kind other */
+
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);   /* @kind other */
+  --ease-in-out:   cubic-bezier(0.65, 0, 0.35, 1);  /* @kind other */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);      /* @kind other */
+}
+
+:root[data-theme="light"] {
+  --shadow-sm:  0 1px 2px rgba(16,24,40,0.06);
+  --shadow-md:  0 4px 16px rgba(16,24,40,0.08);
+  --shadow-lg:  0 16px 48px rgba(16,24,40,0.12);
+  --shadow-pop: 0 8px 28px rgba(16,24,40,0.14);
+}

@@ -1,0 +1,153 @@
+/* ============================================================
+   AdminCave — Color System
+   Reduced, high-contrast monochrome. Dark-mode-first (true black),
+   equal-weight light theme (pure white). Color appears ONLY as a
+   small blue accent for links, tags and active states, plus
+   restrained semantic status hues. No pastels, no neon.
+   ============================================================ */
+
+:root {
+  /* ---- Base primitives: neutral ramp (dark→light) ---- */
+  --neutral-0:    #000000;
+  --neutral-950:  #050506;
+  --neutral-900:  #0a0a0b;
+  --neutral-850:  #101013;
+  --neutral-800:  #16181c;
+  --neutral-750:  #1b1e22;
+  --neutral-700:  #212429;
+  --neutral-600:  #2b2f35;
+  --neutral-500:  #3a3f46;
+  --neutral-400:  #565c64;
+  --neutral-350:  #6e757c;
+  --neutral-300:  #868d94;
+  --neutral-250:  #9aa1a8;
+  --neutral-200:  #b3b9bf;
+  --neutral-150:  #cbd0d4;
+  --neutral-100:  #dfe2e5;
+  --neutral-75:   #eceef0;
+  --neutral-50:   #f4f5f6;
+  --neutral-25:   #fafafa;
+  --neutral-1000: #ffffff;
+
+  /* ---- Base primitives: blue accent (custom, not a third-party brand blue) ---- */
+  --blue-200: #aed0ff;
+  --blue-300: #7db3ff;
+  --blue-400: #4f9dff;
+  --blue-500: #3b82f6;
+  --blue-600: #2563eb;
+  --blue-700: #1d4ed8;
+
+  /* ---- Base primitives: semantic status (muted, never neon) ---- */
+  --green-400: #34d186;
+  --green-500: #1f9d57;
+  --green-600: #158045;
+  --amber-400: #f5b454;
+  --amber-500: #e0961f;
+  --amber-600: #b9780f;
+  --red-400:   #ff6b6b;
+  --red-500:   #e5484d;
+  --red-600:   #c4363b;
+
+  color-scheme: dark;
+
+  /* ============ SEMANTIC ALIASES — DARK (default) ============ */
+
+  /* Backgrounds & surfaces */
+  --bg:             var(--neutral-0);     /* page — true black */
+  --bg-subtle:      var(--neutral-900);   /* alt sections */
+  --surface:        var(--neutral-950);   /* cards / panels */
+  --surface-raised: var(--neutral-850);   /* menus, popovers, dialogs */
+  --surface-inset:  var(--neutral-900);   /* wells, code blocks */
+  --surface-hover:  rgba(255,255,255,0.06);
+  --surface-active: rgba(255,255,255,0.10);
+
+  /* Borders — hairlines */
+  --border:         rgba(255,255,255,0.10);
+  --border-strong:  rgba(255,255,255,0.18);
+  --border-faint:   rgba(255,255,255,0.06);
+
+  /* Text */
+  --text:           #ededee;   /* primary body */
+  --text-strong:    #ffffff;   /* headings / emphasis */
+  --text-muted:     #9aa1a8;   /* secondary */
+  --text-subtle:    #6e757c;   /* tertiary / placeholder */
+  --text-inverse:   #000000;   /* on light fills */
+
+  /* Accent — the only chromatic color in routine use */
+  --accent:          var(--blue-400);
+  --accent-hover:    var(--blue-300);
+  --accent-muted:    rgba(79,157,255,0.14);   /* tag / chip fill */
+  --accent-border:   rgba(79,157,255,0.32);
+  --link:            var(--blue-400);
+
+  /* Solid fills (primary action = monochrome, X-style) */
+  --fill-solid:        var(--neutral-1000);   /* white pill button */
+  --fill-solid-hover:  var(--neutral-100);
+  --fill-solid-text:   var(--neutral-0);
+
+  /* Status — backgrounds tint + foreground + border */
+  --success:        var(--green-400);
+  --success-bg:     rgba(52,209,134,0.12);
+  --success-border: rgba(52,209,134,0.30);
+  --warning:        var(--amber-400);
+  --warning-bg:     rgba(245,180,84,0.12);
+  --warning-border: rgba(245,180,84,0.30);
+  --danger:         var(--red-400);
+  --danger-bg:      rgba(255,107,107,0.12);
+  --danger-border:  rgba(255,107,107,0.30);
+  --info:           var(--blue-400);
+  --info-bg:        rgba(79,157,255,0.12);
+  --info-border:    rgba(79,157,255,0.30);
+
+  /* Focus ring */
+  --ring: rgba(79,157,255,0.55);
+}
+
+/* ============ SEMANTIC ALIASES — LIGHT ============ */
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg:             var(--neutral-1000);  /* pure white */
+  --bg-subtle:      var(--neutral-50);
+  --surface:        var(--neutral-1000);
+  --surface-raised: var(--neutral-1000);
+  --surface-inset:  var(--neutral-50);
+  --surface-hover:  rgba(0,0,0,0.04);
+  --surface-active: rgba(0,0,0,0.07);
+
+  --border:         rgba(0,0,0,0.10);
+  --border-strong:  rgba(0,0,0,0.16);
+  --border-faint:   rgba(0,0,0,0.05);
+
+  --text:           #16181c;
+  --text-strong:    #000000;
+  --text-muted:     #565c64;
+  --text-subtle:    #868d94;
+  --text-inverse:   #ffffff;
+
+  --accent:          var(--blue-600);
+  --accent-hover:    var(--blue-700);
+  --accent-muted:    rgba(37,99,235,0.10);
+  --accent-border:   rgba(37,99,235,0.26);
+  --link:            var(--blue-600);
+
+  --fill-solid:        var(--neutral-0);   /* black pill button */
+  --fill-solid-hover:  var(--neutral-800);
+  --fill-solid-text:   var(--neutral-1000);
+
+  --success:        var(--green-600);
+  --success-bg:     rgba(31,157,87,0.10);
+  --success-border: rgba(31,157,87,0.28);
+  --warning:        var(--amber-600);
+  --warning-bg:     rgba(224,150,31,0.12);
+  --warning-border: rgba(224,150,31,0.30);
+  --danger:         var(--red-600);
+  --danger-bg:      rgba(229,72,77,0.10);
+  --danger-border:  rgba(229,72,77,0.28);
+  --info:           var(--blue-600);
+  --info-bg:        rgba(37,99,235,0.10);
+  --info-border:    rgba(37,99,235,0.26);
+
+  --ring: rgba(37,99,235,0.45);
+}

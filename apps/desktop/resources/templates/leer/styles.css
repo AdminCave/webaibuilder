@@ -1,0 +1,52 @@
+/* Leer — minimales Fundament, kein Build-Schritt. */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #000000;
+  --border: rgba(255, 255, 255, 0.1);
+  --text: #ededee;
+  --text-strong: #ffffff;
+  --text-muted: #9aa1a8;
+  --accent: #4f9dff;
+
+  /* Geist, falls installiert — sonst die System-Grotesk. Kein Webfont-Import. */
+  --font: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+}
+
+main {
+  max-width: 68ch;
+  margin: 0 auto;
+  padding: 5rem 1.5rem;
+}
+
+h1 {
+  color: var(--text-strong);
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin-bottom: 1rem;
+}
+
+p {
+  color: var(--text-muted);
+  max-width: 46ch;
+}

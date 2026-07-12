@@ -1,0 +1,216 @@
+/* ============================================================
+   Einseiter — eigenständiges Stylesheet, kein Build-Schritt.
+   Dunkel auf Schwarz, Hairline-Rahmen, ein blauer Akzent.
+   Alle Farben/Abstände hängen an den Variablen in :root.
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  /* Farben */
+  --bg: #000000;
+  --surface: #050506;
+  --surface-raised: #101013;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --text: #ededee;
+  --text-strong: #ffffff;
+  --text-muted: #9aa1a8;
+  --text-subtle: #6e757c;
+  --accent: #4f9dff;
+
+  /* Form */
+  --radius-card: 16px;
+  --radius-pill: 999px;
+  --measure: 68ch;
+
+  /* Schrift: Geist, falls installiert — sonst die System-Grotesk.
+     Bewusst kein Webfont-Import: die Seite bleibt selbstständig. */
+  --font: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 1rem;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+h1,
+h2,
+h3 {
+  color: var(--text-strong);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+/* ---- Kopf & Navigation ---- */
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  color: var(--text-strong);
+  font-weight: 600;
+}
+
+.brand:hover {
+  text-decoration: none;
+}
+
+.nav {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.nav a {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+.nav a:hover {
+  color: var(--text-strong);
+  text-decoration: none;
+}
+
+/* ---- Hero ---- */
+
+.hero {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 5rem 1.5rem 4rem;
+}
+
+.eyebrow {
+  color: var(--text-subtle);
+  font-size: 0.8125rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+
+.hero h1 {
+  font-size: clamp(2rem, 6vw, 3rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  margin-bottom: 1rem;
+}
+
+.lead {
+  color: var(--text-muted);
+  font-size: 1.125rem;
+  max-width: 46ch;
+  margin-bottom: 2rem;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* ---- Buttons: Pills, primär = weiß auf schwarz ---- */
+
+.button {
+  display: inline-block;
+  padding: 0.55rem 1.25rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--text);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.button:hover {
+  background: rgba(255, 255, 255, 0.06);
+  text-decoration: none;
+}
+
+.button-primary {
+  background: #ffffff;
+  border-color: transparent;
+  color: #000000;
+}
+
+.button-primary:hover {
+  background: #dfe2e5;
+}
+
+/* ---- Abschnitte & Karten ---- */
+
+.section {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.section h2 {
+  font-size: 1.375rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+}
+
+.section p {
+  max-width: 60ch;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 1.25rem;
+}
+
+.card h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.card p {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
+/* ---- Fußzeile ---- */
+
+.site-footer {
+  max-width: var(--measure);
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-subtle);
+  font-size: 0.8125rem;
+}

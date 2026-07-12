@@ -1,0 +1,5 @@
+node_modules/
+dist/
+out/
+pnpm-lock.yaml
+apps/desktop/src/renderer/styles/vendor/

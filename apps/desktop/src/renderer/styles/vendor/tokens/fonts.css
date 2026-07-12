@@ -1,0 +1,9 @@
+/* ============================================================
+   AdminCave — Webfonts
+   Geist (grotesque sans) + Geist Mono, served from Google Fonts.
+   NOTE: substituted from Google Fonts because the source repo
+   shipped no font binaries. Flagged to the user — swap the
+   @import for self-hosted @font-face rules if licensed files arrive.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap');
