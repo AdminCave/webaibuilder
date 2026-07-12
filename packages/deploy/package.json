@@ -11,9 +11,19 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@webaibuilder/core": "workspace:*"
+    "@webaibuilder/core": "workspace:*",
+    "basic-ftp": "^6.0.1",
+    "isomorphic-git": "^1.38.6",
+    "ssh2-sftp-client": "^12.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/ssh2": "^1.15.5",
+    "ftp-srv": "^4.6.3",
+    "ssh2": "^1.17.0"
   }
 }

@@ -4,6 +4,7 @@ import {
   ACTIVE_BACKEND_IDS,
   BYOK_PROVIDERS,
   DEFAULT_AGENT_SETTINGS,
+  KEYCHAIN_UNAVAILABLE_WARNING,
   type ActiveBackendId,
   type AgentSettings,
   type ByokProvider,
@@ -28,18 +29,20 @@ const PROVIDER_LABEL: Record<ByokProvider, string> = {
 };
 
 /**
- * Minimale Einstellungen (PLAN §6, M2): aktives Backend, für byok zusätzlich
- * Provider + Modell, sowie der API-Key. Der Key wird nur für die laufende
- * Sitzung im Main-Prozess gehalten (nicht auf die Platte geschrieben) — Hinweis
- * unten. Deutsche Copy, Du-Form.
+ * Minimale Einstellungen (PLAN §6): aktives Backend, für byok zusätzlich
+ * Provider + Modell, sowie der API-Key. Der Key liegt im OS-Schlüsselbund
+ * (M3, secrets.ts) — der Renderer setzt/löscht ihn nur, bekommt ihn nie zurück
+ * (nur `hasApiKey` + `keychainAvailable`). Fehlt der Schlüsselbund, wird der Key
+ * nur sitzungsweise gehalten und der Nutzer gewarnt. Deutsche Copy, Du-Form.
  */
 export function SettingsDialog({ initial, onClose, onSaved }: SettingsDialogProps): React.JSX.Element {
-  const base = initial ?? { ...DEFAULT_AGENT_SETTINGS, hasApiKey: false };
+  const base = initial ?? { ...DEFAULT_AGENT_SETTINGS, hasApiKey: false, keychainAvailable: true };
   const [backendId, setBackendId] = useState<ActiveBackendId>(base.backendId);
   const [provider, setProvider] = useState<ByokProvider>(base.provider);
   const [model, setModel] = useState(base.model);
   const [apiKey, setApiKey] = useState('');
   const [hasApiKey, setHasApiKey] = useState(base.hasApiKey);
+  const [keychainAvailable, setKeychainAvailable] = useState(base.keychainAvailable);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,6 +57,8 @@ export function SettingsDialog({ initial, onClose, onSaved }: SettingsDialogProp
         // Leerer Key = unverändert lassen; getippter Key wird gesetzt.
         ...(apiKey.trim() !== '' ? { apiKey: apiKey.trim() } : {}),
       });
+      setHasApiKey(next.hasApiKey);
+      setKeychainAvailable(next.keychainAvailable);
       onSaved(next);
       onClose();
     } catch (err) {
@@ -70,6 +75,7 @@ export function SettingsDialog({ initial, onClose, onSaved }: SettingsDialogProp
       const next = await window.wab.settings.set({ apiKey: null });
       setApiKey('');
       setHasApiKey(next.hasApiKey);
+      setKeychainAvailable(next.keychainAvailable);
       onSaved(next);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Löschen fehlgeschlagen.');
@@ -137,6 +143,12 @@ export function SettingsDialog({ initial, onClose, onSaved }: SettingsDialogProp
             <span className="field__hint">Leer lassen für das Standardmodell des Backends.</span>
           </label>
 
+          {!keychainAvailable && (
+            <p className="form-warning" role="status">
+              {KEYCHAIN_UNAVAILABLE_WARNING}
+            </p>
+          )}
+
           <label className="field">
             <span className="field__label">
               API-Key {hasApiKey && <span className="field__badge">gesetzt</span>}
@@ -150,8 +162,9 @@ export function SettingsDialog({ initial, onClose, onSaved }: SettingsDialogProp
               onChange={(e) => setApiKey(e.target.value)}
             />
             <span className="field__hint">
-              Der Key bleibt nur für diese Sitzung im Speicher und wird nicht auf die Platte
-              geschrieben. Beim nächsten Start musst du ihn erneut eingeben.
+              {keychainAvailable
+                ? 'Der Key liegt im Systemschlüsselbund deines Betriebssystems, nie im Klartext auf der Platte, und bleibt über Neustarts erhalten. Er wird nie an die Oberfläche zurückgegeben.'
+                : 'Ohne Systemschlüsselbund bleibt der Key nur für diese Sitzung im Speicher. Beim nächsten Start musst du ihn erneut eingeben.'}
             </span>
           </label>
 

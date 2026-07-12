@@ -13,6 +13,15 @@
 
 import type { AgentEvent, Checkpoint, PermissionDecision } from '@webaibuilder/core';
 
+import type {
+  DeployHistoryRecord,
+  DeployRunOutcome,
+  DeployTargetInput,
+  DeployTargetView,
+  WabDeployProgressEvent,
+  WabDriftResult,
+  WabPreflightResult,
+} from './deploy';
 import type { WabPreviewEvent } from './preview';
 import type { AgentSettings, AgentSettingsInput } from './settings';
 
@@ -37,6 +46,22 @@ export const DesktopIpcChannels = {
   settingsGet: 'wab:v1:settings:get',
   /** Backend-Einstellungen setzen (Key nur renderer → main). */
   settingsSet: 'wab:v1:settings:set',
+  /** Deploy-Ziele eines Projekts auflisten (inkl. hasCredentials). */
+  deployTargetsList: 'wab:v1:deploytargets:list',
+  /** Deploy-Ziel anlegen/ändern (Passwort → Schlüsselbund). */
+  deployTargetsSave: 'wab:v1:deploytargets:save',
+  /** Deploy-Ziel löschen (entfernt auch das Schlüsselbund-Secret). */
+  deployTargetsDelete: 'wab:v1:deploytargets:delete',
+  /** Verbindungstest (nur Preflight), liefert strukturierte Befunde. */
+  deployTest: 'wab:v1:deploy:test',
+  /** Aktuellen Stand veröffentlichen (Preflight + Deploy, Fortschritt als Push). */
+  deployRun: 'wab:v1:deploy:run',
+  /** Ältere Version deployen (Rollback-Deploy, Fortschritt als Push). */
+  deployRollback: 'wab:v1:deploy:rollback',
+  /** Drift-Erkennung: Remote-Stand vs. erwartete SHA. */
+  deployDrift: 'wab:v1:deploy:drift',
+  /** Deploy-Historie eines Projekts auflisten. */
+  deployHistory: 'wab:v1:deploy:history',
 } as const;
 
 export type DesktopIpcChannel = (typeof DesktopIpcChannels)[keyof typeof DesktopIpcChannels];
@@ -50,6 +75,10 @@ export const DesktopIpcEvents = {
   preview: 'wab:v1:event:preview',
   /** Frische Checkpoint-Liste (nach Turn-Abschluss / Restore). */
   checkpoints: 'wab:v1:event:checkpoints',
+  /** Ein `WabDeployProgressEvent` eines laufenden Deploys/Rollbacks. */
+  deploy: 'wab:v1:event:deploy',
+  /** Frische Deploy-Ziel-Liste (nach Deploy/Rollback → neue last_deployed-SHA). */
+  targets: 'wab:v1:event:targets',
 } as const;
 
 export type DesktopIpcEvent = (typeof DesktopIpcEvents)[keyof typeof DesktopIpcEvents];
@@ -104,6 +133,21 @@ export interface CheckpointsMessage {
   checkpoints: Checkpoint[];
 }
 
+/** Push-Nutzlast eines Deploy-Fortschritts-Events (file-by-file). */
+export interface DeployProgressMessage {
+  projectId: string;
+  targetId: string;
+  /** Vom Renderer erzeugte Lauf-ID (korreliert Fortschritt mit dem Aufruf). */
+  runId: string;
+  event: WabDeployProgressEvent;
+}
+
+/** Push-Nutzlast der aktualisierten Deploy-Ziel-Liste (frische last_deployed-SHA). */
+export interface DeployTargetsMessage {
+  projectId: string;
+  targets: DeployTargetView[];
+}
+
 /* ---------------- Verträge pro Kanal ---------------- */
 
 export interface DesktopIpcInvokeMap {
@@ -119,6 +163,38 @@ export interface DesktopIpcInvokeMap {
   };
   [DesktopIpcChannels.settingsGet]: { args: []; result: AgentSettings };
   [DesktopIpcChannels.settingsSet]: { args: [input: AgentSettingsInput]; result: AgentSettings };
+  [DesktopIpcChannels.deployTargetsList]: {
+    args: [projectId: string];
+    result: DeployTargetView[];
+  };
+  [DesktopIpcChannels.deployTargetsSave]: {
+    args: [projectId: string, input: DeployTargetInput];
+    result: DeployTargetView;
+  };
+  [DesktopIpcChannels.deployTargetsDelete]: {
+    args: [projectId: string, targetId: string];
+    result: void;
+  };
+  [DesktopIpcChannels.deployTest]: {
+    args: [projectId: string, targetId: string];
+    result: WabPreflightResult;
+  };
+  [DesktopIpcChannels.deployRun]: {
+    args: [projectId: string, targetId: string, runId: string];
+    result: DeployRunOutcome;
+  };
+  [DesktopIpcChannels.deployRollback]: {
+    args: [projectId: string, targetId: string, toCommitSha: string, runId: string];
+    result: DeployRunOutcome;
+  };
+  [DesktopIpcChannels.deployDrift]: {
+    args: [projectId: string, targetId: string];
+    result: WabDriftResult;
+  };
+  [DesktopIpcChannels.deployHistory]: {
+    args: [projectId: string];
+    result: DeployHistoryRecord[];
+  };
 }
 
 export type DesktopIpcArgs<C extends DesktopIpcChannel> = DesktopIpcInvokeMap[C]['args'];
@@ -129,6 +205,8 @@ export interface DesktopIpcEventMap {
   [DesktopIpcEvents.agent]: AgentEventMessage;
   [DesktopIpcEvents.preview]: PreviewEventMessage;
   [DesktopIpcEvents.checkpoints]: CheckpointsMessage;
+  [DesktopIpcEvents.deploy]: DeployProgressMessage;
+  [DesktopIpcEvents.targets]: DeployTargetsMessage;
 }
 
 export type DesktopIpcEventPayload<C extends DesktopIpcEvent> = DesktopIpcEventMap[C];

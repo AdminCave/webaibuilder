@@ -6,5 +6,8 @@ packages:
 # (Binary-Download), esbuild lädt sein natives Binary.
 allowBuilds:
   better-sqlite3: true
+  cpu-features: false
+  dtrace-provider: false
   electron: true
   esbuild: true
+  ssh2: true

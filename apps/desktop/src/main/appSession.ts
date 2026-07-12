@@ -36,6 +36,8 @@ import {
 import {
   DesktopIpcEvents,
   type ChatSendResult,
+  type DeployProgressMessage,
+  type DeployTargetsMessage,
   type DesktopIpcEvent,
   type DesktopIpcEventPayload,
   type PreviewInfo,
@@ -268,6 +270,18 @@ export class AppSession {
   private async pushCheckpoints(project: Project): Promise<void> {
     const checkpoints = await listWorkspaceCheckpoints(project.workspaceDir);
     this.send(DesktopIpcEvents.checkpoints, { projectId: project.id, checkpoints });
+  }
+
+  /* ---------------- Deploy-Push (von DeployService genutzt) ---------------- */
+
+  /** Push eines Deploy-Fortschritts-Events an das aktive Fenster. */
+  pushDeployProgress(message: DeployProgressMessage): void {
+    this.send(DesktopIpcEvents.deploy, message);
+  }
+
+  /** Push der frischen Deploy-Ziel-Liste (nach geänderter last_deployed-SHA). */
+  pushDeployTargets(message: DeployTargetsMessage): void {
+    this.send(DesktopIpcEvents.targets, message);
   }
 
   /* ---------------- IPC-Push ---------------- */

@@ -24,6 +24,8 @@ import {
   DesktopIpcEvents,
   type AgentEventMessage,
   type CheckpointsMessage,
+  type DeployProgressMessage,
+  type DeployTargetsMessage,
   type DesktopIpcEvent,
   type DesktopIpcEventPayload,
   type PreviewEventMessage,
@@ -33,6 +35,7 @@ import {
   type Unsubscribe,
   type WabDesktopBridge,
 } from '../shared/bridge';
+import type { DeployTargetInput } from '../shared/deploy';
 import type { AgentSettingsInput } from '../shared/settings';
 
 /** Abonniert einen Push-Kanal und liefert die Abmelde-Funktion. */
@@ -83,6 +86,23 @@ const bridge: WabBridge & WabDesktopBridge = {
     get: () => ipcRenderer.invoke(DesktopIpcChannels.settingsGet),
     set: (input: AgentSettingsInput) => ipcRenderer.invoke(DesktopIpcChannels.settingsSet, input),
   },
+  deploy: {
+    listTargets: (projectId: string) =>
+      ipcRenderer.invoke(DesktopIpcChannels.deployTargetsList, projectId),
+    saveTarget: (projectId: string, input: DeployTargetInput) =>
+      ipcRenderer.invoke(DesktopIpcChannels.deployTargetsSave, projectId, input),
+    deleteTarget: (projectId: string, targetId: string) =>
+      ipcRenderer.invoke(DesktopIpcChannels.deployTargetsDelete, projectId, targetId),
+    test: (projectId: string, targetId: string) =>
+      ipcRenderer.invoke(DesktopIpcChannels.deployTest, projectId, targetId),
+    run: (projectId: string, targetId: string, runId: string) =>
+      ipcRenderer.invoke(DesktopIpcChannels.deployRun, projectId, targetId, runId),
+    rollback: (projectId: string, targetId: string, toCommitSha: string, runId: string) =>
+      ipcRenderer.invoke(DesktopIpcChannels.deployRollback, projectId, targetId, toCommitSha, runId),
+    drift: (projectId: string, targetId: string) =>
+      ipcRenderer.invoke(DesktopIpcChannels.deployDrift, projectId, targetId),
+    history: (projectId: string) => ipcRenderer.invoke(DesktopIpcChannels.deployHistory, projectId),
+  },
   events: {
     onAgentEvent: (listener: (message: AgentEventMessage) => void) =>
       subscribe(DesktopIpcEvents.agent, listener),
@@ -90,6 +110,10 @@ const bridge: WabBridge & WabDesktopBridge = {
       subscribe(DesktopIpcEvents.preview, listener),
     onCheckpoints: (listener: (message: CheckpointsMessage) => void) =>
       subscribe(DesktopIpcEvents.checkpoints, listener),
+    onDeployProgress: (listener: (message: DeployProgressMessage) => void) =>
+      subscribe(DesktopIpcEvents.deploy, listener),
+    onDeployTargets: (listener: (message: DeployTargetsMessage) => void) =>
+      subscribe(DesktopIpcEvents.targets, listener),
   },
 };
 

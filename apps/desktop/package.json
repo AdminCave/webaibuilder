@@ -12,8 +12,10 @@
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit"
   },
   "dependencies": {
+    "@napi-rs/keyring": "^1.3.0",
     "@webaibuilder/agents": "workspace:*",
     "@webaibuilder/core": "workspace:*",
+    "@webaibuilder/deploy": "workspace:*",
     "@webaibuilder/preview": "workspace:*",
     "@webaibuilder/versioning": "workspace:*",
     "better-sqlite3": "^12.11.1",

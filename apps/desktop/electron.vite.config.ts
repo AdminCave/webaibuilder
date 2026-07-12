@@ -32,6 +32,7 @@ const WORKSPACE_PACKAGES = [
   '@webaibuilder/agents',
   '@webaibuilder/preview',
   '@webaibuilder/versioning',
+  '@webaibuilder/deploy',
 ];
 
 /** Transitive Laufzeit-Abhängigkeiten der gebundelten Workspace-Pakete. */
@@ -48,6 +49,10 @@ const WORKSPACE_RUNTIME_DEPS = [
   '@ai-sdk/openai',
   '@ai-sdk/xai',
   '@anthropic-ai/claude-agent-sdk',
+  // Deploy-Engine-Transporte (packages/deploy) — nativ/CJS, nicht bundlen.
+  'ssh2-sftp-client',
+  'ssh2',
+  'basic-ftp',
 ];
 
 function cspPlugin(): Plugin {

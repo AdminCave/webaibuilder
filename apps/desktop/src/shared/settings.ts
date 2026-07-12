@@ -5,11 +5,13 @@
  * API-Key + Provider + Modell) und `claude-sdk` (@anthropic-ai/claude-agent-sdk,
  * API-Key + Modell). Die übrigen Backends kommen in M4.
  *
- * Secret-Handling (PLAN §4, Sicherheit): Der API-Key wird bewusst NICHT im
- * Klartext auf die Platte geschrieben (Linux-Plaintext-Falle). In M2 lebt er
- * nur im Speicher des Main-Prozesses für die laufende Sitzung.
- * TODO(M3): Key in den OS-Schlüsselbund verschieben (@napi-rs/keyring), wie es
- *           die Deploy-Credentials tun.
+ * Secret-Handling (PLAN §4, Sicherheit): Der API-Key wird NICHT im Klartext auf
+ * die Platte geschrieben (Linux-Plaintext-Falle). Seit M3 liegt er im
+ * OS-Schlüsselbund (@napi-rs/keyring, siehe main/secrets.ts) — genau wie die
+ * Deploy-Credentials. Fehlt ein Systemschlüsselbund (headless Linux, Sway/
+ * Hyprland ohne Secret Service), fällt der Main-Prozess bewusst auf einen
+ * reinen In-Memory-Speicher für die laufende Sitzung zurück und meldet das über
+ * `keychainAvailable` an die UI (kein stiller Klartext).
  *
  * Umgebungsneutral (kein node/electron/DOM) — von main, preload und renderer
  * gemeinsam genutzt und headless testbar.
@@ -36,12 +38,24 @@ export interface AgentSettingsData {
 }
 
 /**
- * Was der Renderer sieht: die secret-freien Daten plus ein Flag, ob aktuell
- * ein Key im Speicher liegt. Der Key selbst wird nie an den Renderer gegeben.
+ * Was der Renderer sieht: die secret-freien Daten plus zwei abgeleitete Flags.
+ * Der Key selbst wird nie an den Renderer gegeben.
+ *  - `hasApiKey`: liegt für das aktuelle Backend/Provider ein Key vor?
+ *  - `keychainAvailable`: gibt es einen OS-Schlüsselbund? Ist er false, hält der
+ *    Main-Prozess Secrets nur sitzungsweise im Speicher (siehe Warnung unten).
  */
 export interface AgentSettings extends AgentSettingsData {
   hasApiKey: boolean;
+  keychainAvailable: boolean;
 }
+
+/**
+ * Deutsche Warnung für die UI, wenn kein Systemschlüsselbund gefunden wurde
+ * (PLAN §4, Sicherheit). Kein stiller Klartext — der Nutzer erfährt, dass
+ * Zugangsdaten nur diese Sitzung überleben.
+ */
+export const KEYCHAIN_UNAVAILABLE_WARNING =
+  'Kein Systemschlüsselbund gefunden — Zugangsdaten werden nur für diese Sitzung im Speicher gehalten.';
 
 /** Was der Renderer setzen darf. `apiKey`: string setzt, null löscht, undefined lässt unverändert. */
 export interface AgentSettingsInput {
@@ -108,4 +122,14 @@ export function effectiveModel(data: AgentSettingsData): string {
   if (data.model.trim() !== '') return data.model.trim();
   if (data.backendId === 'claude-sdk') return DEFAULT_CLAUDE_MODEL;
   return DEFAULT_BYOK_MODEL[data.provider];
+}
+
+/**
+ * Provider, unter dem der API-Key im Schlüsselbund abgelegt wird. `claude-sdk`
+ * spricht immer Anthropic, nutzt also denselben Anthropic-Key wie `byok` mit
+ * Provider `anthropic` — der Key wird pro Provider (nicht pro Backend)
+ * gespeichert und geteilt. Für `byok` gilt der gewählte Provider.
+ */
+export function effectiveProvider(backendId: ActiveBackendId, provider: ByokProvider): ByokProvider {
+  return backendId === 'claude-sdk' ? 'anthropic' : provider;
 }

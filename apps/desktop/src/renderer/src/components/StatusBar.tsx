@@ -6,6 +6,8 @@ interface StatusBarProps {
   ping: PingResult | null;
   settings: AgentSettings | null;
   costUsd: number | null;
+  /** Deploy-Kurzstatus (aktives Ziel + zuletzt deployte SHA) oder null. */
+  deployStatus: string | null;
 }
 
 const BACKEND_LABEL: Record<ActiveBackendId, string> = {
@@ -13,7 +15,12 @@ const BACKEND_LABEL: Record<ActiveBackendId, string> = {
   'claude-sdk': 'Claude (API)',
 };
 
-export function StatusBar({ ping, settings, costUsd }: StatusBarProps): React.JSX.Element {
+export function StatusBar({
+  ping,
+  settings,
+  costUsd,
+  deployStatus,
+}: StatusBarProps): React.JSX.Element {
   const backendLabel =
     settings === null
       ? '—'
@@ -24,7 +31,7 @@ export function StatusBar({ ping, settings, costUsd }: StatusBarProps): React.JS
     <footer className="statusbar">
       <span className="statusbar__item">Backend: {backendLabel}</span>
       <span className="statusbar__item">Kosten: {costLabel}</span>
-      <span className="statusbar__item">Deploy: — (M3)</span>
+      <span className="statusbar__item">Deploy: {deployStatus ?? '—'}</span>
       <span className="statusbar__spacer" />
       <span className="statusbar__item">
         {ping === null

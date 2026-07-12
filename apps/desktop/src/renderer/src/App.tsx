@@ -23,6 +23,7 @@ export function App(): React.JSX.Element {
   const [settings, setSettings] = useState<AgentSettings | null>(null);
   const [showSettings, setShowSettings] = useState(false);
   const [costUsd, setCostUsd] = useState<number | null>(null);
+  const [deployStatus, setDeployStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (theme === 'light') {
@@ -80,10 +81,11 @@ export function App(): React.JSX.Element {
             theme={theme}
             settings={settings}
             onCostChange={setCostUsd}
+            onDeployStatusChange={setDeployStatus}
           />
         </main>
       )}
-      <StatusBar ping={ping} settings={settings} costUsd={costUsd} />
+      <StatusBar ping={ping} settings={settings} costUsd={costUsd} deployStatus={deployStatus} />
 
       {showSettings && (
         <SettingsDialog

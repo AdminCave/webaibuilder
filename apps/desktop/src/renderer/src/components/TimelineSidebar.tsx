@@ -1,30 +1,57 @@
 import type { Checkpoint } from '@webaibuilder/core';
 
 interface TimelineSidebarProps {
+  /** Bereits mit dem „Deployed"-Flag markierte Checkpoints (siehe Workbench). */
   checkpoints: Checkpoint[];
   /** ID des Checkpoints, der gerade wiederhergestellt wird (oder null). */
   restoringId: string | null;
   onRestore: (checkpointId: string) => void;
+  /** Öffnet die Deploy-Oberfläche (Ziele, Test, Veröffentlichen, Historie). */
+  onOpenDeploy: () => void;
+  /** Remote weicht vom zuletzt deployten Stand ab (Drift, PLAN §4). */
+  driftWarning: boolean;
+  /** „diese Version deployen" (Rollback-Deploy) auf das aktive Ziel. */
+  onDeployVersion: (sha: string) => void;
+  /** true, wenn ein Ziel mit Zugangsdaten aktiv und kein Deploy unterwegs ist. */
+  canDeployVersion: boolean;
+  /** SHA, die gerade per Rollback-Deploy veröffentlicht wird (oder null). */
+  deployingSha: string | null;
 }
 
 /**
  * Timeline: Checkpoint-Liste (mono Kurz-SHA + Nachricht + relative Zeit),
- * Wiederherstellen-Button und Deployed-Badge (PLAN §5). Deploy folgt in M3 —
- * das Badge bleibt bis dahin nur bei bereits deployten SHAs sichtbar.
+ * Wiederherstellen, „Deployed"-Badge und „diese Version deployen" (M3, PLAN §5).
+ * Das Badge sitzt auf dem Checkpoint, dessen SHA dem last_deployed-Stand des
+ * aktiven Ziels entspricht (in Workbench aufgelöst).
  */
 export function TimelineSidebar({
   checkpoints,
   restoringId,
   onRestore,
+  onOpenDeploy,
+  driftWarning,
+  onDeployVersion,
+  canDeployVersion,
+  deployingSha,
 }: TimelineSidebarProps): React.JSX.Element {
-  const busy = restoringId !== null;
+  const busy = restoringId !== null || deployingSha !== null;
 
   return (
     <aside className="timeline" aria-label="Verlauf">
       <header className="panel__header">
         <h1 className="panel__title">Verlauf</h1>
+        <div className="panel__header-actions">
+          <button type="button" className="btn checkpoint__restore" onClick={onOpenDeploy}>
+            Veröffentlichen
+          </button>
+        </div>
       </header>
       <div className="timeline__list">
+        {driftWarning && (
+          <p className="timeline__drift" role="status">
+            Der Server weicht vom zuletzt deployten Stand ab.
+          </p>
+        )}
         {checkpoints.length === 0 ? (
           <div className="timeline__empty">
             <p className="timeline__empty-title">Noch keine Checkpoints</p>
@@ -44,6 +71,20 @@ export function TimelineSidebar({
                 {cp.deployed === true && <span className="badge badge--deployed">Deployed</span>}
               </p>
               <div className="checkpoint__actions">
+                <button
+                  type="button"
+                  className="btn checkpoint__restore"
+                  disabled={busy}
+                  onClick={() => onDeployVersion(cp.id)}
+                  title={
+                    canDeployVersion
+                      ? 'Diese Version auf das aktive Ziel deployen'
+                      : 'Erst ein Deploy-Ziel mit Passwort anlegen'
+                  }
+                  hidden={!canDeployVersion && deployingSha !== cp.id}
+                >
+                  {deployingSha === cp.id ? 'Wird veröffentlicht …' : 'Diese Version deployen'}
+                </button>
                 <button
                   type="button"
                   className="btn checkpoint__restore"

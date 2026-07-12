@@ -8,6 +8,8 @@ import { app, ipcMain } from 'electron';
 import type { IpcArgs, IpcChannel, IpcResult } from '@webaibuilder/core';
 import { IpcChannels } from '@webaibuilder/core';
 
+import { currentSha } from '@webaibuilder/versioning';
+
 import {
   DesktopIpcChannels,
   type DesktopIpcArgs,
@@ -15,8 +17,13 @@ import {
   type DesktopIpcResult,
 } from '../shared/channels';
 import { initAppSession } from './appSession';
-import { defaultRegistryOptions, settingsFilePath } from './paths';
+import { realDeployEngine } from './deployEngine';
+import { DeployHistoryStore } from './deployHistory';
+import { DeployService } from './deployService';
+import { DeployTargetService } from './deployTargets';
+import { defaultRegistryOptions, deployHistoryFilePath, settingsFilePath } from './paths';
 import { initProjectRegistry } from './registry';
+import { getSecretsService } from './secrets';
 import { isTrustedIpcSender } from './security';
 import { AgentSettingsStore } from './settingsStore';
 
@@ -54,8 +61,24 @@ export function registerIpcHandlers(): void {
   // Öffnet die SQLite-DB genau einmal pro App-Lauf (userData ist erst nach
   // app.whenReady() zuverlässig — registerIpcHandlers läuft danach).
   const registry = initProjectRegistry(defaultRegistryOptions());
-  const settings = new AgentSettingsStore(settingsFilePath());
+  // Secrets (API-Keys, später Deploy-Credentials) laufen über den
+  // OS-Schlüsselbund; der Store hält nur die secret-freien Einstellungen.
+  const secrets = getSecretsService();
+  const settings = new AgentSettingsStore(settingsFilePath(), secrets);
   const session = initAppSession(registry, settings);
+
+  // --- M3: Deploy-Ziele, Deploy-Orchestrierung, Historie ---
+  const deployTargets = new DeployTargetService(registry, secrets);
+  const deployHistory = new DeployHistoryStore(deployHistoryFilePath());
+  const deploy = new DeployService({
+    registry,
+    targets: deployTargets,
+    history: deployHistory,
+    engine: realDeployEngine,
+    currentSha,
+    emitProgress: (message) => session.pushDeployProgress(message),
+    emitTargets: (message) => session.pushDeployTargets(message),
+  });
 
   handle(IpcChannels.ping, () => ({
     ok: true,
@@ -87,4 +110,26 @@ export function registerIpcHandlers(): void {
   handleDesktop(DesktopIpcChannels.checkpointsRestore, (id) => session.restore(id));
   handleDesktop(DesktopIpcChannels.settingsGet, () => settings.get());
   handleDesktop(DesktopIpcChannels.settingsSet, (input) => settings.set(input));
+
+  // --- M3: Deploy-Ziel-CRUD + Deploy/Rollback/Test/Drift/Historie ---
+  handleDesktop(DesktopIpcChannels.deployTargetsList, (projectId) => deployTargets.list(projectId));
+  handleDesktop(DesktopIpcChannels.deployTargetsSave, (projectId, input) =>
+    deployTargets.save(projectId, input),
+  );
+  handleDesktop(DesktopIpcChannels.deployTargetsDelete, (projectId, targetId) =>
+    deployTargets.delete(projectId, targetId),
+  );
+  handleDesktop(DesktopIpcChannels.deployTest, (projectId, targetId) =>
+    deploy.testConnection(projectId, targetId),
+  );
+  handleDesktop(DesktopIpcChannels.deployRun, (projectId, targetId, runId) =>
+    deploy.run(projectId, targetId, runId),
+  );
+  handleDesktop(DesktopIpcChannels.deployRollback, (projectId, targetId, toCommitSha, runId) =>
+    deploy.rollback(projectId, targetId, toCommitSha, runId),
+  );
+  handleDesktop(DesktopIpcChannels.deployDrift, (projectId, targetId) =>
+    deploy.drift(projectId, targetId),
+  );
+  handleDesktop(DesktopIpcChannels.deployHistory, (projectId) => deploy.listHistory(projectId));
 }

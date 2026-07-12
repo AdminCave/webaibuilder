@@ -33,3 +33,8 @@ export function defaultRegistryOptions(): ProjectRegistryOptions {
 export function settingsFilePath(): string {
   return join(app.getPath('userData'), 'agent-settings.json');
 }
+
+/** Pfad der Deploy-Historie (append-only JSON-Log, M3). */
+export function deployHistoryFilePath(): string {
+  return join(app.getPath('userData'), 'deploy-history.json');
+}

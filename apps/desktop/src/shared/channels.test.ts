@@ -4,9 +4,12 @@ import {
   DesktopIpcChannels,
   DesktopIpcEvents,
   type ChatSendInput,
+  type DeployProgressMessage,
+  type DesktopIpcEventMap,
   type DesktopIpcInvokeMap,
   type SessionInfo,
 } from './channels';
+import type { DeployRunOutcome, DeployTargetInput } from './deploy';
 
 describe('Desktop-IPC-Kanäle', () => {
   it('sind eindeutig und folgen der Namenskonvention', () => {
@@ -37,5 +40,39 @@ describe('Desktop-IPC-Kanäle', () => {
 
     expect(send.runId).toBe('r1');
     expect(openResult.preview.port).toBe(1);
+  });
+
+  it('typisiert die Deploy-Kanäle (Args/Result + Push-Nutzlast)', () => {
+    // Args des Save-Kanals: [projectId, DeployTargetInput].
+    const saveArgs: DesktopIpcInvokeMap[typeof DesktopIpcChannels.deployTargetsSave]['args'] = [
+      'p1',
+      {
+        name: 'IONOS',
+        protocol: 'sftp',
+        host: 'ssh.example.org',
+        port: 22,
+        username: 'w0',
+        remotePath: '/htdocs',
+        password: 'geheim',
+      } satisfies DeployTargetInput,
+    ];
+
+    // Result des Run-Kanals: DeployRunOutcome (diskriminiert).
+    const outcome: DesktopIpcInvokeMap[typeof DesktopIpcChannels.deployRun]['result'] = {
+      status: 'error',
+      message: 'x',
+    } satisfies DeployRunOutcome;
+
+    // Push-Nutzlast des Deploy-Fortschritts.
+    const progress: DesktopIpcEventMap[typeof DesktopIpcEvents.deploy] = {
+      projectId: 'p1',
+      targetId: 't1',
+      runId: 'r1',
+      event: { type: 'connecting' },
+    } satisfies DeployProgressMessage;
+
+    expect(saveArgs[0]).toBe('p1');
+    expect(outcome.status).toBe('error');
+    expect(progress.event.type).toBe('connecting');
   });
 });
