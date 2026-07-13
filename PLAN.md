@@ -152,7 +152,7 @@ Der Markt-Report sieht die beste Zahlungsbereitschaft bei IT-Dienstleistern, die
 
 ## 10. Offene Punkte
 
-- [ ] Genehmigungsanfrage an Anthropic formulieren (Abo-Modus, „unless previously approved"-Carve-out)
+- [~] Genehmigungsanfrage an Anthropic (Abo-Modus, „unless previously approved"-Carve-out): Entwurf liegt in `docs/anthropic-approval-request.md` — Platzhalter ausfüllen und versenden
 - [ ] Produktname final? (Arbeitstitel: Web AI Builder)
 - [ ] Lizenz/OSS-Frage: offen wie Dyad (Apache + FSL für Pro-Teile) oder closed? — **Owner-Entscheidung, noch offen.** README weist die Lizenz als TBD aus; bewusst noch KEINE `LICENSE`-Datei.
 - [ ] Vor Launch: Vendor-Terms-Recheck (§3)
