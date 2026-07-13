@@ -24,9 +24,10 @@ copyright: © 2026 AdminCave
 directories:
   # Installer/Artefakte landen hier (in .gitignore).
   output: dist
-  # Icons/Installer-Assets (build/icon.png, build/icon.icns, ...). Noch nicht
-  # vorhanden → electron-builder nutzt vorerst das Standard-Electron-Icon
-  # (Warnung, kein Fehler). TODO(user): echte App-Icons ergänzen.
+  # Icons/Installer-Assets. electron-builder findet hier automatisch
+  # build/icon.png (Linux, 1024²), build/icon.ico (Windows, 7 Auflösungen)
+  # und build/icon.icns (macOS, iconutil-Format). Abgeleitet aus dem
+  # AdminCave-Design-System (weiße Marke auf Schwarz), siehe build/README.md.
   buildResources: build
 
 # App-Dateien: nur das gebaute `out/` + die Manifeste. Die Produktions-

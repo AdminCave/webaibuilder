@@ -26,6 +26,9 @@ function createMainWindow(): void {
     autoHideMenuBar: true,
     backgroundColor: '#000000',
     title: 'Web AI Builder',
+    // Fenster-/Taskbar-Icon im Dev-Modus (build/icon.png, AdminCave-Marke).
+    // Im gepackten Build setzt electron-builder das App-Icon selbst.
+    ...(app.isPackaged ? {} : { icon: join(__dirname, '../../build/icon.png') }),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       // Hardening (PLAN §4, Sicherheit) — explizit, auch wo es Default ist.
