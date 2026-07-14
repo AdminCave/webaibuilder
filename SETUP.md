@@ -26,24 +26,38 @@ Installer werden mit **electron-builder** gebaut (Konfiguration: `apps/desktop/e
 
 **Auto-Update** (electron-updater) prüft im gepackten Build beim Start und periodisch gegen GitHub Releases (`AdminCave/webaibuilder`), lädt im Hintergrund und meldet „Update bereit" an die UI (Neustart per Klick, sonst beim Beenden). Im Dev (`!app.isPackaged`) ist der Updater ein No-op.
 
-### natives Modul (better-sqlite3) & Electron-ABI — gelöst
-
-Die Projekt-Registry nutzt `better-sqlite3` (natives Modul, V8-/ABI-abhängig). Nach `pnpm install` ist es für **System-Node** gebaut — so laufen die Vitest-Tests headless (`pnpm -r test`). Electron bringt eine **eigene ABI** mit; das Neubauen dafür passiert jetzt **automatisch beim Packen**: electron-builder rebuildet die App-Deps über `npmRebuild` (electron-builder.yml). Der normale install-/test-Pfad bleibt damit unberührt — **kein Postinstall-Rebuild**, Tests laufen weiter unter node-ABI.
-
-- `@napi-rs/keyring` ist ein Node-API-Modul (ABI-stabil) und lädt in Node **und** Electron ohne Neubau; electron-builder verpackt es mit.
-- **pnpm-Layout:** electron-builder findet im pnpm-Monorepo die (transitiven) Produktions-Deps der gebundelten Workspace-Pakete nur zuverlässig in einem flachen `node_modules`. Deshalb setzt `pnpm-workspace.yaml` `node-linker: hoisted` (documented electron-builder + pnpm-Fix, siehe electron-builder#6389; in pnpm ≥10.6 gehört die Einstellung in `pnpm-workspace.yaml`, nicht in `.npmrc`). Das ist ABI-neutral: `pnpm install` baut weiter für System-Node, `pnpm -r test` bleibt grün.
-
-**Lokale GUI-Entwicklung** (`pnpm dev` braucht ein Display) mit echtem SQLite braucht die Electron-ABI. Zum manuellen Umschalten dienen zwei Helfer in `apps/desktop`:
+### App im Dev-Modus starten (mit Display)
 
 ```bash
-# vor `pnpm dev`: native App-Deps für Electrons ABI bauen
-pnpm --filter @webaibuilder/desktop rebuild:electron   # electron-builder install-app-deps
+pnpm install                                          # nur beim ersten Mal / nach Änderungen
+pnpm --filter @webaibuilder/desktop rebuild:electron  # better-sqlite3 auf Electron-ABI bauen
+pnpm dev                                              # Vite + Electron
 
-# danach zurück auf System-Node, damit `pnpm -r test` wieder grün ist
-pnpm --filter @webaibuilder/desktop rebuild:node        # pnpm rebuild better-sqlite3
+# Wenn du danach wieder Tests fahren willst:
+pnpm --filter @webaibuilder/desktop rebuild:node      # better-sqlite3 zurück auf node-ABI
 ```
 
-Wer parallel testen und die GUI fahren will, trennt beides in separate Checkouts/CI-Jobs — beim Packen ist die Trennung ohnehin automatisch. Sollte nach dem Umschalten je eine ABI-Meldung auftauchen (`NODE_MODULE_VERSION`), setzt ein sauberes `pnpm install` den Zustand vollständig auf System-Node zurück.
+### natives Modul (better-sqlite3) & Electron-ABI
+
+Nur **ein** Modul ist ABI-empfindlich:
+
+- **`better-sqlite3`** (Projekt-Registry) ist NAN-basiert — die kompilierte `.node`-Datei muss zur **ABI der Laufzeit** passen. Node 22 und Electron 43 haben unterschiedliche ABIs (127 vs. 148), dieselbe Binärdatei läuft **nicht** in beiden. Deshalb der Toggle: `rebuild:electron` vor `pnpm dev`/`package`, `rebuild:node` vor `pnpm -r test`. Beide Skripte rufen `scripts/rebuild-native.mjs` auf, das better-sqlite3 gezielt (und nur dieses Modul) mit node-gyp neu baut — plattformübergreifend, ohne den kaputten `install-app-deps`-Pfad (der an der optionalen ssh2-Abhängigkeit `cpu-features` scheitert).
+- **`@napi-rs/keyring`** ist dagegen **N-API** (ABI-stabil) und läuft in Node **und** Electron ohne Neubau.
+
+Nach `pnpm install` ist better-sqlite3 für **System-Node** gebaut, also laufen die Vitest-Tests direkt. Wer die App starten will, schaltet einmal mit `rebuild:electron` um; wer danach testet, mit `rebuild:node` zurück. Kommt je eine `NODE_MODULE_VERSION`-Meldung, sagt sie dir genau, welche ABI erwartet wird — dann das passende `rebuild:*` laufen lassen.
+
+**Packaging:** `pnpm package` baut better-sqlite3 vorab für Electron (`rebuild:electron`) und packt dann mit `npmRebuild: false` — electron-builder baut also **nichts** nativ neu (und stolpert nicht über `cpu-features`), sondern bündelt die bereits passenden Binärdateien. Voraussetzung dafür, dass electron-builder im pnpm-Monorepo alle Produktions-Deps findet, ist `nodeLinker: hoisted` in `pnpm-workspace.yaml` (flaches `node_modules`; documented pnpm-Fix, electron-builder#6389).
+
+### „Error: Electron uninstall" beim ersten `pnpm dev`
+
+electron-vite findet die Electron-Binary nicht — sie wurde beim `pnpm install` nicht heruntergeladen (pnpm überspringt Build-Skripte teils bei bestehendem `node_modules`). Einmal nachholen:
+
+```bash
+node node_modules/electron/install.js      # lädt die Electron-Binary
+# oder:  pnpm rebuild electron
+```
+
+Danach `pnpm dev` erneut. Ein wirklich frischer `pnpm install` (bzw. `--frozen-lockfile` in CI) lädt die Binary selbst, weil `electron` in `allowBuilds` freigegeben ist.
 
 ## Onboarding & Fehlerberichte (M5)
 

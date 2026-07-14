@@ -50,12 +50,15 @@ extraResources:
     filter:
       - '**/*'
 
-# Native Module (better-sqlite3, @napi-rs/keyring) beim Packen für Electrons
-# ABI neu bauen (electron-builders install-app-deps-Verhalten). Passiert NUR
-# hier beim Packen — nie im normalen install/test-Pfad, damit `pnpm -r test`
-# unter System-Node (node-ABI) grün bleibt.
-npmRebuild: true
-# Kein globaler node-gyp-Rebuild aller Module — nur die App-Deps oben.
+# Native Module NICHT von electron-builder neu bauen. Grund: electron-builders
+# install-app-deps würde ALLE nativen Module bauen (auch die optionale
+# ssh2-Abhängigkeit `cpu-features`, die einen node-gyp-Bug hat und den Build
+# abbricht). Stattdessen baut das `package`-Skript vorab NUR better-sqlite3 für
+# Electrons ABI (scripts/rebuild-native.mjs); @napi-rs/keyring ist N-API und
+# braucht keinen Rebuild. electron-builder bündelt die bereits passenden
+# Binärdateien unverändert. (`pnpm -r test` läuft unter node-ABI — vor Tests
+# `pnpm --filter @webaibuilder/desktop rebuild:node`.)
+npmRebuild: false
 nodeGypRebuild: false
 buildDependenciesFromSource: false
 
