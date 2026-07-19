@@ -30,7 +30,7 @@ const { OPEN_MODE: _OPEN_MODE, STATUS_CODE, flagsToString } = utils.sftp;
 void _OPEN_MODE;
 
 export const SFTP_USER = 'deployer';
-export const SFTP_PASS = 'geheim-123';
+export const SFTP_PASS = 'secret-123';
 
 export interface TestSftpServer {
   port: number;

@@ -28,7 +28,7 @@ describe('coerceSettingsRoute', () => {
 
   it('falls back to the default section for unknown input', () => {
     expect(coerceSettingsRoute(null)).toEqual(DEFAULT_SETTINGS_ROUTE);
-    expect(coerceSettingsRoute('quatsch')).toEqual(DEFAULT_SETTINGS_ROUTE);
-    expect(coerceSettingsRoute({ section: 'gibts-nicht' })).toEqual(DEFAULT_SETTINGS_ROUTE);
+    expect(coerceSettingsRoute('nonsense')).toEqual(DEFAULT_SETTINGS_ROUTE);
+    expect(coerceSettingsRoute({ section: 'does-not-exist' })).toEqual(DEFAULT_SETTINGS_ROUTE);
   });
 });

@@ -65,7 +65,7 @@ describe('claude-cli permission back-channel', () => {
   ): Promise<{ events: AgentEvent[]; stdin: string[] }> {
     const { child, spawn } = controllableSpawn();
     const backend = createClaudeCliBackend({ spawn });
-    const iterator = backend.runTurn(request('mach was'))[Symbol.asyncIterator]() as AsyncIterator<
+    const iterator = backend.runTurn(request('do something'))[Symbol.asyncIterator]() as AsyncIterator<
       AgentEvent,
       unknown,
       PermissionDecision | undefined
@@ -114,7 +114,7 @@ describe('claude-cli permission back-channel', () => {
     // Drive the generator via for-await → yield always returns undefined.
     const { child, spawn } = controllableSpawn();
     const backend = createClaudeCliBackend({ spawn });
-    const iterator = backend.runTurn(request('mach was'))[Symbol.asyncIterator]();
+    const iterator = backend.runTurn(request('do something'))[Symbol.asyncIterator]();
     const first = iterator.next();
     child.emitLine(CONTROL_REQUEST);
     await first; // permission-request
@@ -150,7 +150,7 @@ function mockQueryThatAsks(): void {
       yield { type: 'system', subtype: 'init', session_id: 's' };
       const result = await options.canUseTool('Bash', { command: 'ls' });
       lastBehavior = result.behavior;
-      const text = result.behavior === 'allow' ? 'erlaubt' : 'abgelehnt';
+      const text = result.behavior === 'allow' ? 'allowed' : 'denied';
       yield {
         type: 'stream_event',
         event: { type: 'content_block_delta', delta: { type: 'text_delta', text } },
@@ -171,7 +171,7 @@ describe('claude-sdk permission back-channel', () => {
     supply: (event: AgentEvent) => PermissionDecision | undefined,
   ): Promise<AgentEvent[]> {
     const backend = createClaudeSdkBackend({ apiKey: 'k' });
-    const iterator = backend.runTurn(request('mach was'))[Symbol.asyncIterator]() as AsyncIterator<
+    const iterator = backend.runTurn(request('do something'))[Symbol.asyncIterator]() as AsyncIterator<
       AgentEvent,
       unknown,
       PermissionDecision | undefined
@@ -192,7 +192,7 @@ describe('claude-sdk permission back-channel', () => {
       e.type === 'permission-request' ? { requestId: e.requestId, allow: true } : undefined,
     );
     expect(lastBehavior).toBe('allow');
-    expect(events.some((e) => e.type === 'text-delta' && e.text === 'erlaubt')).toBe(true);
+    expect(events.some((e) => e.type === 'text-delta' && e.text === 'allowed')).toBe(true);
     expect(events.some((e) => e.type === 'permission-request' && e.scope === 'shell')).toBe(true);
   });
 
@@ -201,7 +201,7 @@ describe('claude-sdk permission back-channel', () => {
       e.type === 'permission-request' ? { requestId: e.requestId, allow: false } : undefined,
     );
     expect(lastBehavior).toBe('deny');
-    expect(events.some((e) => e.type === 'text-delta' && e.text === 'abgelehnt')).toBe(true);
+    expect(events.some((e) => e.type === 'text-delta' && e.text === 'denied')).toBe(true);
   });
 
   it('without a decision → fail-safe deny', async () => {

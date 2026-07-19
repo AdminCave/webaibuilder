@@ -31,7 +31,7 @@ describe('shouldShowOnboarding', () => {
 describe('coerceOnboardingState', () => {
   it('returns the default for non-objects', () => {
     expect(coerceOnboardingState(undefined)).toEqual(DEFAULT_ONBOARDING_STATE);
-    expect(coerceOnboardingState('kaputt')).toEqual(DEFAULT_ONBOARDING_STATE);
+    expect(coerceOnboardingState('broken')).toEqual(DEFAULT_ONBOARDING_STATE);
     expect(coerceOnboardingState(42)).toEqual(DEFAULT_ONBOARDING_STATE);
   });
 

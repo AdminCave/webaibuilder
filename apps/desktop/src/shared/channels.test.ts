@@ -36,7 +36,7 @@ describe('Desktop IPC channels', () => {
   it('types payloads per channel (compile-time safety)', () => {
     // These assignments check the map at compile time; the runtime assert
     // keeps the test green.
-    const send: ChatSendInput = { prompt: 'Hallo', runId: 'r1' };
+    const send: ChatSendInput = { prompt: 'Hello', runId: 'r1' };
     const openResult: DesktopIpcInvokeMap[typeof DesktopIpcChannels.sessionOpen]['result'] = {
       projectId: 'p1',
       preview: { url: 'http://127.0.0.1:1/?wab=t', port: 1, origin: 'http://127.0.0.1:1' },
@@ -58,7 +58,7 @@ describe('Desktop IPC channels', () => {
         port: 22,
         username: 'w0',
         remotePath: '/htdocs',
-        password: 'geheim',
+        password: 'secret',
       } satisfies DeployTargetInput,
     ];
 

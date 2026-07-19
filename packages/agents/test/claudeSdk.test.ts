@@ -55,7 +55,7 @@ describe('claude-sdk adapter (message mapping, mocked)', () => {
       yield { type: 'system', subtype: 'init', session_id: 'sess-1', uuid: 'u0' };
       yield {
         type: 'stream_event',
-        event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Hallo ' } },
+        event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Hello ' } },
         uuid: 'u1',
       };
       yield {
@@ -79,7 +79,7 @@ describe('claude-sdk adapter (message mapping, mocked)', () => {
     queryMock.mockReturnValue(fakeMessages());
 
     const backend = createClaudeSdkBackend({ apiKey: 'test-key' });
-    const events = await collect(backend.runTurn(request('Bau eine Seite')));
+    const events = await collect(backend.runTurn(request('Build a page')));
 
     // query() was called with cwd = siteDir and acceptEdits.
     expect(queryMock).toHaveBeenCalledTimes(1);
@@ -93,7 +93,7 @@ describe('claude-sdk adapter (message mapping, mocked)', () => {
       .filter((e) => e.type === 'text-delta')
       .map((e) => (e.type === 'text-delta' ? e.text : ''))
       .join('');
-    expect(text).toContain('Hallo');
+    expect(text).toContain('Hello');
 
     const activity = events.filter((e) => e.type === 'tool-activity');
     expect(activity.some((e) => e.type === 'tool-activity' && e.phase === 'start' && e.tool === 'Write file')).toBe(

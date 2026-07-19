@@ -17,7 +17,7 @@ describe('PermissionQueue', () => {
 
   it('reports false for an unknown/late answer', () => {
     const queue = new PermissionQueue();
-    expect(queue.resolve({ requestId: 'unbekannt', allow: false })).toBe(false);
+    expect(queue.resolve({ requestId: 'unknown', allow: false })).toBe(false);
   });
 
   it('denies all open requests with denyAll', async () => {

@@ -30,7 +30,7 @@ describe('scrubSecrets', () => {
     const input = {
       host: 'ssh.example.org',
       username: 'w0',
-      apiKey: 'sk-ant-super-geheim',
+      apiKey: 'sk-ant-super-secret',
       password: 'hunter2',
     };
     const out = scrubSecrets(input) as Record<string, unknown>;
@@ -40,19 +40,19 @@ describe('scrubSecrets', () => {
     expect(out['password']).toBe(REDACTED);
     // The plaintext appears nowhere in the serialized result.
     const serialized = JSON.stringify(out);
-    expect(serialized).not.toContain('sk-ant-super-geheim');
+    expect(serialized).not.toContain('sk-ant-super-secret');
     expect(serialized).not.toContain('hunter2');
   });
 
   it('scrubs nested objects and arrays', () => {
     const input = {
       targets: [
-        { name: 'IONOS', password: 'geheim1' },
+        { name: 'IONOS', password: 'secret1' },
         { name: 'Strato', credentials: { token: 'tok-123' } },
       ],
     };
     const serialized = JSON.stringify(scrubSecrets(input));
-    expect(serialized).not.toContain('geheim1');
+    expect(serialized).not.toContain('secret1');
     expect(serialized).not.toContain('tok-123');
     expect(serialized).toContain('IONOS');
     expect(serialized).toContain('Strato');
@@ -68,9 +68,9 @@ describe('scrubSecrets', () => {
   });
 
   it('serializes Error objects to name/message/stack', () => {
-    const out = scrubSecrets(new Error('kaputt')) as Record<string, unknown>;
+    const out = scrubSecrets(new Error('broken')) as Record<string, unknown>;
     expect(out['name']).toBe('Error');
-    expect(out['message']).toBe('kaputt');
+    expect(out['message']).toBe('broken');
     expect(out).toHaveProperty('stack');
   });
 
@@ -84,7 +84,7 @@ describe('scrubSecrets', () => {
 describe('scrubContext', () => {
   it('always returns an object (primitives are wrapped)', () => {
     expect(scrubContext({ a: 1 })).toEqual({ a: 1 });
-    expect(scrubContext('nur-text')).toEqual({ value: 'nur-text' });
+    expect(scrubContext('plain-text')).toEqual({ value: 'plain-text' });
     expect(scrubContext([1, 2])).toEqual({ value: [1, 2] });
   });
 });
@@ -95,7 +95,7 @@ describe('formatLogLine', () => {
       time: '2026-07-13T00:00:00.000Z',
       level: 'error',
       source: 'main',
-      message: 'etwas ging schief',
+      message: 'something went wrong',
     };
     const line = formatLogLine(entry);
     expect(line.endsWith('\n')).toBe(true);

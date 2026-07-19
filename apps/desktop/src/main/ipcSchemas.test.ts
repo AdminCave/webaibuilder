@@ -14,16 +14,16 @@ import { validateIpcArgs } from './ipcSchemas';
 describe('validateIpcArgs — channels without a schema', () => {
   it('passes argument-less/unknown channels through unvalidated', () => {
     expect(validateIpcArgs(DesktopIpcChannels.chatInterrupt, [])).toBeNull();
-    expect(validateIpcArgs('wab:v1:gibts-nicht', ['egal'])).toBeNull();
+    expect(validateIpcArgs('wab:v1:does-not-exist', ['whatever'])).toBeNull();
   });
 });
 
 describe('validateIpcArgs — chat & settings', () => {
   it('chatSend: valid / empty prompt / wrong shape', () => {
     const ch = DesktopIpcChannels.chatSend;
-    expect(validateIpcArgs(ch, [{ prompt: 'Bau eine Seite', runId: 'r1' }])).toBeNull();
+    expect(validateIpcArgs(ch, [{ prompt: 'Build a page', runId: 'r1' }])).toBeNull();
     expect(validateIpcArgs(ch, [{ prompt: '', runId: 'r1' }])).not.toBeNull();
-    expect(validateIpcArgs(ch, ['nur ein String'])).not.toBeNull();
+    expect(validateIpcArgs(ch, ['just a string'])).not.toBeNull();
     expect(validateIpcArgs(ch, [{ prompt: 'x', runId: 'r1', extra: true }])).not.toBeNull();
   });
 
@@ -33,7 +33,7 @@ describe('validateIpcArgs — chat & settings', () => {
     expect(validateIpcArgs(ch, [{ backendId: 'claude-cli' }])).toBeNull();
     expect(validateIpcArgs(ch, [{ apiKey: null }])).toBeNull();
     expect(validateIpcArgs(ch, [{ apiKey: 'sk-x', provider: 'openai', model: 'gpt-x' }])).toBeNull();
-    expect(validateIpcArgs(ch, [{ backendId: 'gibts-nicht' }])).not.toBeNull();
+    expect(validateIpcArgs(ch, [{ backendId: 'does-not-exist' }])).not.toBeNull();
     expect(validateIpcArgs(ch, [{ tokenUrl: 'https://evil' }])).not.toBeNull();
   });
 
@@ -56,7 +56,7 @@ describe('validateIpcArgs — Deploy', () => {
       port: 22,
       username: 'kevin',
       remotePath: '/htdocs',
-      password: 'geheim',
+      password: 'secret',
     };
     expect(validateIpcArgs(ch, ['proj1', target])).toBeNull();
     expect(validateIpcArgs(ch, ['proj1', { ...target, port: 0 }])).not.toBeNull();
@@ -77,7 +77,7 @@ describe('validateIpcArgs — backends, logs, projects', () => {
   it('backendsOpenHint: URLs only', () => {
     const ch = DesktopIpcChannels.backendsOpenHint;
     expect(validateIpcArgs(ch, ['https://docs.claude.com/x'])).toBeNull();
-    expect(validateIpcArgs(ch, ['kein-url'])).not.toBeNull();
+    expect(validateIpcArgs(ch, ['not-a-url'])).not.toBeNull();
   });
 
   it('logsTail: 1–5000', () => {
@@ -90,19 +90,19 @@ describe('validateIpcArgs — backends, logs, projects', () => {
 
   it('logsReport: known report shapes only', () => {
     const ch = DesktopIpcChannels.logsReport;
-    expect(validateIpcArgs(ch, [{ kind: 'error', message: 'kaputt' }])).toBeNull();
+    expect(validateIpcArgs(ch, [{ kind: 'error', message: 'broken' }])).toBeNull();
     expect(
       validateIpcArgs(ch, [{ kind: 'error', message: 'x', stack: 's', line: 1, column: 2 }]),
     ).toBeNull();
-    expect(validateIpcArgs(ch, [{ kind: 'panik', message: 'x' }])).not.toBeNull();
+    expect(validateIpcArgs(ch, [{ kind: 'panic', message: 'x' }])).not.toBeNull();
   });
 
   it('projectsCreate/Update: name + template resp. strict partial update', () => {
     expect(
-      validateIpcArgs(IpcChannels.projectsCreate, [{ name: 'Vereinsseite', templateId: 'basic' }]),
+      validateIpcArgs(IpcChannels.projectsCreate, [{ name: 'Club website', templateId: 'basic' }]),
     ).toBeNull();
     expect(validateIpcArgs(IpcChannels.projectsCreate, [{ name: '' }])).not.toBeNull();
-    expect(validateIpcArgs(IpcChannels.projectsUpdate, ['id1', { name: 'Neu' }])).toBeNull();
+    expect(validateIpcArgs(IpcChannels.projectsUpdate, ['id1', { name: 'New' }])).toBeNull();
     expect(validateIpcArgs(IpcChannels.projectsUpdate, ['id1', { hack: true }])).not.toBeNull();
   });
 });

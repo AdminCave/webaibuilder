@@ -66,7 +66,7 @@ describe('OnboardingStore', () => {
 
   it('falls back to the default on a corrupt file (shows the onboarding)', () => {
     // Deliberately write invalid JSON to disk.
-    writeFileSync(filePath, '{ das ist kein json');
+    writeFileSync(filePath, '{ this is not json');
     const store = new OnboardingStore(filePath);
     expect(store.get().hasOnboarded).toBe(false);
     expect(shouldShowOnboarding(store.get())).toBe(true);

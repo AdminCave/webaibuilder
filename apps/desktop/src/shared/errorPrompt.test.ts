@@ -32,8 +32,8 @@ describe('buildErrorFixPrompt', () => {
   });
 
   it('omits optional fields when they are missing', () => {
-    const prompt = buildErrorFixPrompt({ message: 'Nur eine Meldung' });
-    expect(prompt).toContain('Nur eine Meldung');
+    const prompt = buildErrorFixPrompt({ message: 'Just a message' });
+    expect(prompt).toContain('Just a message');
     expect(prompt).not.toContain('Source:');
     expect(prompt).not.toContain('Stack:');
   });

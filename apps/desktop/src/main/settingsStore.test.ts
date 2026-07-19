@@ -57,7 +57,7 @@ describe('AgentSettingsStore — persistence without a secret', () => {
     const secrets = new SecretsService({ forceFallback: true });
     const store = new AgentSettingsStore(filePath, secrets);
 
-    store.set({ backendId: 'byok', provider: 'openai', model: 'gpt-x', apiKey: 'sk-geheim-123' });
+    store.set({ backendId: 'byok', provider: 'openai', model: 'gpt-x', apiKey: 'sk-secret-123' });
 
     const raw = readFileSync(filePath, 'utf8');
     const parsed = JSON.parse(raw) as Record<string, unknown>;
@@ -65,7 +65,7 @@ describe('AgentSettingsStore — persistence without a secret', () => {
     expect(parsed).not.toHaveProperty('apiKey');
     expect(parsed).not.toHaveProperty('hasApiKey');
     // The key plaintext appears nowhere in the file.
-    expect(raw).not.toContain('sk-geheim-123');
+    expect(raw).not.toContain('sk-secret-123');
   });
 });
 
@@ -242,12 +242,12 @@ describe('applySettingsUpdate — authoritative activation check', () => {
   it('rejects a kill-switch-disabled subscription backend with the reason', async () => {
     const store = new AgentSettingsStore(filePath, new SecretsService({ forceFallback: true }));
     const remote = coerceKillSwitchConfig({
-      backends: { 'grok-cli': { enabled: false, reason: 'xAI-Pfad pausiert.' } },
+      backends: { 'grok-cli': { enabled: false, reason: 'xAI path paused.' } },
     });
     const src = readiness([raw('grok-cli', { installed: true, loggedIn: true })], [], resolveKillSwitch(remote));
 
     await expect(applySettingsUpdate(store, src, { backendId: 'grok-cli' })).rejects.toThrow(
-      'xAI-Pfad pausiert.',
+      'xAI path paused.',
     );
     expect(store.currentBackendId()).toBe('byok');
   });

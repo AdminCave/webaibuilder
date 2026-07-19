@@ -49,7 +49,7 @@ const throwingFactory: KeyringEntryFactory = (): KeyringEntry => ({
 describe('secretAccount — key naming scheme', () => {
   it('encodes kind and id as `<kind>:<id>`', () => {
     expect(secretAccount('apikey', 'anthropic')).toBe('apikey:anthropic');
-    expect(secretAccount('deploy', 'ziel-ionos')).toBe('deploy:ziel-ionos');
+    expect(secretAccount('deploy', 'target-ionos')).toBe('deploy:target-ionos');
   });
 });
 
@@ -64,8 +64,8 @@ describe('SecretsService — in-memory fallback (forced)', () => {
   it('set → get → delete roundtrip (generic)', () => {
     const svc = new SecretsService({ forceFallback: true });
     expect(svc.getSecret('deploy', 'z1')).toBeNull();
-    svc.setSecret('deploy', 'z1', 'geheim');
-    expect(svc.getSecret('deploy', 'z1')).toBe('geheim');
+    svc.setSecret('deploy', 'z1', 'secret');
+    expect(svc.getSecret('deploy', 'z1')).toBe('secret');
     expect(svc.hasSecret('deploy', 'z1')).toBe(true);
     expect(svc.deleteSecret('deploy', 'z1')).toBe(true);
     expect(svc.getSecret('deploy', 'z1')).toBeNull();

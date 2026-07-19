@@ -36,7 +36,7 @@ function validInput(overrides: Partial<DeployTargetInput> = {}): DeployTargetInp
 
 function view(overrides: Partial<DeployTargetView> & { id: string }): DeployTargetView {
   return {
-    name: 'Ziel',
+    name: 'Target',
     protocol: 'sftp',
     host: 'h',
     port: 22,
@@ -100,7 +100,7 @@ describe('resolveDeployedSha', () => {
   it('returns null without an active target or without a deployed SHA', () => {
     expect(resolveDeployedSha(targets, null)).toBeNull();
     expect(resolveDeployedSha(targets, 'c')).toBeNull();
-    expect(resolveDeployedSha(targets, 'unbekannt')).toBeNull();
+    expect(resolveDeployedSha(targets, 'unknown')).toBeNull();
   });
 });
 
@@ -117,7 +117,7 @@ describe('Badge resolution (deployedCheckpointId / markDeployedCheckpoints)', ()
   });
 
   it('badges none when the SHA is not in the list or empty', () => {
-    expect(deployedCheckpointId(checkpoints, 'fehlt')).toBeNull();
+    expect(deployedCheckpointId(checkpoints, 'missing')).toBeNull();
     expect(markDeployedCheckpoints(checkpoints, null).every((c) => c.deployed === false)).toBe(true);
     expect(markDeployedCheckpoints(checkpoints, '').every((c) => c.deployed === false)).toBe(true);
   });
@@ -156,7 +156,7 @@ describe('deployProgressReducer', () => {
       { type: 'ensuring-dirs', total: 2 },
       { type: 'uploading', path: 'index.html', index: 1, total: 3 },
       { type: 'uploading', path: 'styles.css', index: 2, total: 3 },
-      { type: 'deleting', path: 'alt.html', index: 1, total: 1 },
+      { type: 'deleting', path: 'old.html', index: 1, total: 1 },
       { type: 'manifest-written', commit: 'abc1234' },
       {
         type: 'done',
@@ -182,17 +182,17 @@ describe('deployProgressReducer', () => {
   it('holds the current file path during upload', () => {
     const state = run([
       { type: 'connecting' },
-      { type: 'uploading', path: 'bild.png', index: 1, total: 2 },
+      { type: 'uploading', path: 'image.png', index: 1, total: 2 },
     ]);
     expect(state.phase).toBe('uploading');
-    expect(state.currentFile).toBe('bild.png');
+    expect(state.currentFile).toBe('image.png');
     expect(state.uploadTotal).toBe(2);
   });
 
   it('sets the error phase along with the message', () => {
-    const state = run([{ type: 'connecting' }, { type: 'error', message: 'Verbindung weg.' }]);
+    const state = run([{ type: 'connecting' }, { type: 'error', message: 'Connection lost.' }]);
     expect(state.phase).toBe('error');
-    expect(state.message).toBe('Verbindung weg.');
+    expect(state.message).toBe('Connection lost.');
   });
 
   it('connecting starts a fresh run', () => {

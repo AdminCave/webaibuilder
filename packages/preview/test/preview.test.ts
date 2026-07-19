@@ -15,9 +15,9 @@ import {
 } from '../src/index';
 
 const INDEX_HTML = `<!doctype html>
-<html lang="de">
+<html lang="en">
 <head><meta charset="utf-8"><title>Test</title><link rel="stylesheet" href="style.css"></head>
-<body><h1>Hallo</h1></body>
+<body><h1>Hello</h1></body>
 </html>`;
 
 const STYLE_CSS = 'h1 { color: rebeccapurple; }';
@@ -70,7 +70,7 @@ describe('startPreviewServer', () => {
     const noToken = await fetch(`http://127.0.0.1:${handle.port}/`);
     expect(noToken.status).toBe(403);
 
-    const wrongToken = await fetch(`http://127.0.0.1:${handle.port}/?wab=falsches-token`);
+    const wrongToken = await fetch(`http://127.0.0.1:${handle.port}/?wab=wrong-token`);
     expect(wrongToken.status).toBe(403);
   });
 
@@ -95,7 +95,7 @@ describe('startPreviewServer', () => {
   });
 
   it('serves a 404 page for missing files', async () => {
-    const response = await fetch(`http://127.0.0.1:${handle.port}/gibts-nicht.html?wab=${handle.token}`);
+    const response = await fetch(`http://127.0.0.1:${handle.port}/does-not-exist.html?wab=${handle.token}`);
     expect(response.status).toBe(404);
     const html = await response.text();
     expect(html).toContain('404');
@@ -105,12 +105,12 @@ describe('startPreviewServer', () => {
 
   it('emits a reload PreviewEvent when a file is written', async () => {
     const eventPromise = waitForEvent(handle, (event) => event.type === 'reload');
-    await writeFile(join(siteDir, 'neu.html'), '<html><body>Neu</body></html>', 'utf8');
+    await writeFile(join(siteDir, 'new.html'), '<html><body>New</body></html>', 'utf8');
 
     const event = await eventPromise;
     expect(event.type).toBe('reload');
     if (event.type === 'reload') {
-      expect(event.changedPaths).toContain('neu.html');
+      expect(event.changedPaths).toContain('new.html');
     }
   });
 
@@ -157,7 +157,7 @@ describe('startPreviewServer', () => {
 
       // HTML change → full-reload push.
       const reloadMsg = nextMessage((msg) => msg['kind'] === 'reload');
-      await writeFile(join(siteDir, 'index.html'), INDEX_HTML.replace('Hallo', 'Moin'), 'utf8');
+      await writeFile(join(siteDir, 'index.html'), INDEX_HTML.replace('Hello', 'Hi'), 'utf8');
       expect((await reloadMsg)['kind']).toBe('reload');
 
       // CSS-only change → css-update instead of full reload.
@@ -168,16 +168,16 @@ describe('startPreviewServer', () => {
 
       // Shim messages over the WS → PreviewEvent page-console / page-error.
       const consoleEvent = waitForEvent(handle, (event) => event.type === 'page-console');
-      ws.send(JSON.stringify({ kind: 'console', level: 'warn', text: 'Hallo Konsole' }));
+      ws.send(JSON.stringify({ kind: 'console', level: 'warn', text: 'Hello console' }));
       const emitted = await consoleEvent;
-      expect(emitted).toEqual({ type: 'page-console', level: 'warn', text: 'Hallo Konsole' });
+      expect(emitted).toEqual({ type: 'page-console', level: 'warn', text: 'Hello console' });
 
       const errorEvent = waitForEvent(handle, (event) => event.type === 'page-error');
-      ws.send(JSON.stringify({ kind: 'error', message: 'Kaputt', stack: 'main.js:1:1', source: 'main.js:1:1' }));
+      ws.send(JSON.stringify({ kind: 'error', message: 'Broken', stack: 'main.js:1:1', source: 'main.js:1:1' }));
       const emittedError = await errorEvent;
       expect(emittedError).toEqual({
         type: 'page-error',
-        message: 'Kaputt',
+        message: 'Broken',
         stack: 'main.js:1:1',
         source: 'main.js:1:1',
       });

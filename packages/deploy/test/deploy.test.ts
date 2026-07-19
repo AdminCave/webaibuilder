@@ -38,11 +38,11 @@ import { FTP_PASS, FTP_USER, startFtpServer, type TestFtpServer } from './ftpSer
 const REMOTE_ROOT = '/htdocs';
 
 // File contents across the versions (fixed bytes → deterministic diff).
-const INDEX_V1 = '<!doctype html><h1>Startseite v1</h1>\n';
-const INDEX_V2 = '<!doctype html><h1>Startseite v2 (geaendert)</h1>\n';
-const ABOUT = '<!doctype html><p>Ueber uns</p>\n';
+const INDEX_V1 = '<!doctype html><h1>Homepage v1</h1>\n';
+const INDEX_V2 = '<!doctype html><h1>Homepage v2 (changed)</h1>\n';
+const ABOUT = '<!doctype html><p>About us</p>\n';
 const APP_JS = 'console.log("app v1");\n';
-const CONTACT = '<!doctype html><p>Kontakt</p>\n';
+const CONTACT = '<!doctype html><p>Contact</p>\n';
 
 const GIT_AUTHOR = { name: 'Test', email: 'test@example.invalid' } as const;
 
@@ -173,7 +173,7 @@ describe.each(CASES)('Transport: $label', (testCase) => {
     await writeSite(workspaceDir, 'index.html', INDEX_V1);
     await writeSite(workspaceDir, 'about.html', ABOUT);
     await writeSite(workspaceDir, 'assets/app.js', APP_JS);
-    sha1 = await commitAll(workspaceDir, 'Erststand');
+    sha1 = await commitAll(workspaceDir, 'Initial state');
 
     target = {
       id: 't1',
@@ -236,7 +236,7 @@ describe.each(CASES)('Transport: $label', (testCase) => {
 
   it('(b) change one file → only that one is re-uploaded, manifest SHA updated', async () => {
     await writeSite(workspaceDir, 'index.html', INDEX_V2);
-    sha2 = await commitAll(workspaceDir, 'Startseite geaendert');
+    sha2 = await commitAll(workspaceDir, 'Homepage changed');
     expect(sha2).not.toBe(sha1);
 
     server.resetWrites();
@@ -260,7 +260,7 @@ describe.each(CASES)('Transport: $label', (testCase) => {
 
   it('(c) delete one file → removed remotely, manifest no longer lists it', async () => {
     await rm(join(siteDir, 'about.html'));
-    sha3 = await commitAll(workspaceDir, 'Ueber-Seite entfernt');
+    sha3 = await commitAll(workspaceDir, 'About page removed');
 
     server.resetWrites();
     const result = await deploy(target, creds, { siteDir, commitSha: sha3 });
@@ -283,7 +283,7 @@ describe.each(CASES)('Transport: $label', (testCase) => {
 
   it('intermediate step: deploy a file added later (rollback preparation)', async () => {
     await writeSite(workspaceDir, 'contact.html', CONTACT);
-    sha4 = await commitAll(workspaceDir, 'Kontaktseite hinzugefuegt');
+    sha4 = await commitAll(workspaceDir, 'Contact page added');
 
     server.resetWrites();
     const result = await deploy(target, creds, { siteDir, commitSha: sha4 });
@@ -332,12 +332,12 @@ describe.each(CASES)('Transport: $label', (testCase) => {
     expect(ok.remoteSha).toBe(sha1); // state after rollback
     expect(ok.messages.join(' ')).toMatch(/authentication|reachable/);
 
-    const badLogin = await preflight(target, { password: 'falsch' });
+    const badLogin = await preflight(target, { password: 'wrong' });
     expect(badLogin.ok).toBe(false);
     expect(badLogin.failures.length).toBeGreaterThan(0);
     expect(badLogin.failures.join(' ')).toMatch(/Authentication|Connection/);
 
-    const badPath = await preflight({ ...target, remotePath: '/gibt-es-nicht' }, creds);
+    const badPath = await preflight({ ...target, remotePath: '/does-not-exist' }, creds);
     expect(badPath.ok).toBe(false);
     expect(badPath.failures.length).toBeGreaterThan(0);
   });

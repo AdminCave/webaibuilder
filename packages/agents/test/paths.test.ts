@@ -48,7 +48,7 @@ describe('resolveInSite (containment)', () => {
     // A symlink inside site/ that points to the parent directory.
     const outsideTarget = join(workspaceDir, 'secret');
     await mkdir(outsideTarget, { recursive: true });
-    await writeFile(join(outsideTarget, 'leak.txt'), 'geheim', 'utf8');
+    await writeFile(join(outsideTarget, 'leak.txt'), 'secret', 'utf8');
     await symlink(outsideTarget, join(siteDir, 'link'), 'dir');
 
     await expect(resolveInSite(siteDir, 'link/leak.txt')).rejects.toBeInstanceOf(PathEscapeError);

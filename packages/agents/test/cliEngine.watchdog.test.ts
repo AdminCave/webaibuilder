@@ -17,7 +17,7 @@ const spec: CliSpec = {
   id: 'codex',
   binary: 'fake-cli',
   capabilities: () => ({ resume: false, partialText: true, cost: false }),
-  notFound: () => ({ type: 'error', message: 'nicht installiert', recoverable: false }),
+  notFound: () => ({ type: 'error', message: 'not installed', recoverable: false }),
   buildInvocation: () => ({ args: [], keepStdinOpen: true }),
   mapLine: (json, state) => {
     if (json['kind'] === 'text') {
@@ -25,7 +25,7 @@ const spec: CliSpec = {
     }
     if (json['kind'] === 'perm') {
       return [
-        { type: 'permission-request', requestId: 'r1', scope: 'shell', description: 'Darf ich?' },
+        { type: 'permission-request', requestId: 'r1', scope: 'shell', description: 'May I?' },
       ];
     }
     if (json['kind'] === 'done') {
@@ -40,7 +40,7 @@ function request(): AgentTurnRequest {
   return {
     workspaceDir: '/tmp/wab-fake',
     siteDir: '/tmp/wab-fake/site',
-    prompt: 'Bau eine Seite',
+    prompt: 'Build a page',
     policy: DEFAULT_PERMISSION_POLICY,
   };
 }

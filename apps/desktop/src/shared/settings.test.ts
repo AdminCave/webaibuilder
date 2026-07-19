@@ -19,15 +19,15 @@ describe('mergeAgentSettings', () => {
 
   it('falls back to the existing values for invalid values', () => {
     const next = mergeAgentSettings(DEFAULT_AGENT_SETTINGS, {
-      backendId: 'gibts-nicht' as never,
-      provider: 'quatsch' as never,
+      backendId: 'does-not-exist' as never,
+      provider: 'nonsense' as never,
     });
     expect(next.backendId).toBe(DEFAULT_AGENT_SETTINGS.backendId);
     expect(next.provider).toBe(DEFAULT_AGENT_SETTINGS.provider);
   });
 
   it('ignores apiKey (not a secret-free field)', () => {
-    const next = mergeAgentSettings(DEFAULT_AGENT_SETTINGS, { apiKey: 'geheim' });
+    const next = mergeAgentSettings(DEFAULT_AGENT_SETTINGS, { apiKey: 'secret' });
     expect(next).not.toHaveProperty('apiKey');
   });
 
@@ -41,7 +41,7 @@ describe('mergeAgentSettings', () => {
 describe('coerceAgentSettings', () => {
   it('returns defaults for non-objects', () => {
     expect(coerceAgentSettings(undefined)).toEqual(DEFAULT_AGENT_SETTINGS);
-    expect(coerceAgentSettings('kaputt')).toEqual(DEFAULT_AGENT_SETTINGS);
+    expect(coerceAgentSettings('broken')).toEqual(DEFAULT_AGENT_SETTINGS);
   });
 
   it('reads known fields', () => {
@@ -82,7 +82,7 @@ describe('effectiveModel', () => {
 
   it('always returns an empty model for subscription/CLI backends (the CLI decides it)', () => {
     // A set override is also ignored — CLI backends have no model concept.
-    expect(effectiveModel({ backendId: 'claude-cli', provider: 'anthropic', model: 'egal' })).toBe('');
+    expect(effectiveModel({ backendId: 'claude-cli', provider: 'anthropic', model: 'whatever' })).toBe('');
     expect(effectiveModel({ backendId: 'codex', provider: 'openai', model: '' })).toBe('');
   });
 });

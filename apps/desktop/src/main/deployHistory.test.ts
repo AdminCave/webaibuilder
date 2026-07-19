@@ -83,7 +83,7 @@ describe('append / list', () => {
 describe('persistence', () => {
   it('survives reopening (same file)', () => {
     const first = storeWith(['2026-07-12T10:00:00.000Z']);
-    first.append(record({ sha: 'persist', ok: false, error: 'kaputt' }));
+    first.append(record({ sha: 'persist', ok: false, error: 'broken' }));
 
     const second = new DeployHistoryStore(filePath);
     const list = second.list('p1');
@@ -91,11 +91,11 @@ describe('persistence', () => {
     const only = list[0] as DeployHistoryRecord;
     expect(only.sha).toBe('persist');
     expect(only.ok).toBe(false);
-    expect(only.error).toBe('kaputt');
+    expect(only.error).toBe('broken');
   });
 
   it('starts empty when the file is missing', () => {
-    const store = new DeployHistoryStore(join(tmp, 'gibts-nicht.json'));
+    const store = new DeployHistoryStore(join(tmp, 'does-not-exist.json'));
     expect(store.list()).toEqual([]);
   });
 });

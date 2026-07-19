@@ -10,7 +10,7 @@ import net from 'node:net';
 import { FileSystem, FtpSrv } from 'ftp-srv';
 
 export const FTP_USER = 'deployer';
-export const FTP_PASS = 'geheim-123';
+export const FTP_PASS = 'secret-123';
 
 export interface TestFtpServer {
   port: number;
@@ -59,7 +59,7 @@ export async function startFtpServer(rootDir: string): Promise<TestFtpServer> {
 
   server.on('login', (data, resolveLogin, rejectLogin) => {
     if (data.username !== FTP_USER || data.password !== FTP_PASS) {
-      rejectLogin(new Error('Falsche Zugangsdaten'));
+      rejectLogin(new Error('Wrong credentials'));
       return;
     }
     // Recording file system: every upload (STOR) lands in `writes`.
