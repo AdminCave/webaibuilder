@@ -61,10 +61,10 @@ function formFromTarget(target: DeployTargetView): FormState {
 }
 
 /**
- * Deploy-Oberfläche (M3, PLAN §4/§5): Ziel-Liste + Formular (Passwort →
- * Schlüsselbund), Verbindungstest, Veröffentlichen mit Live-Fortschritt und
- * Deploy-Historie. AdminCave-DS: dunkel, Hairlines, Mono für Host/SHA/Zähler,
- * eine betonte Aktion („Veröffentlichen"). Deutsch, Du-Form, keine Emojis.
+ * Deploy UI (M3, PLAN §4/§5): target list + form (password → keychain),
+ * connection test, publishing with live progress and deploy history.
+ * AdminCave DS: dark, hairlines, mono for host/SHA/counters, one emphasized
+ * action ("Publish"). No emojis.
  */
 export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialogProps): React.JSX.Element {
   const [form, setForm] = useState<FormState | null>(null);
@@ -90,7 +90,7 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
   function changeProtocol(protocol: DeployProtocol): void {
     setForm((current) => {
       if (current === null) return current;
-      // Port nur mitziehen, wenn er noch dem Default des alten Protokolls entspricht.
+      // Only carry the port over if it still matches the old protocol's default.
       const wasDefault = current.port === String(defaultDeployPort(current.protocol));
       return {
         ...current,
@@ -116,11 +116,11 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
   const busy = deploy.deploying;
 
   return (
-    <div className="modal" role="dialog" aria-modal="true" aria-label="Veröffentlichen">
+    <div className="modal" role="dialog" aria-modal="true" aria-label="Publish">
       <div className="modal__backdrop" onClick={onClose} />
       <div className="modal__panel modal__panel--wide">
         <header className="modal__header">
-          <h2 className="modal__title">Veröffentlichen</h2>
+          <h2 className="modal__title">Publish</h2>
         </header>
 
         <div className="modal__body deploy">
@@ -130,21 +130,20 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
             </p>
           )}
 
-          {/* -------- Ziel-Liste -------- */}
+          {/* -------- Target list -------- */}
           <section className="deploy__section">
             <div className="deploy__section-head">
-              <h3 className="deploy__section-title">Deploy-Ziele</h3>
+              <h3 className="deploy__section-title">Deploy targets</h3>
               <button type="button" className="btn deploy__mini" onClick={openNew} disabled={busy}>
-                Neues Ziel
+                New target
               </button>
             </div>
 
             {deploy.loading ? (
-              <p className="deploy__hint">Lade Ziele …</p>
+              <p className="deploy__hint">Loading targets …</p>
             ) : deploy.targets.length === 0 ? (
               <p className="deploy__hint">
-                Noch kein Ziel angelegt. Trag deinen Webspace ein (SFTP oder FTP/FTPS), um zu
-                veröffentlichen.
+                No target yet. Add your web space (SFTP or FTP/FTPS) to publish.
               </p>
             ) : (
               <ul className="deploy__targets">
@@ -169,10 +168,10 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
                       </span>
                       <span className="deploy__target-meta">
                         {target.remotePath}
-                        {target.hasCredentials ? '' : ' · kein Passwort hinterlegt'}
+                        {target.hasCredentials ? '' : ' · no password stored'}
                         {target.lastDeployedCommit !== undefined
-                          ? ` · zuletzt ${target.lastDeployedCommit.slice(0, 7)}`
-                          : ' · nie deployt'}
+                          ? ` · last ${target.lastDeployedCommit.slice(0, 7)}`
+                          : ' · never deployed'}
                       </span>
                     </button>
                     <div className="deploy__target-actions">
@@ -182,7 +181,7 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
                         onClick={() => openEdit(target)}
                         disabled={busy}
                       >
-                        Bearbeiten
+                        Edit
                       </button>
                       <button
                         type="button"
@@ -190,7 +189,7 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
                         onClick={() => void removeTarget(target)}
                         disabled={busy}
                       >
-                        Entfernen
+                        Remove
                       </button>
                     </div>
                   </li>
@@ -205,7 +204,7 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
             )}
           </section>
 
-          {/* -------- Formular (anlegen/bearbeiten) -------- */}
+          {/* -------- Form (create/edit) -------- */}
           {form !== null && (
             <form
               className="deploy__form"
@@ -215,7 +214,7 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
               }}
             >
               <h3 className="deploy__section-title">
-                {form.id !== undefined ? 'Ziel bearbeiten' : 'Neues Ziel'}
+                {form.id !== undefined ? 'Edit target' : 'New target'}
               </h3>
 
               <label className="field">
@@ -224,14 +223,14 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
                   className="field__input"
                   type="text"
                   value={form.name}
-                  placeholder="z. B. IONOS Vereinsseite"
+                  placeholder="e.g. IONOS club site"
                   onChange={(e) => setField('name', e.target.value)}
                 />
               </label>
 
               <div className="deploy__row">
                 <label className="field">
-                  <span className="field__label">Protokoll</span>
+                  <span className="field__label">Protocol</span>
                   <select
                     className="field__input"
                     value={form.protocol}
@@ -269,7 +268,7 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
               </label>
 
               <label className="field">
-                <span className="field__label">Benutzername</span>
+                <span className="field__label">Username</span>
                 <input
                   className="field__input"
                   type="text"
@@ -280,7 +279,7 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
               </label>
 
               <label className="field">
-                <span className="field__label">Zielverzeichnis</span>
+                <span className="field__label">Target directory</span>
                 <input
                   className="field__input"
                   type="text"
@@ -292,9 +291,9 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
 
               <label className="field">
                 <span className="field__label">
-                  Passwort
+                  Password
                   {form.id !== undefined && (
-                    <span className="field__hint deploy__inline-hint"> (leer = unverändert)</span>
+                    <span className="field__hint deploy__inline-hint"> (empty = unchanged)</span>
                   )}
                 </span>
                 <input
@@ -302,13 +301,13 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
                   type="password"
                   value={form.password}
                   autoComplete="off"
-                  placeholder={form.id !== undefined ? '•••••••• (unverändert lassen)' : 'Passwort'}
+                  placeholder={form.id !== undefined ? '•••••••• (leave unchanged)' : 'Password'}
                   onChange={(e) => setField('password', e.target.value)}
                 />
                 <span className="field__hint">
                   {keychainAvailable
-                    ? 'Das Passwort liegt im Systemschlüsselbund, nie im Klartext auf der Platte, und wird nie an die Oberfläche zurückgegeben.'
-                    : 'Ohne Systemschlüsselbund bleibt das Passwort nur für diese Sitzung im Speicher.'}
+                    ? 'The password is stored in the system keychain, never in plain text on disk, and is never returned to the UI.'
+                    : 'Without a system keychain, the password stays in memory for this session only.'}
                 </span>
               </label>
 
@@ -336,33 +335,33 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
 
               <div className="deploy__form-actions">
                 <button type="button" className="btn" onClick={() => setForm(null)} disabled={saving}>
-                  Abbrechen
+                  Cancel
                 </button>
                 <button
                   type="submit"
                   className="btn btn--primary"
                   disabled={saving || formError !== null}
                 >
-                  {saving ? 'Speichern …' : 'Speichern'}
+                  {saving ? 'Saving …' : 'Save'}
                 </button>
               </div>
             </form>
           )}
 
-          {/* -------- Aktives Ziel: testen + veröffentlichen -------- */}
+          {/* -------- Active target: test + publish -------- */}
           {selected !== null && form === null && (
             <section className="deploy__section">
               <h3 className="deploy__section-title">
-                Aktiv: <span className="deploy__mono">{selected.name}</span>
+                Active: <span className="deploy__mono">{selected.name}</span>
               </h3>
 
               {deploy.drift?.drift === true && (
                 <p className="form-warning" role="status">
-                  Der Stand auf dem Server weicht von dem ab, was wir zuletzt deployt haben
+                  The state on the server differs from what we last deployed
                   {deploy.drift.remoteSha !== null
-                    ? ` (Server: ${deploy.drift.remoteSha.slice(0, 7)})`
-                    : ' (auf dem Server liegt kein von uns deployter Stand)'}
-                  . Ein Veröffentlichen überschreibt ihn.
+                    ? ` (server: ${deploy.drift.remoteSha.slice(0, 7)})`
+                    : ' (the server has no state deployed by us)'}
+                  . Publishing will overwrite it.
                 </p>
               )}
 
@@ -374,7 +373,7 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
                   disabled={deploy.testing || busy}
                 >
                   <Icon name="plug" size={14} />
-                  {deploy.testing ? 'Teste …' : 'Verbindung testen'}
+                  {deploy.testing ? 'Testing …' : 'Test connection'}
                 </button>
                 <button
                   type="button"
@@ -383,13 +382,13 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
                   disabled={busy || !selected.hasCredentials}
                 >
                   <Icon name="deploy" size={14} />
-                  {busy && deploy.rollbackSha === null ? 'Veröffentliche …' : 'Veröffentlichen'}
+                  {busy && deploy.rollbackSha === null ? 'Publishing …' : 'Publish'}
                 </button>
               </div>
 
               {!selected.hasCredentials && (
                 <p className="deploy__hint">
-                  Für dieses Ziel ist noch kein Passwort hinterlegt — trag es über „Bearbeiten" ein.
+                  No password is stored for this target yet — add it via "Edit".
                 </p>
               )}
 
@@ -399,9 +398,9 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
                 <ProgressReport progress={deploy.progress} rollbackSha={deploy.rollbackSha} />
               )}
 
-              {/* Fehler VOR dem ersten Progress-Event (z. B. „Ziel nicht gefunden")
-                  erzeugen keinen ProgressReport — ohne diese Zeile blieben sie
-                  unsichtbar (outcome wurde gesetzt, aber nie gerendert). */}
+              {/* Errors BEFORE the first progress event (e.g. "target not found")
+                  produce no ProgressReport — without this line they would stay
+                  invisible (outcome was set but never rendered). */}
               {deploy.outcome?.status === 'error' && deploy.progress.phase === 'idle' && (
                 <p className="form-error" role="alert">
                   {deploy.outcome.message}
@@ -410,11 +409,11 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
             </section>
           )}
 
-          {/* -------- Historie -------- */}
+          {/* -------- History -------- */}
           <section className="deploy__section">
-            <h3 className="deploy__section-title">Historie</h3>
+            <h3 className="deploy__section-title">History</h3>
             {deploy.history.length === 0 ? (
-              <p className="deploy__hint">Noch nichts veröffentlicht.</p>
+              <p className="deploy__hint">Nothing published yet.</p>
             ) : (
               <ul className="deploy__history">
                 {deploy.history.map((record) => (
@@ -425,12 +424,12 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
                       <span className="deploy__badge-kind">
                         {record.kind === 'rollback' ? 'Rollback' : 'Deploy'}
                       </span>
-                      {!record.ok && <span className="deploy__badge-fail">fehlgeschlagen</span>}
+                      {!record.ok && <span className="deploy__badge-fail">failed</span>}
                     </span>
                     <span className="deploy__history-meta">
                       {formatTime(record.at)}
                       {record.ok
-                        ? ` · ${record.uploaded} hoch · ${record.deleted} gelöscht · ${formatBytes(record.bytesUploaded)}`
+                        ? ` · ${record.uploaded} up · ${record.deleted} deleted · ${formatBytes(record.bytesUploaded)}`
                         : record.error !== undefined
                           ? ` · ${record.error}`
                           : ''}
@@ -445,7 +444,7 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
         <div className="modal__actions modal__actions--footer">
           <span className="modal__actions-spacer" />
           <button type="button" className="btn" onClick={onClose} disabled={busy}>
-            Schließen
+            Close
           </button>
         </div>
       </div>
@@ -453,7 +452,7 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
   );
 }
 
-/* ---------------- Unterkomponenten ---------------- */
+/* ---------------- Subcomponents ---------------- */
 
 function TestReport({ result }: { result: DeployHook['testResult'] }): React.JSX.Element | null {
   if (result === null) return null;
@@ -461,7 +460,7 @@ function TestReport({ result }: { result: DeployHook['testResult'] }): React.JSX
     <div className={result.ok ? 'deploy__test deploy__test--ok' : 'deploy__test deploy__test--fail'}>
       <p className="deploy__test-title">
         <Icon name={result.ok ? 'check' : 'alert'} size={14} />
-        {result.ok ? 'Verbindung steht' : 'Verbindung fehlgeschlagen'}
+        {result.ok ? 'Connection works' : 'Connection failed'}
       </p>
       {result.failures.map((line, i) => (
         <p key={`f${i}`} className="deploy__test-fail">
@@ -492,19 +491,19 @@ function ProgressReport({
   return (
     <div className="deploy__progress">
       <p className="deploy__progress-phase">
-        {rollbackSha !== null ? `Rollback auf ${rollbackSha.slice(0, 7)} — ` : ''}
+        {rollbackSha !== null ? `Rollback to ${rollbackSha.slice(0, 7)} — ` : ''}
         {label}
       </p>
       {progress.currentFile !== null && (
         <p className="deploy__mono deploy__progress-file">{progress.currentFile}</p>
       )}
       <p className="deploy__progress-counts">
-        {uploadLine !== null && <span>Hochgeladen: {uploadLine}</span>}
-        {deleteLine !== null && <span>Gelöscht: {deleteLine}</span>}
+        {uploadLine !== null && <span>Uploaded: {uploadLine}</span>}
+        {deleteLine !== null && <span>Deleted: {deleteLine}</span>}
         {progress.phase === 'done' && progress.result !== null && (
           <span>
-            Fertig — {progress.result.uploaded} hoch · {progress.result.deleted} gelöscht ·{' '}
-            {progress.result.unchanged} unverändert · {formatBytes(progress.result.bytesUploaded)}
+            Done — {progress.result.uploaded} up · {progress.result.deleted} deleted ·{' '}
+            {progress.result.unchanged} unchanged · {formatBytes(progress.result.bytesUploaded)}
           </span>
         )}
       </p>
@@ -520,18 +519,18 @@ function ProgressReport({
 }
 
 const PHASE_LABEL: Record<DeployProgressState['phase'], string> = {
-  idle: 'Bereit',
-  connecting: 'Verbinde …',
-  planning: 'Ermittle Änderungen …',
-  ensuring: 'Lege Verzeichnisse an …',
-  uploading: 'Lade hoch …',
-  deleting: 'Räume auf …',
-  finalizing: 'Schreibe Manifest …',
-  done: 'Veröffentlicht',
-  error: 'Fehler',
+  idle: 'Ready',
+  connecting: 'Connecting …',
+  planning: 'Computing changes …',
+  ensuring: 'Creating directories …',
+  uploading: 'Uploading …',
+  deleting: 'Cleaning up …',
+  finalizing: 'Writing manifest …',
+  done: 'Published',
+  error: 'Error',
 };
 
-/* ---------------- Helfer ---------------- */
+/* ---------------- Helpers ---------------- */
 
 function toInput(form: FormState): DeployTargetInput {
   const input: DeployTargetInput = {
@@ -543,7 +542,7 @@ function toInput(form: FormState): DeployTargetInput {
     remotePath: form.remotePath,
   };
   if (form.id !== undefined) input.id = form.id;
-  // Passwort/Passphrase nur mitschicken, wenn getippt (leer = unverändert).
+  // Only send password/passphrase if typed (empty = unchanged).
   if (form.password !== '') input.password = form.password;
   if (form.passphrase !== '') input.passphrase = form.passphrase;
   return input;
@@ -558,7 +557,7 @@ function formatBytes(bytes: number): string {
 function formatTime(iso: string): string {
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return iso;
-  return new Date(t).toLocaleString('de-DE', {
+  return new Date(t).toLocaleString('en-GB', {
     day: '2-digit',
     month: '2-digit',
     hour: '2-digit',

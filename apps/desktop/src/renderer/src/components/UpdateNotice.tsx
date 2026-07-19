@@ -3,13 +3,13 @@ import { useEffect, useState } from 'react';
 import type { UpdateStatus } from '../../../shared/channels';
 
 /**
- * Auto-Update-Hinweis (M5): erscheint erst, wenn ein Update fertig geladen ist
- * („ready"), und bietet genau eine betonte Aktion — jetzt neu starten. Der
- * Status kommt als Push über die Preload-Bridge (`window.wab.update.onStatus`);
- * das Anwenden läuft über den sender-validierten `update.restart`-Kanal.
+ * Auto-update notice (M5): appears only once an update has finished downloading
+ * ("ready") and offers exactly one emphasized action — restart now. The status
+ * arrives as a push over the preload bridge (`window.wab.update.onStatus`);
+ * applying it runs through the sender-validated `update.restart` channel.
  *
- * Bewusst minimal und unaufdringlich (AdminCave-DS): Hairline-Card unten rechts,
- * eine Pill-Aktion, keine Emojis. Fortschritt/Prüfung werden nicht angezeigt.
+ * Deliberately minimal and unobtrusive (AdminCave DS): hairline card bottom
+ * right, one pill action, no emojis. Progress/checking are not shown.
  */
 export function UpdateNotice(): React.JSX.Element | null {
   const [status, setStatus] = useState<UpdateStatus>({ phase: 'idle' });
@@ -22,9 +22,9 @@ export function UpdateNotice(): React.JSX.Element | null {
   return (
     <div className="update-notice" role="status" aria-live="polite">
       <div className="update-notice__body">
-        <span className="update-notice__title">Update bereit</span>
+        <span className="update-notice__title">Update ready</span>
         <span className="update-notice__text">
-          Version {status.version} ist geladen und wird beim nächsten Start aktiv.
+          Version {status.version} is downloaded and becomes active on the next launch.
         </span>
       </div>
       <button
@@ -36,7 +36,7 @@ export function UpdateNotice(): React.JSX.Element | null {
           window.wab.update.restart().catch(() => setRestarting(false));
         }}
       >
-        {restarting ? 'Wird neu gestartet …' : 'Jetzt neu starten'}
+        {restarting ? 'Restarting …' : 'Restart now'}
       </button>
     </div>
   );

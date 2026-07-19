@@ -1,15 +1,15 @@
 /**
- * Projekt-Registry — persistent mit better-sqlite3 (M1).
+ * Project registry — persistent with better-sqlite3 (M1).
  *
- * Implementiert den `ProjectRegistry`-Vertrag aus @webaibuilder/core:
- * create/list/get/update/delete + Vorlagen-Liste. `create` legt den Workspace
- * (`~/WebAIBuilder/<slug>/` mit `site/`-Docroot und `project.json`) an und
- * befüllt `site/` aus einer Starter-Vorlage.
+ * Implements the `ProjectRegistry` contract from @webaibuilder/core:
+ * create/list/get/update/delete + template list. `create` creates the workspace
+ * (`~/WebAIBuilder/<slug>/` with a `site/` docroot and `project.json`) and
+ * populates `site/` from a starter template.
  *
- * Bewusst Electron-frei: DB-Pfad, Workspace-Wurzel und Vorlagen-Ordner werden
- * injiziert (headless testbar mit vitest). Die Electron-Verdrahtung
- * (`app.getPath('userData')` usw.) liegt in `paths.ts` und läuft nur zur
- * App-Laufzeit.
+ * Deliberately electron-free: the DB path, workspace root, and templates folder
+ * are injected (headless testable with vitest). The electron wiring
+ * (`app.getPath('userData')` etc.) lives in `paths.ts` and runs only at app
+ * runtime.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -33,20 +33,20 @@ import { PROJECT_FILE_NAME, SITE_DIRNAME } from '@webaibuilder/core';
 import { copyTemplateInto, loadStarterTemplates } from './templates';
 
 export interface ProjectRegistryOptions {
-  /** Absoluter Pfad der SQLite-Datei, z. B. `<userData>/webaibuilder.db`. */
+  /** Absolute path of the SQLite file, e.g. `<userData>/webaibuilder.db`. */
   dbPath: string;
-  /** Wurzel für Projekt-Workspaces, z. B. `~/WebAIBuilder`. */
+  /** Root for project workspaces, e.g. `~/WebAIBuilder`. */
   workspaceRoot: string;
-  /** Ordner mit `manifest.json` + Vorlagen, z. B. `resources/templates`. */
+  /** Folder with `manifest.json` + templates, e.g. `resources/templates`. */
   templatesRoot: string;
 }
 
 /* ------------------------------------------------------------------ */
-/* Migrationen — einfache Versions-Tabelle, damit das Schema wachsen kann. */
+/* Migrations — a simple version table so the schema can grow.        */
 /* ------------------------------------------------------------------ */
 
 const MIGRATIONS: readonly string[] = [
-  // v1: Projekte + Deploy-Ziele (inkl. deployter Commit-SHA pro Ziel, PLAN §4).
+  // v1: projects + deploy targets (incl. deployed commit SHA per target, PLAN §4).
   `
   CREATE TABLE projects (
     id            TEXT PRIMARY KEY,
@@ -93,7 +93,7 @@ function migrate(db: Database.Database): void {
 }
 
 /* ------------------------------------------------------------------ */
-/* Zeilen-Typen                                                        */
+/* Row types                                                           */
 /* ------------------------------------------------------------------ */
 
 interface ProjectRow {
@@ -137,14 +137,14 @@ function targetFromRow(row: DeployTargetRow): DeployTarget {
   return target;
 }
 
-/** Slug fürs Workspace-Verzeichnis: `~/WebAIBuilder/<slug>/`. */
+/** Slug for the workspace directory: `~/WebAIBuilder/<slug>/`. */
 function toSlug(name: string): string {
   const slug = name
     .toLowerCase()
     .replace(/[äöüß]/g, (c) => ({ ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss' })[c] ?? c)
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-  return slug === '' ? 'projekt' : slug;
+  return slug === '' ? 'project' : slug;
 }
 
 /* ------------------------------------------------------------------ */
@@ -187,14 +187,14 @@ export class SqliteProjectRegistry implements ProjectRegistry {
   create(input: ProjectCreateInput): Promise<Project> {
     const name = input.name.trim();
     if (name === '') {
-      return Promise.reject(new Error('Der Projektname darf nicht leer sein.'));
+      return Promise.reject(new Error('The project name must not be empty.'));
     }
 
-    // Vorlage VOR dem Anlegen von Verzeichnissen prüfen — eine unbekannte
-    // Vorlage darf weder Dateien noch DB-Zeilen hinterlassen.
+    // Check the template BEFORE creating any directories — an unknown template
+    // must leave behind neither files nor DB rows.
     const templates = loadStarterTemplates(this.templatesRoot);
     if (!templates.some((t) => t.id === input.templateId)) {
-      return Promise.reject(new Error(`Unbekannte Vorlage: "${input.templateId}".`));
+      return Promise.reject(new Error(`Unknown template: "${input.templateId}".`));
     }
 
     const now = new Date().toISOString();
@@ -212,8 +212,8 @@ export class SqliteProjectRegistry implements ProjectRegistry {
       deployTargets: [],
     };
 
-    // Workspace anlegen und aus der Vorlage befüllen (wirft bei unbekannter
-    // Vorlage, BEVOR etwas in die DB geschrieben wird).
+    // Create the workspace and populate it from the template (throws on an
+    // unknown template, BEFORE anything is written to the DB).
     mkdirSync(siteDir, { recursive: true });
     copyTemplateInto(this.templatesRoot, input.templateId, siteDir);
     this.writeProjectFile(project);
@@ -233,12 +233,12 @@ export class SqliteProjectRegistry implements ProjectRegistry {
       .prepare<[string], ProjectRow>('SELECT * FROM projects WHERE id = ?')
       .get(id);
     if (row === undefined) {
-      return Promise.reject(new Error('Projekt nicht gefunden.'));
+      return Promise.reject(new Error('Project not found.'));
     }
 
     const name = patch.name?.trim();
     if (name !== undefined && name === '') {
-      return Promise.reject(new Error('Der Projektname darf nicht leer sein.'));
+      return Promise.reject(new Error('The project name must not be empty.'));
     }
 
     const now = new Date().toISOString();
@@ -278,28 +278,28 @@ export class SqliteProjectRegistry implements ProjectRegistry {
       .prepare<[string], ProjectRow>('SELECT * FROM projects WHERE id = ?')
       .get(id);
     if (updatedRow === undefined) {
-      return Promise.reject(new Error('Projekt nicht gefunden.'));
+      return Promise.reject(new Error('Project not found.'));
     }
     const project = this.toProject(updatedRow);
 
-    // project.json im Workspace synchron halten — best effort: ein von Hand
-    // verschobener Workspace darf ein Update nicht scheitern lassen.
+    // Keep project.json in the workspace in sync — best effort: a manually moved
+    // workspace must not cause an update to fail.
     try {
       this.writeProjectFile(project);
     } catch {
-      /* Workspace fehlt oder ist nicht beschreibbar — DB bleibt führend. */
+      /* Workspace missing or not writable — the DB remains authoritative. */
     }
 
     return Promise.resolve(project);
   }
 
-  /** Entfernt nur den Registry-Eintrag (+ Deploy-Ziele via ON DELETE CASCADE).
-   *  Der Workspace auf der Platte bleibt erhalten — Nutzerdaten werden nie
-   *  still gelöscht. */
+  /** Removes only the registry entry (+ deploy targets via ON DELETE CASCADE).
+   *  The workspace on disk is retained — user data is never silently
+   *  deleted. */
   delete(id: string): Promise<void> {
     const result = this.db.prepare('DELETE FROM projects WHERE id = ?').run(id);
     if (result.changes === 0) {
-      return Promise.reject(new Error('Projekt nicht gefunden.'));
+      return Promise.reject(new Error('Project not found.'));
     }
     return Promise.resolve();
   }
@@ -308,7 +308,7 @@ export class SqliteProjectRegistry implements ProjectRegistry {
     return Promise.resolve(loadStarterTemplates(this.templatesRoot));
   }
 
-  /* ---------------- intern ---------------- */
+  /* ---------------- internal ---------------- */
 
   private toProject(row: ProjectRow): Project {
     const targets = this.db
@@ -331,7 +331,7 @@ export class SqliteProjectRegistry implements ProjectRegistry {
     return project;
   }
 
-  /** Findet ein freies Workspace-Verzeichnis: `<slug>`, `<slug>-2`, `<slug>-3` … */
+  /** Finds a free workspace directory: `<slug>`, `<slug>-2`, `<slug>-3` … */
   private uniqueWorkspaceDir(slug: string): string {
     const taken = this.db.prepare<[string], { n: number }>(
       'SELECT COUNT(*) AS n FROM projects WHERE workspace_dir = ?',
@@ -360,13 +360,13 @@ export class SqliteProjectRegistry implements ProjectRegistry {
 }
 
 /* ------------------------------------------------------------------ */
-/* Singleton pro App-Lauf — die DB wird genau einmal geöffnet.          */
+/* Singleton per app run — the DB is opened exactly once.             */
 /* ------------------------------------------------------------------ */
 
 let instance: SqliteProjectRegistry | null = null;
 
-/** Öffnet die Registry genau einmal pro App-Lauf; weitere Aufrufe liefern
- *  dieselbe Instanz zurück. */
+/** Opens the registry exactly once per app run; further calls return the same
+ *  instance. */
 export function initProjectRegistry(options: ProjectRegistryOptions): SqliteProjectRegistry {
   instance ??= new SqliteProjectRegistry(options);
   return instance;
@@ -374,7 +374,7 @@ export function initProjectRegistry(options: ProjectRegistryOptions): SqliteProj
 
 export function getProjectRegistry(): ProjectRegistry {
   if (instance === null) {
-    throw new Error('Projekt-Registry ist noch nicht initialisiert (initProjectRegistry fehlt).');
+    throw new Error('Project registry is not yet initialized (initProjectRegistry missing).');
   }
   return instance;
 }

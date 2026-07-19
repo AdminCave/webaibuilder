@@ -1,12 +1,12 @@
 /**
- * Sitzungs-Orchestrierung im Main-Prozess (M2, PLAN §4):
- *  - Preview-Lebenszyklus pro geöffnetem Projekt (Start/Stop, Event-Forwarding)
- *  - Agent-Turns über `createBackend(...).runTurn(...)` mit Streaming der
- *    AgentEvents an den Renderer und Permission-Round-Trip
- *  - Checkpoint pro Turn (packages/versioning) + Timeline-Push
+ * Session orchestration in the main process (M2, PLAN §4):
+ *  - Preview lifecycle per opened project (start/stop, event forwarding)
+ *  - Agent turns via `createBackend(...).runTurn(...)` with streaming of the
+ *    AgentEvents to the renderer and the permission round-trip
+ *  - Checkpoint per turn (packages/versioning) + timeline push
  *
- * Nur hier laufen electron-/node-/Paket-Zugriffe; der Renderer bleibt sandboxed
- * und spricht ausschließlich über die typisierte Preload-Bridge.
+ * Only here do electron/node/package accesses run; the renderer stays sandboxed
+ * and communicates exclusively through the typed preload bridge.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -46,7 +46,7 @@ import {
 } from '../shared/channels';
 import { PermissionQueue } from '../shared/permissionQueue';
 
-/** Trailer-Metadaten, die ein `turn-complete`-Event für den Checkpoint liefert. */
+/** Trailer metadata that a `turn-complete` event provides for the checkpoint. */
 interface TurnMeta {
   turnId?: string;
   sessionId?: string;
@@ -60,17 +60,17 @@ export class AppSession {
   private previewUnsub: (() => void) | null = null;
   private backend: AgentBackend | null = null;
   private readonly permissions = new PermissionQueue();
-  /** Lauf-ID des aktiven Turns; null = kein Turn läuft. */
+  /** Run ID of the active turn; null = no turn is running. */
   private runId: string | null = null;
-  /** Session-ID zum Fortsetzen (falls das Backend `resume` kann). */
+  /** Session ID for resuming (if the backend supports `resume`). */
   private lastSessionId: string | undefined;
 
   constructor(
     private readonly registry: ProjectRegistry,
     private readonly settings: {
-      // Jedes der sechs Backends kann das aktive sein (M4). Für Abo-/CLI-Backends
-      // liefert `currentApiKey()` bewusst undefined und `currentModel()` "" — die
-      // Vendor-CLI bestimmt Login und Modell selbst (PLAN §3).
+      // Any of the six backends can be the active one (M4). For subscription/CLI
+      // backends, `currentApiKey()` deliberately returns undefined and
+      // `currentModel()` "" — the vendor CLI determines login and model itself (PLAN §3).
       currentBackendId(): BackendId;
       currentApiKey(): string | undefined;
       currentModel(): string;
@@ -81,18 +81,18 @@ export class AppSession {
     this.window = win;
   }
 
-  /* ---------------- Preview-Lebenszyklus ---------------- */
+  /* ---------------- Preview lifecycle ---------------- */
 
   async openProject(projectId: string): Promise<SessionInfo> {
     const project = await this.registry.get(projectId);
     if (project === null) {
-      throw new Error('Projekt nicht gefunden.');
+      throw new Error('Project not found.');
     }
-    // Vorherige Sitzung sauber beenden (Preview + laufender Turn).
+    // Cleanly end the previous session (preview + running turn).
     await this.closeProject();
 
-    // git-Workspace sicherstellen (idempotent) — auch bei frisch angelegten
-    // Projekten, damit Checkpoints funktionieren (PLAN §4, Versionierung).
+    // Ensure the git workspace (idempotent) — also for freshly created projects,
+    // so that checkpoints work (PLAN §4, versioning).
     await initWorkspace(project.workspaceDir);
 
     const preview = await startPreviewServer({ siteDir: project.siteDir });
@@ -129,29 +129,29 @@ export class AppSession {
   }
 
   private forwardPreviewEvent(projectId: string, event: PreviewEvent): void {
-    // `PreviewEvent` ist strukturgleich zum gespiegelten `WabPreviewEvent`;
-    // eine Abweichung würde diese Zuweisung zur Compile-Zeit brechen.
+    // `PreviewEvent` is structurally identical to the mirrored `WabPreviewEvent`;
+    // a divergence would break this assignment at compile time.
     this.send(DesktopIpcEvents.preview, { projectId, event });
   }
 
-  /* ---------------- Agent-Turn ---------------- */
+  /* ---------------- Agent turn ---------------- */
 
   sendChat(prompt: string, runId: string): ChatSendResult {
     const project = this.project;
     if (project === null) {
-      throw new Error('Kein Projekt geöffnet.');
+      throw new Error('No project open.');
     }
     if (this.runId !== null) {
-      throw new Error('Es läuft bereits ein Turn.');
+      throw new Error('A turn is already running.');
     }
     const turnRunId = runId.trim() === '' ? randomUUID() : runId;
 
-    // Backend-agnostisch: `createBackend` treibt seit M4 auch die Abo-/CLI-Backends
-    // (claude-cli/codex/gemini-cli/grok-cli). Für sie ist `apiKey` undefined und
-    // `model` leer — sie spawnen die selbst installierte, selbst eingeloggte
-    // Vendor-CLI (PLAN §3). Ist die CLI nicht auffindbar/eingeloggt, meldet der
-    // Adapter ein `error`-AgentEvent mit deutschem Installations-/Login-Hinweis
-    // (kein rohes ENOENT) — das fließt unten durch `consumeTurn` an die UI.
+    // Backend-agnostic: since M4, `createBackend` also drives the subscription/CLI
+    // backends (claude-cli/codex/gemini-cli/grok-cli). For them, `apiKey` is
+    // undefined and `model` empty — they spawn the self-installed, self-logged-in
+    // vendor CLI (PLAN §3). If the CLI is not found / not logged in, the adapter
+    // reports an `error` AgentEvent with an installation/login hint (not a raw
+    // ENOENT) — which flows to the UI below via `consumeTurn`.
     const backend = createBackend(this.settings.currentBackendId(), {
       apiKey: this.settings.currentApiKey(),
       model: this.settings.currentModel(),
@@ -159,7 +159,7 @@ export class AppSession {
     this.backend = backend;
     this.runId = turnRunId;
 
-    // Der Event-Strom läuft asynchron; Fehler werden als AgentEvent gemeldet.
+    // The event stream runs asynchronously; errors are reported as an AgentEvent.
     void this.consumeTurn(project, backend, turnRunId, prompt);
     return { runId: turnRunId };
   }
@@ -180,9 +180,9 @@ export class AppSession {
 
     let meta: TurnMeta | null = null;
     try {
-      // Iterator manuell treiben: der einzige vertragskonforme Weg, die
-      // Permission-Entscheidung an das Backend zurückzureichen, ist der
-      // TNext-Parameter von `next(value)` (das Backend liest ihn am `yield`).
+      // Drive the iterator manually: the only contract-compliant way to pass the
+      // permission decision back to the backend is the TNext parameter of
+      // `next(value)` (the backend reads it at the `yield`).
       const iterator = backend.runTurn(request)[Symbol.asyncIterator]() as AsyncIterator<
         AgentEvent,
         unknown,
@@ -193,7 +193,7 @@ export class AppSession {
       for (;;) {
         const result = await iterator.next(resumeWith);
         resumeWith = undefined;
-        // Neuer Turn gestartet oder Projekt geschlossen → Strom fallen lassen.
+        // New turn started or project closed → drop the stream.
         if (this.runId !== runId) break;
         if (result.done === true) break;
 
@@ -210,7 +210,7 @@ export class AppSession {
     } catch (error) {
       if (this.runId === runId) {
         const message = error instanceof Error ? error.message : String(error);
-        // `cause` mitgeben, damit die UI die echte Ursache aufklappbar zeigen kann.
+        // Include `cause` so the UI can show the real cause in an expandable view.
         const cause =
           error instanceof Error && error.cause !== undefined ? String(error.cause) : undefined;
         this.emitAgentEvent(project.id, runId, {
@@ -219,7 +219,7 @@ export class AppSession {
           recoverable: false,
           ...(cause !== undefined ? { cause } : {}),
         });
-        // Synthetischer Abschluss, damit die UI den Laufzustand verlässt.
+        // Synthetic completion so the UI leaves the running state.
         this.emitAgentEvent(project.id, runId, {
           type: 'turn-complete',
           turnId: runId,
@@ -236,7 +236,7 @@ export class AppSession {
   }
 
   interrupt(): Promise<void> {
-    // Wartende Permission-Anfragen ablehnen, damit kein Promise hängen bleibt.
+    // Reject pending permission requests so no promise stays hanging.
     this.permissions.denyAll();
     const backend = this.backend;
     if (backend === null) return Promise.resolve();
@@ -261,8 +261,8 @@ export class AppSession {
         ...(meta?.costUsd !== undefined ? { costUsd: meta.costUsd } : {}),
       });
     } catch {
-      // Nichts zu committen (keine Datei-Änderung) o. Ä. — kein Checkpoint,
-      // aber auch kein harter Fehler für den Turn.
+      // Nothing to commit (no file change) or similar — no checkpoint, but also
+      // not a hard error for the turn.
       return;
     }
     await this.pushCheckpoints(project);
@@ -278,7 +278,7 @@ export class AppSession {
   async restore(checkpointId: string): Promise<Checkpoint> {
     const project = this.project;
     if (project === null) {
-      throw new Error('Kein Projekt geöffnet.');
+      throw new Error('No project open.');
     }
     const checkpoint = await restoreCheckpoint(project.workspaceDir, checkpointId);
     await this.pushCheckpoints(project);
@@ -290,19 +290,19 @@ export class AppSession {
     this.send(DesktopIpcEvents.checkpoints, { projectId: project.id, checkpoints });
   }
 
-  /* ---------------- Deploy-Push (von DeployService genutzt) ---------------- */
+  /* ---------------- Deploy push (used by DeployService) ---------------- */
 
-  /** Push eines Deploy-Fortschritts-Events an das aktive Fenster. */
+  /** Push a deploy-progress event to the active window. */
   pushDeployProgress(message: DeployProgressMessage): void {
     this.send(DesktopIpcEvents.deploy, message);
   }
 
-  /** Push der frischen Deploy-Ziel-Liste (nach geänderter last_deployed-SHA). */
+  /** Push the fresh deploy-target list (after a changed last_deployed SHA). */
   pushDeployTargets(message: DeployTargetsMessage): void {
     this.send(DesktopIpcEvents.targets, message);
   }
 
-  /* ---------------- IPC-Push ---------------- */
+  /* ---------------- IPC push ---------------- */
 
   private emitAgentEvent(projectId: string, runId: string, event: AgentEvent): void {
     this.send(DesktopIpcEvents.agent, { runId, projectId, event });
@@ -317,7 +317,7 @@ export class AppSession {
 }
 
 /* ------------------------------------------------------------------ */
-/* Singleton pro App-Lauf.                                             */
+/* Singleton per app run.                                              */
 /* ------------------------------------------------------------------ */
 
 let instance: AppSession | null = null;
@@ -332,7 +332,7 @@ export function initAppSession(
 
 export function getAppSession(): AppSession {
   if (instance === null) {
-    throw new Error('AppSession ist noch nicht initialisiert (initAppSession fehlt).');
+    throw new Error('AppSession is not yet initialized (initAppSession missing).');
   }
   return instance;
 }

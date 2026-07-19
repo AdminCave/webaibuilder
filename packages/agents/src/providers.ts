@@ -1,6 +1,6 @@
 /**
- * Provider-Auswahl für den `byok`-Adapter (PLAN §4): ein Tool-Loop über die
- * Vercel AI SDK, Anbieter frei wählbar per API-Key.
+ * Provider selection for the `byok` adapter (PLAN §4): a tool loop over the
+ * Vercel AI SDK, provider freely selectable via API key.
  */
 
 import { createAnthropic } from '@ai-sdk/anthropic';
@@ -9,10 +9,10 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createXai } from '@ai-sdk/xai';
 import type { LanguageModel } from 'ai';
 
-/** Die vier per BYOK-API-Key unterstützten Anbieter. */
+/** The four providers supported via a BYOK API key. */
 export type ByokProvider = 'anthropic' | 'openai' | 'google' | 'xai';
 
-/** Aktueller Default je Anbieter, falls die Config kein Modell setzt. */
+/** Current default per provider, if the config does not set a model. */
 export const DEFAULT_MODELS: Readonly<Record<ByokProvider, string>> = {
   anthropic: 'claude-opus-4-8',
   openai: 'gpt-5',
@@ -20,7 +20,7 @@ export const DEFAULT_MODELS: Readonly<Record<ByokProvider, string>> = {
   xai: 'grok-4',
 };
 
-/** Baut das AI-SDK-Sprachmodell für Anbieter + Key + (optional) Modell-ID. */
+/** Builds the AI SDK language model for provider + key + (optional) model ID. */
 export function resolveModel(provider: ByokProvider, apiKey: string, modelId?: string): LanguageModel {
   const id = modelId ?? DEFAULT_MODELS[provider];
   switch (provider) {
@@ -34,7 +34,7 @@ export function resolveModel(provider: ByokProvider, apiKey: string, modelId?: s
       return createXai({ apiKey })(id);
     default: {
       const exhaustive: never = provider;
-      throw new Error(`Unbekannter Anbieter: ${String(exhaustive)}`);
+      throw new Error(`Unknown provider: ${String(exhaustive)}`);
     }
   }
 }

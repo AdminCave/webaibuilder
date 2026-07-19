@@ -16,14 +16,14 @@ export interface DeployHook {
   targets: DeployTargetView[];
   selectedTargetId: string | null;
   selectedTarget: DeployTargetView | null;
-  /** last_deployed-SHA des aktiven Ziels (für das Timeline-Badge). */
+  /** last_deployed SHA of the active target (for the timeline badge). */
   deployedSha: string | null;
   loading: boolean;
   error: string | null;
 
-  /** Läuft gerade ein Deploy/Rollback? */
+  /** Is a deploy/rollback currently running? */
   deploying: boolean;
-  /** SHA, die gerade per Rollback-Deploy veröffentlicht wird (oder null). */
+  /** SHA currently being published via rollback deploy (or null). */
   rollbackSha: string | null;
   progress: DeployProgressState;
   outcome: DeployRunOutcome | null;
@@ -45,13 +45,13 @@ export interface DeployHook {
 }
 
 /**
- * Kapselt die Deploy-Sitzung eines Projekts: lädt Ziele + Historie, abonniert
- * Fortschritts-/Ziel-Push-Events und stellt die Aktionen (speichern, löschen,
- * testen, veröffentlichen, Rollback-Deploy) bereit. Frei von DS/Markup — die
- * Komponenten (DeployDialog, TimelineSidebar) konsumieren nur diesen Zustand.
+ * Encapsulates a project's deploy session: loads targets + history, subscribes
+ * to progress/target push events, and provides the actions (save, delete, test,
+ * publish, rollback deploy). Free of DS/markup — the components (DeployDialog,
+ * TimelineSidebar) consume only this state.
  *
- * Secrets fließen ausschließlich beim `saveTarget` in Richtung Main-Prozess; der
- * Renderer bekommt nie ein Passwort zurück, nur das `hasCredentials`-Flag.
+ * Secrets flow toward the main process only in `saveTarget`; the renderer never
+ * gets a password back, only the `hasCredentials` flag.
  */
 export function useDeploy(projectId: string): DeployHook {
   const [targets, setTargets] = useState<DeployTargetView[]>([]);
@@ -70,9 +70,9 @@ export function useDeploy(projectId: string): DeployHook {
   const [drift, setDrift] = useState<WabDriftResult | null>(null);
   const [history, setHistory] = useState<DeployHistoryRecord[]>([]);
 
-  // Lauf-ID des aktiven Deploys — nur dazu passende Push-Events zählen.
+  // Run ID of the active deploy — only count matching push events.
   const activeRunIdRef = useRef<string | null>(null);
-  // Aktuelle Ziel-Auswahl ohne Neubindung der Callbacks lesbar halten.
+  // Keep the current target selection readable without rebinding the callbacks.
   const selectedRef = useRef<string | null>(null);
   selectedRef.current = selectedTargetId;
 
@@ -84,7 +84,7 @@ export function useDeploy(projectId: string): DeployHook {
     });
   }, []);
 
-  // Ziele + Historie laden, Push-Events abonnieren.
+  // Load targets + history, subscribe to push events.
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -100,7 +100,7 @@ export function useDeploy(projectId: string): DeployHook {
       })
       .catch((err: unknown) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : 'Deploy-Ziele konnten nicht geladen werden.');
+        setError(err instanceof Error ? err.message : 'Deploy targets could not be loaded.');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -137,16 +137,16 @@ export function useDeploy(projectId: string): DeployHook {
       .catch(() => undefined);
   }, [projectId]);
 
-  // Proaktive Drift-Erkennung (fail-safe, fire-and-forget): der dedizierte
-  // deploy.drift-Kanal war vollständig verdrahtet, wurde aber nie aufgerufen —
-  // die Drift-Warnung erschien nur nach manuellem „Verbindung testen". Jetzt
-  // wird beim Zielwechsel/Projektöffnen im Hintergrund geprüft; Netz-/Auth-
-  // Fehler bleiben still (Warnung nur bei echtem Befund).
+  // Proactive drift detection (fail-safe, fire-and-forget): the dedicated
+  // deploy.drift channel was fully wired but never called — the drift warning
+  // only appeared after a manual "Test connection". Now it's checked in the
+  // background on target switch/project open; network/auth errors stay silent
+  // (warning only on a real finding).
   useEffect(() => {
     if (selectedTargetId === null || deploying) return;
     const target = targets.find((t) => t.id === selectedTargetId);
     if (target === undefined || !target.hasCredentials) return;
-    if (target.lastDeployedCommit === undefined) return; // nie deployt → nichts zu prüfen
+    if (target.lastDeployedCommit === undefined) return; // never deployed → nothing to check
     let cancelled = false;
     window.wab.deploy
       .drift(projectId, selectedTargetId)
@@ -176,7 +176,7 @@ export function useDeploy(projectId: string): DeployHook {
         setTestResult(null);
         return saved;
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Speichern fehlgeschlagen.');
+        setError(err instanceof Error ? err.message : 'Save failed.');
         return null;
       }
     },
@@ -193,7 +193,7 @@ export function useDeploy(projectId: string): DeployHook {
         setTestResult(null);
         setDrift(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Löschen fehlgeschlagen.');
+        setError(err instanceof Error ? err.message : 'Delete failed.');
       }
     },
     [projectId, applyTargets],
@@ -206,7 +206,7 @@ export function useDeploy(projectId: string): DeployHook {
       try {
         const result = await window.wab.deploy.test(projectId, targetId);
         setTestResult(result);
-        // Drift aus dem Preflight ableiten: erwartete SHA (Registry) vs. remote.
+        // Derive drift from the preflight: expected SHA (registry) vs. remote.
         const target = targets.find((t) => t.id === targetId);
         const expected = target?.lastDeployedCommit ?? '';
         setDrift({
@@ -218,7 +218,7 @@ export function useDeploy(projectId: string): DeployHook {
         setTestResult({
           ok: false,
           messages: [],
-          failures: [err instanceof Error ? err.message : 'Verbindungstest fehlgeschlagen.'],
+          failures: [err instanceof Error ? err.message : 'Connection test failed.'],
           capabilities: { mkdirRecursive: false, rename: false },
           remoteSha: null,
         });
@@ -246,13 +246,13 @@ export function useDeploy(projectId: string): DeployHook {
             ? await window.wab.deploy.rollback(projectId, targetId, sha, runId)
             : await window.wab.deploy.run(projectId, targetId, runId);
         setOutcome(result);
-        // Nach erfolgreichem Deploy stimmt der Remote-Stand wieder — Drift-Warnung
-        // (aus einem früheren Test) verwerfen.
+        // After a successful deploy the remote state matches again — discard the
+        // drift warning (from an earlier test).
         if (result.status === 'deployed') setDrift(null);
       } catch (err) {
         setOutcome({
           status: 'error',
-          message: err instanceof Error ? err.message : 'Deploy fehlgeschlagen.',
+          message: err instanceof Error ? err.message : 'Deploy failed.',
         });
       } finally {
         setDeploying(false);

@@ -1,17 +1,17 @@
 /**
- * Sektion „KI & Backends" — DER eine Aktivierungsweg für alle sechs Backends
- * (ersetzt das alte Doppel aus Formular-oben + BackendPicker-unten, das im Code
- * selbst als erklärungsbedürftig markiert war).
+ * "AI & Backends" section — THE one activation path for all six backends
+ * (replaces the old pairing of form-on-top + BackendPicker-below, which the
+ * code itself flagged as needing explanation).
  *
- * Jede Karte zeigt Status + kontextuelle Aktion:
- *  - API-Key-Backends (byok, claude-sdk): Inline-Formular in der Karte
- *    (Provider nur bei byok, Modell, Key); Speichern aktiviert das Backend und
- *    legt den Key im OS-Schlüsselbund ab — in einem Schritt.
- *  - Abo-Backends: Erkennungs-Status („eingeloggt als …"), „Verwenden" bzw.
- *    geführter „Einrichten"-Fluss (Hinweis → Bestätigen → Aktivieren, PLAN §3).
+ * Each card shows status + a contextual action:
+ *  - API-key backends (byok, claude-sdk): inline form in the card (provider
+ *    only for byok, model, key); saving activates the backend and stores the
+ *    key in the OS keychain — in one step.
+ *  - Subscription backends: detection status ("logged in as …"), "Use", or a
+ *    guided "Set up" flow (notice → confirm → activate, PLAN §3).
  *
- * Compliance: keine Token-/Base-URL-Eingabe; Abo-Backends laufen ausschließlich
- * über die selbst installierte, selbst eingeloggte offizielle Vendor-CLI.
+ * Compliance: no token/base-URL input; subscription backends run exclusively
+ * through the self-installed, self-logged-in official vendor CLI.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -48,7 +48,7 @@ const PROVIDER_LABEL: Record<ByokProvider, string> = {
   xai: 'xAI',
 };
 
-/** Status-Icon eines Abo-Backends (visueller Anker neben dem Text-Label). */
+/** Status icon of a subscription backend (visual anchor next to the text label). */
 function subscriptionStatusIcon(view: BackendAvailabilityView): {
   name: IconName;
   className: string;
@@ -62,7 +62,7 @@ function subscriptionStatusIcon(view: BackendAvailabilityView): {
 
 interface BackendsSectionProps {
   settings: AgentSettings | null;
-  /** Deep-Link: diese Karte aufgeklappt anzeigen und hinscrollen. */
+  /** Deep link: show this card expanded and scroll to it. */
   focusBackendId?: BackendId;
   onSaved: (settings: AgentSettings) => void;
 }
@@ -78,9 +78,9 @@ export function BackendsSection({
   const [error, setError] = useState<string | null>(null);
   const [noticeOpen, setNoticeOpen] = useState<BackendId | null>(null);
   const [acking, setAcking] = useState(false);
-  /** Inline-Rückmeldung pro Backend (Aktivierung, Ablehnung des Main-Prozesses). */
+  /** Inline feedback per backend (activation, rejection by the main process). */
   const [feedback, setFeedback] = useState<Partial<Record<BackendId, string>>>({});
-  /** Aufgeklapptes API-Key-Formular (Deep-Link öffnet die Ziel-Karte direkt). */
+  /** Expanded API-key form (deep link opens the target card directly). */
   const [openForm, setOpenForm] = useState<ApiKeyBackendId | null>(
     focusBackendId !== undefined && !isSubscriptionBackend(focusBackendId)
       ? (focusBackendId as ApiKeyBackendId)
@@ -100,7 +100,7 @@ export function BackendsSection({
         if (!cancelled) setState(next);
       })
       .catch(() => {
-        if (!cancelled) setError('KI-Backends konnten nicht geladen werden.');
+        if (!cancelled) setError('AI backends could not be loaded.');
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -117,7 +117,7 @@ export function BackendsSection({
     window.wab.backends
       .refresh()
       .then(setState)
-      .catch(() => setError('Neu prüfen fehlgeschlagen.'))
+      .catch(() => setError('Recheck failed.'))
       .finally(() => setRefreshing(false));
   }, []);
 
@@ -125,21 +125,21 @@ export function BackendsSection({
     void window.wab.backends.openHint(url).catch(() => undefined);
   }, []);
 
-  /** Setzt ein bereites Abo-Backend als aktives Backend (Main prüft autoritativ). */
+  /** Sets a ready subscription backend as the active backend (main validates authoritatively). */
   const activate = useCallback(
     async (id: BackendId) => {
-      setFeedback((f) => ({ ...f, [id]: 'Aktiviere …' }));
+      setFeedback((f) => ({ ...f, [id]: 'Activating …' }));
       try {
         const next = await window.wab.settings.set({ backendId: id });
         onSaved(next);
         setFeedback((f) => ({
           ...f,
-          [id]: 'Aktiv — der Chat läuft jetzt über deine eigene CLI.',
+          [id]: 'Active — the chat now runs through your own CLI.',
         }));
       } catch (err) {
         setFeedback((f) => ({
           ...f,
-          [id]: err instanceof Error ? err.message : 'Aktivierung fehlgeschlagen.',
+          [id]: err instanceof Error ? err.message : 'Activation failed.',
         }));
       }
     },
@@ -154,10 +154,10 @@ export function BackendsSection({
         .then((next) => {
           setState(next);
           setNoticeOpen(null);
-          // Geführter Pfad: nach der expliziten Bestätigung direkt aktivieren.
+          // Guided path: activate directly after the explicit confirmation.
           void activate(id);
         })
-        .catch(() => setError('Bestätigung fehlgeschlagen.'))
+        .catch(() => setError('Confirmation failed.'))
         .finally(() => setAcking(false));
     },
     [activate],
@@ -169,11 +169,11 @@ export function BackendsSection({
   const activeBackendId = settings?.backendId ?? null;
 
   return (
-    <section className="backends" aria-label="KI & Backends">
+    <section className="backends" aria-label="AI & Backends">
       <div className="backends__head">
         <p className="backends__group-hint">
-          Wähle, worüber der KI-Chat läuft: dein eigener API-Key oder dein Abo über die offizielle
-          Anbieter-CLI.
+          Choose what the AI chat runs on: your own API key or your subscription via the official
+          provider CLI.
         </p>
         <button
           type="button"
@@ -181,7 +181,7 @@ export function BackendsSection({
           onClick={refresh}
           disabled={loading || refreshing}
         >
-          {refreshing ? 'Prüfe …' : 'Neu prüfen'}
+          {refreshing ? 'Checking …' : 'Recheck'}
         </button>
       </div>
 
@@ -192,7 +192,7 @@ export function BackendsSection({
       )}
 
       <div className="backends__group">
-        <p className="backends__group-title">Per API-Key</p>
+        <p className="backends__group-title">By API key</p>
         <ul className="backends__list">
           {APIKEY_BACKEND_IDS.map((id) => (
             <ApiKeyCard
@@ -210,13 +210,13 @@ export function BackendsSection({
       </div>
 
       <div className="backends__group">
-        <p className="backends__group-title">Per Abo</p>
+        <p className="backends__group-title">By subscription</p>
         <p className="backends__group-hint">
-          Nutzt dein eigenes Abo über die offizielle CLI des Anbieters, die du selbst installierst
-          und in die du dich selbst einloggst. Diese App speichert keine Zugangs-Token.
+          Uses your own subscription through the provider's official CLI, which you install and log
+          into yourself. This app stores no access tokens.
         </p>
         {loading ? (
-          <p className="backends__loading">Erkenne installierte CLIs …</p>
+          <p className="backends__loading">Detecting installed CLIs …</p>
         ) : (
           <ul className="backends__list">
             {SUBSCRIPTION_BACKEND_IDS.map((id) => {
@@ -265,15 +265,15 @@ export function BackendsSection({
 }
 
 /* ------------------------------------------------------------------ */
-/* API-Key-Karte mit Inline-Formular                                   */
+/* API-key card with inline form                                       */
 /* ------------------------------------------------------------------ */
 
 function apiKeyStatusLabel(active: boolean, settings: AgentSettings | null): string {
-  if (!active || settings === null) return 'nicht aktiv';
-  if (!settings.hasApiKey) return 'aktiv · kein Key';
+  if (!active || settings === null) return 'not active';
+  if (!settings.hasApiKey) return 'active · no key';
   return settings.apiKeySource === 'env'
-    ? 'aktiv · Key aus Umgebungsvariable'
-    : 'aktiv · Key gesetzt';
+    ? 'active · key from environment variable'
+    : 'active · key set';
 }
 
 function ApiKeyCard({
@@ -310,19 +310,19 @@ function ApiKeyCard({
     setError(null);
     setSaved(false);
     try {
-      // Speichern + aktivieren in EINEM Schritt (vorher zwei getrennte Wege).
+      // Save + activate in ONE step (previously two separate paths).
       const next = await window.wab.settings.set({
         backendId: id,
         ...(id === 'byok' ? { provider } : {}),
         model,
-        // Leerer Key = unverändert lassen; getippter Key wird gesetzt.
+        // Empty key = leave unchanged; a typed key gets set.
         ...(apiKey.trim() !== '' ? { apiKey: apiKey.trim() } : {}),
       });
       setApiKey('');
       onSaved(next);
       setSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Speichern fehlgeschlagen.');
+      setError(err instanceof Error ? err.message : 'Save failed.');
     } finally {
       setBusy(false);
     }
@@ -336,7 +336,7 @@ function ApiKeyCard({
       setApiKey('');
       onSaved(next);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Löschen fehlgeschlagen.');
+      setError(err instanceof Error ? err.message : 'Delete failed.');
     } finally {
       setBusy(false);
     }
@@ -362,9 +362,9 @@ function ApiKeyCard({
         </span>
       </div>
       <div className="backend-row__actions">
-        {active && <span className="backend-pill">aktiv</span>}
+        {active && <span className="backend-pill">active</span>}
         <button type="button" className="btn backend-row__btn" onClick={onToggle}>
-          {expanded ? 'Zuklappen' : active ? 'Bearbeiten' : 'Einrichten'}
+          {expanded ? 'Collapse' : active ? 'Edit' : 'Set up'}
         </button>
       </div>
 
@@ -394,15 +394,15 @@ function ApiKeyCard({
           )}
 
           <label className="field">
-            <span className="field__label">Modell</span>
+            <span className="field__label">Model</span>
             <input
               className="field__input"
               type="text"
               value={model}
-              placeholder="z. B. claude-opus-4-8"
+              placeholder="e.g. claude-opus-4-8"
               onChange={(e) => setModel(e.target.value)}
             />
-            <span className="field__hint">Leer lassen für das Standardmodell.</span>
+            <span className="field__hint">Leave empty for the default model.</span>
           </label>
 
           {!keychainAvailable && (
@@ -413,10 +413,10 @@ function ApiKeyCard({
 
           <label className="field">
             <span className="field__label">
-              API-Key{' '}
+              API key{' '}
               {active && settings?.hasApiKey === true && (
                 <span className="field__badge">
-                  {settings.apiKeySource === 'env' ? 'aus Umgebung' : 'gesetzt'}
+                  {settings.apiKeySource === 'env' ? 'from environment' : 'set'}
                 </span>
               )}
             </span>
@@ -424,14 +424,14 @@ function ApiKeyCard({
               className="field__input"
               type="password"
               value={apiKey}
-              placeholder={hasKeychainKey ? '•••••••• (unverändert lassen)' : 'API-Key eingeben'}
+              placeholder={hasKeychainKey ? '•••••••• (leave unchanged)' : 'Enter API key'}
               autoComplete="off"
               onChange={(e) => setApiKey(e.target.value)}
             />
             <span className="field__hint">
               {keychainAvailable
-                ? 'Der Key liegt im Systemschlüsselbund, nie im Klartext auf der Platte, und wird nie an die Oberfläche zurückgegeben.'
-                : 'Ohne Systemschlüsselbund bleibt der Key nur für diese Sitzung im Speicher.'}
+                ? 'The key is stored in the system keychain, never in plain text on disk, and is never returned to the UI.'
+                : 'Without a system keychain, the key stays in memory for this session only.'}
             </span>
           </label>
 
@@ -442,19 +442,19 @@ function ApiKeyCard({
           )}
           {saved && (
             <p className="backend-row__note" role="status">
-              Gespeichert — dieses Backend ist jetzt aktiv.
+              Saved — this backend is now active.
             </p>
           )}
 
           <div className="backend-form__actions">
             {hasKeychainKey && (
               <button type="button" className="btn" disabled={busy} onClick={() => void clearKey()}>
-                Key entfernen
+                Remove key
               </button>
             )}
             <span className="modal__actions-spacer" />
             <button type="submit" className="btn btn--primary" disabled={busy}>
-              {busy ? 'Speichere …' : active ? 'Speichern' : 'Speichern & aktivieren'}
+              {busy ? 'Saving …' : active ? 'Save' : 'Save & activate'}
             </button>
           </div>
         </form>
@@ -464,7 +464,7 @@ function ApiKeyCard({
 }
 
 /* ------------------------------------------------------------------ */
-/* Abo-Karte (Erkennung + geführte Aktivierung)                        */
+/* Subscription card (detection + guided activation)                   */
 /* ------------------------------------------------------------------ */
 
 function SubscriptionCard({
@@ -498,7 +498,7 @@ function SubscriptionCard({
       <div className="backend-row__main">
         <span className="backend-row__name">
           {backendDisplayName(view.backendId)}
-          {view.experimental && <span className="backend-tag">experimentell</span>}
+          {view.experimental && <span className="backend-tag">experimental</span>}
         </span>
         <span className={statusClass}>
           <Icon
@@ -506,24 +506,24 @@ function SubscriptionCard({
             size={12}
             className={subscriptionStatusIcon(view).className}
           />
-          {active ? `aktiv · ${subscriptionStatusLabel(view)}` : subscriptionStatusLabel(view)}
+          {active ? `active · ${subscriptionStatusLabel(view)}` : subscriptionStatusLabel(view)}
         </span>
       </div>
 
       <div className="backend-row__actions">
         {active ? (
-          <span className="backend-pill">aktiv</span>
+          <span className="backend-pill">active</span>
         ) : selectable ? (
           <button type="button" className="btn backend-row__btn" onClick={onSelect}>
-            Verwenden
+            Use
           </button>
         ) : reason === 'needs-ack' ? (
           <button type="button" className="btn backend-row__btn" onClick={onOpenNotice}>
-            Einrichten
+            Set up
           </button>
         ) : reason === 'kill-switch' ? null : (
           <button type="button" className="btn backend-row__btn" onClick={onSelect}>
-            {reason === 'not-logged-in' ? 'Anmelden' : 'Installieren'}
+            {reason === 'not-logged-in' ? 'Sign in' : 'Install'}
           </button>
         )}
       </div>
@@ -548,7 +548,7 @@ function SubscriptionCard({
               className="backend-link"
               onClick={() => onOpenHint(view.installHintUrl as string)}
             >
-              {reason === 'not-logged-in' ? 'Anmeldung öffnen' : 'Installationsanleitung öffnen'}
+              {reason === 'not-logged-in' ? 'Open sign-in' : 'Open install guide'}
             </button>
           )}
         </div>

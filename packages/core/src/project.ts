@@ -1,6 +1,6 @@
 /**
- * Workspace- und Projekt-Typen (PLAN §4, Workspace-Layout):
- * `~/WebAIBuilder/<projekt>/` mit `site/` (Docroot), `.git/`, `project.json`.
+ * Workspace and project types (PLAN §4, workspace layout):
+ * `~/WebAIBuilder/<project>/` with `site/` (docroot), `.git/`, `project.json`.
  */
 
 import type { BackendId } from './agent';
@@ -11,79 +11,79 @@ export const PROJECT_FILE_NAME = 'project.json';
 
 export type DeployProtocol = 'sftp' | 'ftp' | 'ftps';
 
-/** Ein Deploy-Ziel (klassischer Webspace). Secrets liegen NIE hier — nur eine
- *  Referenz auf den OS-Schlüsselbund (PLAN §4, Deploy-Engine). */
+/** A deploy target (classic web hosting). Secrets are NEVER stored here — only a
+ *  reference to the OS keychain (PLAN §4, deploy engine). */
 export interface DeployTarget {
   id: string;
-  /** Anzeigename, z. B. "IONOS Vereinsseite". */
+  /** Display name, e.g. "IONOS club site". */
   name: string;
   protocol: DeployProtocol;
   host: string;
   port: number;
   username: string;
-  /** Zielverzeichnis auf dem Server, z. B. "/htdocs". */
+  /** Target directory on the server, e.g. "/htdocs". */
   remotePath: string;
-  /** Referenz auf das Secret im OS-Schlüsselbund (@napi-rs/keyring). */
+  /** Reference to the secret in the OS keychain (@napi-rs/keyring). */
   credentialRef: string;
-  /** Commit-SHA aus dem Remote-Manifest (`.wab-manifest.json`) — "welche
-   *  Version ist auf diesem Ziel deployt" (PLAN §4). */
+  /** Commit SHA from the remote manifest (`.wab-manifest.json`) — "which
+   *  version is deployed on this target" (PLAN §4). */
   lastDeployedCommit?: string;
   lastDeployedAt?: string;
 }
 
-/** Ein Checkpoint = ein Commit im Workspace-git (UI sagt nie "git"). */
+/** A checkpoint = a commit in the workspace git (the UI never says "git"). */
 export interface Checkpoint {
-  /** Commit-SHA. */
+  /** Commit SHA. */
   id: string;
-  /** Erste Prompt-Zeile des Turns bzw. manuelle Beschreibung. */
+  /** First prompt line of the turn, or a manual description. */
   message: string;
   createdAt: string;
-  /** Trailer-Metadaten des Agent-Turns (PLAN §4, Versionierung). */
+  /** Trailer metadata of the agent turn (PLAN §4, versioning). */
   turnId?: string;
   backend?: BackendId;
   sessionId?: string;
   costUsd?: number;
-  /** Anzeigename, falls als benannte Version getaggt (annotated Tag). */
+  /** Display name, if tagged as a named version (annotated tag). */
   versionName?: string;
-  /** true, wenn diese SHA im Remote-Manifest eines Deploy-Ziels steht. */
+  /** true if this SHA appears in the remote manifest of a deploy target. */
   deployed?: boolean;
 }
 
-/** Eine Starter-Vorlage für neue Projekte (statisches HTML/CSS/JS, PLAN §2). */
+/** A starter template for new projects (static HTML/CSS/JS, PLAN §2). */
 export interface StarterTemplate {
-  /** Ordnername unter resources/templates, z. B. "einseiter". */
+  /** Folder name under resources/templates, e.g. "einseiter". */
   id: string;
-  /** Anzeigename, z. B. "Einseiter". */
+  /** Display name, e.g. "One-Pager". */
   name: string;
-  /** Kurzbeschreibung fürs Neues-Projekt-Formular. */
+  /** Short description for the new-project form. */
   description: string;
 }
 
-/** Ein Projekt in der Registry (Inhalt von `project.json` + Laufzeitfelder). */
+/** A project in the registry (contents of `project.json` + runtime fields). */
 export interface Project {
   id: string;
   name: string;
-  /** Absoluter Pfad: `~/WebAIBuilder/<projekt>`. */
+  /** Absolute path: `~/WebAIBuilder/<project>`. */
   workspaceDir: string;
-  /** Absoluter Pfad des Docroot: `<workspaceDir>/site`. */
+  /** Absolute path of the docroot: `<workspaceDir>/site`. */
   siteDir: string;
-  /** Vorlage, aus der das Projekt erzeugt wurde. */
+  /** Template the project was created from. */
   templateId: string;
   createdAt: string;
   updatedAt: string;
-  /** Zuletzt benutztes KI-Backend. */
+  /** Last used AI backend. */
   lastBackend?: BackendId;
   deployTargets: DeployTarget[];
 }
 
 export interface ProjectCreateInput {
   name: string;
-  /** Starter-Vorlage (`StarterTemplate.id`), aus der `site/` befüllt wird. */
+  /** Starter template (`StarterTemplate.id`) used to populate `site/`. */
   templateId: string;
 }
 
-/** Partielles Update — nur gesetzte Felder werden geändert. `deployTargets`
- *  ersetzt die komplette Liste (inkl. `lastDeployedCommit` pro Ziel). */
+/** Partial update — only set fields are changed. `deployTargets`
+ *  replaces the entire list (incl. `lastDeployedCommit` per target). */
 export interface ProjectUpdateInput {
   name?: string;
   lastBackend?: BackendId;
@@ -91,19 +91,19 @@ export interface ProjectUpdateInput {
 }
 
 /**
- * Projekt-Registry-Vertrag. Implementiert im Electron-Main-Prozess mit
- * better-sqlite3 (`apps/desktop/src/main/registry.ts`); DB-Pfad, Workspace-
- * Wurzel und Vorlagen-Ordner sind injizierbar (headless testbar).
+ * Project registry contract. Implemented in the Electron main process with
+ * better-sqlite3 (`apps/desktop/src/main/registry.ts`); DB path, workspace
+ * root and templates folder are injectable (headless-testable).
  */
 export interface ProjectRegistry {
   list(): Promise<Project[]>;
   get(id: string): Promise<Project | null>;
-  /** Legt Workspace + `site/` + `project.json` an und kopiert die Vorlage. */
+  /** Creates workspace + `site/` + `project.json` and copies the template. */
   create(input: ProjectCreateInput): Promise<Project>;
   update(id: string, patch: ProjectUpdateInput): Promise<Project>;
-  /** Entfernt das Projekt aus der Registry; der Workspace auf der Platte
-   *  bleibt bewusst erhalten (Nutzerdaten werden nie still gelöscht). */
+  /** Removes the project from the registry; the workspace on disk
+   *  is intentionally kept (user data is never silently deleted). */
   delete(id: string): Promise<void>;
-  /** Verfügbare Starter-Vorlagen fürs Neues-Projekt-Formular. */
+  /** Available starter templates for the new-project form. */
   listTemplates(): Promise<StarterTemplate[]>;
 }

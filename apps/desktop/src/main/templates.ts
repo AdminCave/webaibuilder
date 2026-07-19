@@ -1,12 +1,12 @@
 /**
- * Starter-Vorlagen: Laden des Manifests und Kopieren in `<workspace>/site/`.
+ * Starter templates: loading the manifest and copying into `<workspace>/site/`.
  *
- * Vorlagen sind reines statisches HTML/CSS/JS ohne Build-Schritt (PLAN §2).
- * Sie liegen unter `resources/templates/<id>/` neben einem `manifest.json`:
+ * Templates are pure static HTML/CSS/JS with no build step (PLAN §2). They live
+ * under `resources/templates/<id>/` next to a `manifest.json`:
  * `{ "templates": [{ "id", "name", "description" }, …] }`.
  *
- * Bewusst Electron-frei: der Vorlagen-Ordner wird injiziert, damit die
- * Registry headless (vitest, Node) testbar bleibt.
+ * Deliberately electron-free: the templates folder is injected so the registry
+ * stays headless (vitest, Node) testable.
  */
 
 import { cpSync, existsSync, readFileSync } from 'node:fs';
@@ -14,7 +14,7 @@ import { join } from 'node:path';
 
 import type { StarterTemplate } from '@webaibuilder/core';
 
-/** Nur einfache Ordnernamen — schließt Pfad-Tricks wie "../" aus. */
+/** Simple folder names only — rules out path tricks like "../". */
 const TEMPLATE_ID_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
 function isStarterTemplate(value: unknown): value is StarterTemplate {
@@ -29,13 +29,13 @@ function isStarterTemplate(value: unknown): value is StarterTemplate {
 }
 
 /**
- * Liest `manifest.json` und liefert nur Vorlagen, deren Ordner tatsächlich
- * eine `index.html` enthält (defekte Einträge tauchen im UI nicht auf).
+ * Reads `manifest.json` and returns only templates whose folder actually
+ * contains an `index.html` (broken entries do not appear in the UI).
  */
 export function loadStarterTemplates(templatesRoot: string): StarterTemplate[] {
   const manifestPath = join(templatesRoot, 'manifest.json');
   if (!existsSync(manifestPath)) {
-    throw new Error(`Vorlagen-Manifest nicht gefunden: ${manifestPath}`);
+    throw new Error(`Templates manifest not found: ${manifestPath}`);
   }
   const parsed: unknown = JSON.parse(readFileSync(manifestPath, 'utf8'));
   const entries =
@@ -44,7 +44,7 @@ export function loadStarterTemplates(templatesRoot: string): StarterTemplate[] {
       : undefined;
   if (!Array.isArray(entries)) {
     throw new Error(
-      `Vorlagen-Manifest ist ungültig (erwartet { "templates": [] }): ${manifestPath}`,
+      `Templates manifest is invalid (expected { "templates": [] }): ${manifestPath}`,
     );
   }
   return entries
@@ -53,16 +53,16 @@ export function loadStarterTemplates(templatesRoot: string): StarterTemplate[] {
 }
 
 /**
- * Kopiert eine Vorlage rekursiv in das (bereits angelegte) Zielverzeichnis —
- * typischerweise `<workspace>/site/`. Wirft bei unbekannter Vorlage.
+ * Copies a template recursively into the (already created) destination directory
+ * — typically `<workspace>/site/`. Throws on an unknown template.
  */
 export function copyTemplateInto(templatesRoot: string, templateId: string, destDir: string): void {
   if (!TEMPLATE_ID_PATTERN.test(templateId)) {
-    throw new Error(`Ungültige Vorlagen-ID: "${templateId}".`);
+    throw new Error(`Invalid template ID: "${templateId}".`);
   }
   const sourceDir = join(templatesRoot, templateId);
   if (!existsSync(join(sourceDir, 'index.html'))) {
-    throw new Error(`Unbekannte Vorlage: "${templateId}".`);
+    throw new Error(`Unknown template: "${templateId}".`);
   }
   cpSync(sourceDir, destDir, { recursive: true });
 }

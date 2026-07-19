@@ -1,10 +1,10 @@
 /**
- * Tests für den claude-sdk-Adapter.
+ * Tests for the claude-sdk adapter.
  *
- * Es läuft KEIN Live-`query()` (das würde einen Claude-Code-Subprozess + Key
- * starten). Stattdessen wird `@anthropic-ai/claude-agent-sdk` gemockt und ein
- * gefälschter Nachrichten-Strom durchgereicht, um das Event-Mapping zu prüfen.
- * Zusätzlich: reine Unit-Tests für Policy-/Scope-Mapping und die Factory.
+ * NO live `query()` runs (that would start a Claude Code subprocess + key).
+ * Instead `@anthropic-ai/claude-agent-sdk` is mocked and a fake message stream
+ * is fed through to check the event mapping. Additionally: pure unit tests for
+ * policy/scope mapping and the factory.
  */
 
 import { mkdtemp, mkdir, rm } from 'node:fs/promises';
@@ -15,7 +15,7 @@ import type { AgentEvent, AgentTurnRequest } from '@webaibuilder/core';
 import { DEFAULT_PERMISSION_POLICY } from '@webaibuilder/core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Den Vendor-SDK mocken, bevor der Adapter ihn importiert.
+// Mock the vendor SDK before the adapter imports it.
 const queryMock = vi.fn();
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
   query: (...args: unknown[]) => queryMock(...args),
@@ -49,8 +49,8 @@ async function collect(iterable: AsyncIterable<AgentEvent>): Promise<AgentEvent[
   return events;
 }
 
-describe('claude-sdk-Adapter (Message-Mapping, gemockt)', () => {
-  it('mappt system/stream_event/assistant/user/result auf AgentEvents', async () => {
+describe('claude-sdk adapter (message mapping, mocked)', () => {
+  it('maps system/stream_event/assistant/user/result onto AgentEvents', async () => {
     async function* fakeMessages() {
       yield { type: 'system', subtype: 'init', session_id: 'sess-1', uuid: 'u0' };
       yield {
@@ -81,7 +81,7 @@ describe('claude-sdk-Adapter (Message-Mapping, gemockt)', () => {
     const backend = createClaudeSdkBackend({ apiKey: 'test-key' });
     const events = await collect(backend.runTurn(request('Bau eine Seite')));
 
-    // query() wurde mit cwd = siteDir und acceptEdits aufgerufen.
+    // query() was called with cwd = siteDir and acceptEdits.
     expect(queryMock).toHaveBeenCalledTimes(1);
     const call = queryMock.mock.calls[0]?.[0] as { prompt: string; options: Record<string, unknown> };
     expect(call.options.cwd).toBe(siteDir);
@@ -96,7 +96,7 @@ describe('claude-sdk-Adapter (Message-Mapping, gemockt)', () => {
     expect(text).toContain('Hallo');
 
     const activity = events.filter((e) => e.type === 'tool-activity');
-    expect(activity.some((e) => e.type === 'tool-activity' && e.phase === 'start' && e.tool === 'Datei schreiben')).toBe(
+    expect(activity.some((e) => e.type === 'tool-activity' && e.phase === 'start' && e.tool === 'Write file')).toBe(
       true,
     );
     expect(activity.some((e) => e.type === 'tool-activity' && e.phase === 'end')).toBe(true);
@@ -111,13 +111,13 @@ describe('claude-sdk-Adapter (Message-Mapping, gemockt)', () => {
   });
 });
 
-describe('claude-sdk-Adapter (Policy-/Scope-Mapping)', () => {
-  it('mapPermissionMode: Auto-Approve von Edits → acceptEdits', () => {
+describe('claude-sdk adapter (policy/scope mapping)', () => {
+  it('mapPermissionMode: auto-approve of edits → acceptEdits', () => {
     expect(mapPermissionMode(DEFAULT_PERMISSION_POLICY)).toBe('acceptEdits');
     expect(mapPermissionMode({ ...DEFAULT_PERMISSION_POLICY, 'edit-in-site': 'prompt' })).toBe('default');
   });
 
-  it('classifyTool ordnet Tools den richtigen Scopes zu', async () => {
+  it('classifyTool assigns tools to the correct scopes', async () => {
     expect(await classifyTool('Write', { file_path: 'index.html' }, siteDir)).toBe('edit-in-site');
     expect(await classifyTool('Edit', { file_path: '../../etc/passwd' }, siteDir)).toBe('edit-outside-site');
     expect(await classifyTool('Read', { file_path: 'index.html' }, siteDir)).toBe('read');
@@ -127,7 +127,7 @@ describe('claude-sdk-Adapter (Policy-/Scope-Mapping)', () => {
 });
 
 describe('Factory & Detection', () => {
-  it('createBackend erzeugt byok und claude-sdk', () => {
+  it('createBackend creates byok and claude-sdk', () => {
     const byok = createBackend('byok', { apiKey: 'k' });
     expect(byok.id).toBe('byok');
     expect(byok.capabilities()).toEqual({ resume: false, partialText: true, cost: false });
@@ -137,7 +137,7 @@ describe('Factory & Detection', () => {
     expect(claude.capabilities()).toEqual({ resume: true, partialText: true, cost: true });
   });
 
-  it('createBackend erzeugt die vier M4-CLI-Backends; byok ohne Key wirft', () => {
+  it('createBackend creates the four M4 CLI backends; byok without a key throws', () => {
     expect(createBackend('claude-cli', {}).id).toBe('claude-cli');
     expect(createBackend('codex', {}).id).toBe('codex');
     expect(createBackend('gemini-cli', {}).id).toBe('gemini-cli');
@@ -147,11 +147,11 @@ describe('Factory & Detection', () => {
       partialText: true,
       cost: false,
     });
-    expect(() => createBackend('byok', {})).toThrow(/API-Key/);
+    expect(() => createBackend('byok', {})).toThrow(/API key/);
   });
 
-  it('detectBackends meldet byok verfügbar, CLIs ohne Installation nicht', async () => {
-    // Injizierter which-Fake: nichts installiert (kein echter PATH-/CLI-Zugriff).
+  it('detectBackends reports byok as available, CLIs without an installation not', async () => {
+    // Injected which fake: nothing installed (no real PATH/CLI access).
     const list = await detectBackends({ which: async () => null, keyEnv: {} });
     const byId = Object.fromEntries(list.map((b) => [b.id, b]));
     expect(byId.byok?.installed).toBe(true);
@@ -160,7 +160,7 @@ describe('Factory & Detection', () => {
     expect(byId['claude-sdk']).toBeDefined();
   });
 
-  it('byok-Adapter ist direkt konstruierbar (createByokBackend)', () => {
+  it('byok adapter is directly constructible (createByokBackend)', () => {
     const backend = createByokBackend({ provider: 'openai', apiKey: 'k' });
     expect(backend.id).toBe('byok');
   });

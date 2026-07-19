@@ -1,10 +1,10 @@
 /**
- * Headless-Tests der Backend-Orchestrierung (PLAN §3/§4, M4). Detection,
- * Kill-Switch-Quelle und Ack-Speicher sind injizierte Fakes → deterministisch,
- * ohne echtes CLI-Probing und ohne Netz.
+ * Headless tests of the backend orchestration (PLAN §3/§4, M4). Detection,
+ * kill-switch source, and ack store are injected fakes → deterministic, without
+ * real CLI probing and without network.
  *
- * Nur runtime-testbar (nicht hier): das echte `detectBackends()`-CLI-Probing und
- * echte Electron-IPC.
+ * Runtime-testable only (not here): the real `detectBackends()` CLI probing and
+ * real Electron IPC.
  */
 
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -42,8 +42,8 @@ afterEach(() => {
   rmSync(tmp, { recursive: true, force: true });
 });
 
-describe('BackendService — Availability + Kill-Switch-Merge', () => {
-  it('liefert alle sechs Backends und meldet ein deaktiviertes mit Grund', async () => {
+describe('BackendService — availability + kill-switch merge', () => {
+  it('returns all six backends and reports a disabled one with a reason', async () => {
     const remote = coerceKillSwitchConfig({
       backends: { 'grok-cli': { enabled: false, reason: 'xAI-Pfad pausiert.' } },
     });
@@ -76,11 +76,11 @@ describe('BackendService — Availability + Kill-Switch-Merge', () => {
     expect(codex?.installed).toBe(true);
     expect(codex?.account).toBe('a@b.de');
 
-    // Nicht von der Detection gelieferte Backends → defensiv „nicht installiert".
+    // Backends not returned by detection → defensively "not installed".
     expect(state.backends.find((b) => b.backendId === 'gemini-cli')?.installed).toBe(false);
   });
 
-  it('cached die Detection und probt erst bei refresh neu', async () => {
+  it('caches detection and only re-probes on refresh', async () => {
     const detect = vi.fn(async () => [{ backendId: 'codex', installed: true, loggedIn: true }]);
     const service = new BackendService({
       detect,
@@ -90,13 +90,13 @@ describe('BackendService — Availability + Kill-Switch-Merge', () => {
 
     await service.availability();
     await service.availability();
-    expect(detect).toHaveBeenCalledTimes(1); // gecacht
+    expect(detect).toHaveBeenCalledTimes(1); // cached
 
     await service.refresh();
-    expect(detect).toHaveBeenCalledTimes(2); // neu geprobt
+    expect(detect).toHaveBeenCalledTimes(2); // re-probed
   });
 
-  it('meldet bei Detection-Fehler alle Backends als nicht installiert (fail-safe)', async () => {
+  it('reports all backends as not installed on a detection error (fail-safe)', async () => {
     const service = new BackendService({
       detect: async () => {
         throw new Error('CLI-Probe abgestürzt');
@@ -110,8 +110,8 @@ describe('BackendService — Availability + Kill-Switch-Merge', () => {
   });
 });
 
-describe('BackendService — Bestätigung (Claude-Abo-Hinweis)', () => {
-  it('persistiert die Bestätigung und spiegelt sie im Zustand', async () => {
+describe('BackendService — acknowledgment (Claude subscription notice)', () => {
+  it('persists the acknowledgment and reflects it in the state', async () => {
     const acks = memoryAckStore();
     const addSpy = vi.spyOn(acks, 'add');
     const service = new BackendService({
@@ -132,8 +132,8 @@ describe('BackendService — Bestätigung (Claude-Abo-Hinweis)', () => {
   });
 });
 
-describe('FileAckStore — Persistenz', () => {
-  it('speichert bestätigte Backends und liest sie beim Neustart', () => {
+describe('FileAckStore — persistence', () => {
+  it('stores acknowledged backends and reads them on restart', () => {
     const file = join(tmp, 'backend-acks.json');
     const first = new FileAckStore(file);
     expect(first.list()).toEqual([]);
@@ -144,17 +144,17 @@ describe('FileAckStore — Persistenz', () => {
     expect(second.list()).toEqual(['claude-cli']);
   });
 
-  it('ignoriert kaputte/ungültige Inhalte', () => {
+  it('ignores corrupt/invalid contents', () => {
     const file = join(tmp, 'acks.json');
     writeFileSync(file, JSON.stringify(['claude-cli', 'gibts-nicht', 42]));
     const store = new FileAckStore(file);
-    expect(store.list()).toEqual(['claude-cli']); // nur gültige BackendIds
+    expect(store.list()).toEqual(['claude-cli']); // only valid BackendIds
 
     writeFileSync(file, '{ kaputt');
     expect(new FileAckStore(file).list()).toEqual([]);
   });
 
-  it('schreibt gültiges JSON auf die Platte', () => {
+  it('writes valid JSON to disk', () => {
     const file = join(tmp, 'a.json');
     new FileAckStore(file).add('claude-cli');
     expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(['claude-cli']);

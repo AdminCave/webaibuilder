@@ -29,9 +29,9 @@ interface ChatPanelProps {
   pageError: PageError | null;
   onFixError: () => void;
   onDismissError: () => void;
-  /** Öffnet die Einstellungen an einer bestimmten Stelle (Deep-Link). */
+  /** Opens settings at a specific location (deep link). */
   onOpenSettings: (route: SettingsRoute) => void;
-  /** Meldet frisch gespeicherte Einstellungen an die App (schaltet den Chat frei). */
+  /** Reports freshly saved settings to the app (unlocks the chat). */
   onSettingsSaved: (settings: AgentSettings) => void;
 }
 
@@ -64,10 +64,10 @@ export function ChatPanel({
     setDraft('');
   }
 
-  // Für API-Key-Backends spiegelt `backendReady` den hinterlegten Key; Abo-/CLI-
-  // Backends sind ohne Key bereit (Login liegt bei der eigenen CLI).
+  // For API-key backends, `backendReady` reflects the stored key; subscription/CLI
+  // backends are ready without a key (login lives in the provider's own CLI).
   const chipLabel =
-    backendId === null ? 'kein Backend' : activeBackendStatusLabel(backendId, backendReady);
+    backendId === null ? 'no backend' : activeBackendStatusLabel(backendId, backendReady);
 
   return (
     <section className="panel panel--chat" aria-label="Chat">
@@ -79,10 +79,10 @@ export function ChatPanel({
       <div className="chat__messages" ref={messagesRef}>
         {chat.messages.length === 0 ? (
           <div className="chat__empty">
-            <h2>Was willst du bauen?</h2>
+            <h2>What do you want to build?</h2>
             <p>
-              Beschreib deine Webseite — die KI erstellt sie Schritt für Schritt und du siehst
-              rechts sofort die Vorschau.
+              Describe your website — the AI builds it step by step and you see the preview on the
+              right instantly.
             </p>
             {!backendReady && (
               <ChatSetup onOpenSettings={onOpenSettings} onSettingsSaved={onSettingsSaved} />
@@ -108,15 +108,15 @@ export function ChatPanel({
       {pageError !== null && (
         <div className="chat__error" role="alert">
           <div className="chat__error-body">
-            <p className="chat__error-title">Fehler in der Vorschau</p>
+            <p className="chat__error-title">Error in the preview</p>
             <p className="chat__error-message">{pageError.message}</p>
           </div>
           <div className="chat__error-actions">
             <button type="button" className="btn btn--primary" onClick={onFixError} disabled={running}>
-              Fehler beheben
+              Fix error
             </button>
             <button type="button" className="btn" onClick={onDismissError}>
-              Verwerfen
+              Dismiss
             </button>
           </div>
         </div>
@@ -126,7 +126,7 @@ export function ChatPanel({
         <textarea
           className="chat__input"
           rows={2}
-          placeholder={backendReady ? 'Beschreibe deine Webseite …' : 'Erst ein Backend einrichten …'}
+          placeholder={backendReady ? 'Describe your website …' : 'Set up a backend first …'}
           value={draft}
           disabled={!backendReady}
           onChange={(e) => setDraft(e.target.value)}
@@ -140,7 +140,7 @@ export function ChatPanel({
         {running ? (
           <button type="button" className="btn" onClick={onInterrupt}>
             <Icon name="stop" size={14} />
-            Stopp
+            Stop
           </button>
         ) : (
           <button
@@ -150,7 +150,7 @@ export function ChatPanel({
             disabled={draft.trim() === '' || !backendReady}
           >
             <Icon name="send" size={14} />
-            Senden
+            Send
           </button>
         )}
       </footer>
@@ -185,14 +185,14 @@ function AssistantBubble({
       )}
 
       {showThinking ? (
-        <p className="msg__thinking">Die KI arbeitet …</p>
+        <p className="msg__thinking">The AI is working …</p>
       ) : (
         message.text !== '' && <div className="msg__text">{message.text}</div>
       )}
 
       {message.status === 'error' && <ErrorDetails message={message} />}
       {message.status === 'interrupted' && !running && (
-        <p className="msg__note">Abgebrochen.</p>
+        <p className="msg__note">Stopped.</p>
       )}
       {typeof message.costUsd === 'number' && (
         <p className="msg__cost">{formatCost(message.costUsd)}</p>
@@ -202,11 +202,11 @@ function AssistantBubble({
 }
 
 /**
- * Geführter Einrichtungs-Pfad im leeren Chat (statt totem Disabled-Zustand):
- * empfiehlt das erste nutzbare Abo-Backend („gefunden — jetzt einrichten",
- * inkl. Hinweis-Bestätigung, Compliance PLAN §3) oder führt zum API-Key in den
- * Einstellungen. Genau die Lücke, die vorher „erkennt Claude, aber man kann
- * nichts machen" erzeugte.
+ * Guided setup path in the empty chat (instead of a dead disabled state):
+ * recommends the first usable subscription backend ("found — set up now",
+ * including notice confirmation, compliance PLAN §3) or leads to the API key in
+ * settings. Exactly the gap that previously caused "detects Claude, but you
+ * can't do anything".
  */
 function ChatSetup({
   onOpenSettings,
@@ -228,7 +228,7 @@ function ChatSetup({
         if (!cancelled) setViews(state.backends);
       })
       .catch(() => {
-        // Erkennung nicht verfügbar → auf den API-Key-Pfad zurückfallen.
+        // Detection unavailable → fall back to the API-key path.
         if (!cancelled) setViews([]);
       });
     return () => {
@@ -240,13 +240,13 @@ function ChatSetup({
     setBusy(true);
     setError(null);
     try {
-      // Compliance: erst die explizite Bestätigung persistieren, DANN aktivieren —
-      // der Main-Prozess prüft die Aktivierung autoritativ (applySettingsUpdate).
+      // Compliance: persist the explicit confirmation first, THEN activate —
+      // the main process validates the activation authoritatively (applySettingsUpdate).
       if (withAck) await window.wab.backends.acknowledge(id);
       const next = await window.wab.settings.set({ backendId: id });
       onSettingsSaved(next);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Aktivierung fehlgeschlagen.');
+      setError(err instanceof Error ? err.message : 'Activation failed.');
     } finally {
       setBusy(false);
       setNoticeBackend(null);
@@ -254,7 +254,7 @@ function ChatSetup({
   }
 
   if (views === null) {
-    return <p className="chat__hint">Prüfe verfügbare KI-Backends …</p>;
+    return <p className="chat__hint">Checking available AI backends …</p>;
   }
   const cta = recommendChatSetup(views);
 
@@ -263,8 +263,8 @@ function ChatSetup({
       {cta.kind === 'use-subscription' ? (
         <>
           <p className="chat__hint">
-            {backendDisplayName(cta.backendId)} ist auf deinem Rechner installiert — du kannst den
-            Chat direkt über dein Abo nutzen.
+            {backendDisplayName(cta.backendId)} is installed on your machine — you can use the chat
+            directly through your subscription.
           </p>
           <div className="chat__setup-actions">
             <button
@@ -278,23 +278,23 @@ function ChatSetup({
             >
               <Icon name="terminal" size={14} />
               {busy
-                ? 'Aktiviere …'
-                : `${backendDisplayName(cta.backendId)} ${cta.needsAck ? 'jetzt einrichten' : 'verwenden'}`}
+                ? 'Activating …'
+                : `${backendDisplayName(cta.backendId)} ${cta.needsAck ? 'set up now' : 'use'}`}
             </button>
             <button
               type="button"
               className="btn"
               onClick={() => onOpenSettings({ section: 'backends' })}
             >
-              Andere Backends
+              Other backends
             </button>
           </div>
         </>
       ) : (
         <>
           <p className="chat__hint">
-            Hinterleg zuerst ein KI-Backend samt API-Key — oder installiere eine der
-            unterstützten Anbieter-CLIs für den Abo-Modus.
+            Add an AI backend with an API key first — or install one of the supported provider CLIs
+            for subscription mode.
           </p>
           <div className="chat__setup-actions">
             <button
@@ -303,7 +303,7 @@ function ChatSetup({
               onClick={() => onOpenSettings({ section: 'backends', backendId: 'byok' })}
             >
               <Icon name="key" size={14} />
-              API-Key hinterlegen
+              Add an API key
             </button>
           </div>
         </>
@@ -329,9 +329,9 @@ function ChatSetup({
 }
 
 /**
- * Fehleranzeige einer Assistant-Bubble: Meldung, dazu (falls erkannt) ein
- * handlungsleitender Hinweis und die aufklappbare technische Ursache — vorher
- * ging die echte Ursache (401, ungültiges Modell, …) verloren.
+ * Error display of an assistant bubble: the message plus (if detected) an
+ * actionable hint and the expandable technical cause — previously the real
+ * cause (401, invalid model, …) was lost.
  */
 function ErrorDetails({ message }: { message: AssistantMessage }): React.JSX.Element {
   const hint = humanizeAgentError(`${message.errorText ?? ''}\n${message.errorCause ?? ''}`);
@@ -339,12 +339,12 @@ function ErrorDetails({ message }: { message: AssistantMessage }): React.JSX.Ele
     <div className="msg__error-block">
       <p className="msg__error">
         <Icon name="alert" size={14} />
-        {message.errorText ?? 'Es ist ein Fehler aufgetreten.'}
+        {message.errorText ?? 'An error occurred.'}
       </p>
       {hint !== null && <p className="msg__error-hint">{hint}</p>}
       {message.errorCause !== undefined && message.errorCause !== '' && (
         <details className="msg__error-details">
-          <summary>Details anzeigen</summary>
+          <summary>Show details</summary>
           <pre>{message.errorCause}</pre>
         </details>
       )}
@@ -360,7 +360,7 @@ function PermissionPrompt({
   onPermission: (requestId: string, allow: boolean) => void;
 }): React.JSX.Element {
   return (
-    <div className="permission" role="alertdialog" aria-label="Erlaubnis erforderlich">
+    <div className="permission" role="alertdialog" aria-label="Permission required">
       <p className="permission__scope">{scopeLabel(permission.scope)}</p>
       <p className="permission__desc">{permission.description}</p>
       <div className="permission__actions">
@@ -369,14 +369,14 @@ function PermissionPrompt({
           className="btn btn--primary"
           onClick={() => onPermission(permission.requestId, true)}
         >
-          Erlauben
+          Allow
         </button>
         <button
           type="button"
           className="btn"
           onClick={() => onPermission(permission.requestId, false)}
         >
-          Ablehnen
+          Deny
         </button>
       </div>
     </div>
@@ -386,15 +386,15 @@ function PermissionPrompt({
 function scopeLabel(scope: PendingPermission['scope']): string {
   switch (scope) {
     case 'edit-in-site':
-      return 'Datei in site/ ändern';
+      return 'Modify a file in site/';
     case 'edit-outside-site':
-      return 'Datei außerhalb von site/ ändern';
+      return 'Modify a file outside site/';
     case 'shell':
-      return 'Befehl ausführen';
+      return 'Run a command';
     case 'network':
-      return 'Netzwerkzugriff';
+      return 'Network access';
     default:
-      return 'Aktion';
+      return 'Action';
   }
 }
 

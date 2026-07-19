@@ -1,19 +1,18 @@
 /**
- * Rotierender Datei-Logger des Main-Prozesses (M5, PLAN §1/§6).
+ * Rotating file logger of the main process (M5, PLAN §1/§6).
  *
- * Schreibt strukturierte JSON-Zeilen in `<dir>/app.log`. Läuft die Datei über
- * `maxBytes`, wird sie zu `app.1.log` rotiert (bestehende Rotate-Dateien rücken
- * hoch, die älteste jenseits von `maxFiles` fällt weg). So bleibt der Platten-
- * verbrauch gedeckelt und die letzten N Dateien erhalten.
+ * Writes structured JSON lines to `<dir>/app.log`. When the file exceeds
+ * `maxBytes`, it is rotated to `app.1.log` (existing rotate files move up, the
+ * oldest beyond `maxFiles` is dropped). This keeps disk usage capped and the
+ * last N files retained.
  *
- * Haltung (PLAN §1, DSGVO/Local-first): **rein lokal, kein Remote** — kein
- * Netz-Code, kein Endpunkt. `context` wird vor dem Schreiben durch
- * {@link scrubContext} geschickt, sodass nie ein API-Key/Passwort/Token in einem
- * Log landet.
+ * Stance (PLAN §1, GDPR/local-first): **purely local, no remote** — no network
+ * code, no endpoint. `context` is passed through {@link scrubContext} before
+ * writing, so an API key/password/token never ends up in a log.
  *
- * Nur node-fs, kein electron-Import → headless mit vitest testbar (Pfad wird
- * injiziert). Der App-weite Pfad (`<userData>/logs`) wird in index.ts via
- * {@link initLogger} verdrahtet.
+ * Only node-fs, no electron import → headless testable with vitest (the path is
+ * injected). The app-wide path (`<userData>/logs`) is wired up in index.ts via
+ * {@link initLogger}.
  */
 
 import {
@@ -37,15 +36,15 @@ import {
 } from '../shared/logging';
 
 export interface FileLoggerOptions {
-  /** Verzeichnis der Log-Dateien (wird bei Bedarf angelegt). */
+  /** Directory of the log files (created on demand). */
   dir: string;
-  /** Basisname ohne Endung (Default: 'app' → app.log, app.1.log, …). */
+  /** Base name without extension (default: 'app' → app.log, app.1.log, …). */
   baseName?: string;
-  /** Rotationsgrenze pro Datei in Bytes (Default: 1 MiB). */
+  /** Rotation threshold per file in bytes (default: 1 MiB). */
   maxBytes?: number;
-  /** Anzahl aufbewahrter Rotate-Dateien (Default: 5). */
+  /** Number of retained rotate files (default: 5). */
   maxFiles?: number;
-  /** Zeitquelle (Default: () => new Date()). */
+  /** Time source (default: () => new Date()). */
   now?: () => Date;
 }
 
@@ -68,11 +67,11 @@ export class FileLogger {
     try {
       mkdirSync(this.dir, { recursive: true });
     } catch {
-      /* Best effort — Logging darf den Start nie verhindern. */
+      /* Best effort — logging must never prevent startup. */
     }
   }
 
-  /** Pfad der aktiven Log-Datei. */
+  /** Path of the active log file. */
   get filePath(): string {
     return join(this.dir, `${this.baseName}.log`);
   }
@@ -82,8 +81,8 @@ export class FileLogger {
   }
 
   /**
-   * Schreibt einen Eintrag. Wirft nie — Logging ist best effort und darf keinen
-   * anderen Code-Pfad stören. `context` wird gescrubbt (kein Secret in Logs).
+   * Writes an entry. Never throws — logging is best effort and must not disturb
+   * any other code path. `context` is scrubbed (no secret in logs).
    */
   log(level: LogLevel, source: string, message: string, context?: unknown): void {
     const entry: LogEntry = {
@@ -115,9 +114,9 @@ export class FileLogger {
   }
 
   /**
-   * Die letzten `lines` Zeilen über die aktive + rotierten Dateien hinweg
-   * (chronologisch: älteste Rotate-Datei zuerst, aktive zuletzt). Für die
-   * „Logs kopieren"-Aktion. Wirft nie — liefert im Fehlerfall "".
+   * The last `lines` lines across the active + rotated files (chronologically:
+   * oldest rotate file first, active last). For the "Copy logs" action. Never
+   * throws — returns "" on error.
    */
   tail(lines: number): string {
     try {
@@ -134,18 +133,18 @@ export class FileLogger {
   }
 
   /**
-   * Rotiert, falls die aktive Datei mit dem geplanten Schreiben die Grenze
-   * erreicht. Reihenfolge: älteste löschen → alle hochschieben → aktive nach .1.
-   * Jede fs-Operation ist einzeln abgesichert (nie Crash beim Logging).
+   * Rotates if the active file reaches the limit with the planned write. Order:
+   * delete the oldest → shift all up → active to .1. Each fs operation is
+   * individually guarded (never a crash while logging).
    */
   private rotateIfNeeded(incomingBytes: number): void {
     let size = 0;
     try {
       size = existsSync(this.filePath) ? statSync(this.filePath).size : 0;
     } catch {
-      /* stat fehlgeschlagen → als leer behandeln (size bleibt 0). */
+      /* stat failed → treat as empty (size stays 0). */
     }
-    if (size === 0) return; // nichts zu rotieren
+    if (size === 0) return; // nothing to rotate
     if (!shouldRotate(size + incomingBytes, this.maxBytes)) return;
 
     const oldest = this.rotatedPath(this.maxFiles);
@@ -172,21 +171,21 @@ export class FileLogger {
 }
 
 /* ------------------------------------------------------------------ */
-/* Singleton pro App-Lauf (in index.ts initialisiert).                */
+/* Singleton per app run (initialized in index.ts).                   */
 /* ------------------------------------------------------------------ */
 
 let instance: FileLogger | null = null;
 
-/** Initialisiert den App-weiten Logger einmalig (idempotent). */
+/** Initializes the app-wide logger once (idempotent). */
 export function initLogger(dir: string, options: Omit<FileLoggerOptions, 'dir'> = {}): FileLogger {
   instance ??= new FileLogger({ dir, ...options });
   return instance;
 }
 
-/** Der App-weite Logger; wirft, wenn {@link initLogger} noch nicht lief. */
+/** The app-wide logger; throws if {@link initLogger} has not run yet. */
 export function getLogger(): FileLogger {
   if (instance === null) {
-    throw new Error('Logger ist noch nicht initialisiert (initLogger fehlt).');
+    throw new Error('Logger is not yet initialized (initLogger missing).');
   }
   return instance;
 }

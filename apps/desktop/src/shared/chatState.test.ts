@@ -21,12 +21,12 @@ function agent(state: ChatState, event: AgentEvent, runId = RUN): ChatState {
 
 function assistant(state: ChatState): AssistantMessage {
   const message = state.messages.find((m) => m.role === 'assistant' && m.id === RUN);
-  if (message === undefined || message.role !== 'assistant') throw new Error('kein Assistent');
+  if (message === undefined || message.role !== 'assistant') throw new Error('no assistant');
   return message;
 }
 
 describe('chatReducer', () => {
-  it('user-send legt Nutzer- und Assistenten-Nachricht an und startet den Turn', () => {
+  it('user-send creates the user and assistant message and starts the turn', () => {
     const state = withRun();
     expect(state.status).toBe('running');
     expect(state.runId).toBe(RUN);
@@ -35,14 +35,14 @@ describe('chatReducer', () => {
     expect(assistant(state)).toMatchObject({ role: 'assistant', text: '', status: 'streaming' });
   });
 
-  it('setzt text-delta-Events zum Antworttext zusammen', () => {
+  it('assembles text-delta events into the reply text', () => {
     let state = withRun();
     state = agent(state, { type: 'text-delta', text: 'Hallo ' });
     state = agent(state, { type: 'text-delta', text: 'Welt' });
     expect(assistant(state).text).toBe('Hallo Welt');
   });
 
-  it('führt Tool-Aktivität über start/update/end als einen Chip', () => {
+  it('tracks tool activity across start/update/end as a single chip', () => {
     let state = withRun();
     state = agent(state, {
       type: 'tool-activity',
@@ -59,7 +59,7 @@ describe('chatReducer', () => {
     expect(assistant(state).tools[0]).toMatchObject({ done: true, detail: 'index.html' });
   });
 
-  it('führt den Permission-Round-Trip: request setzt, answered räumt', () => {
+  it('runs the permission round-trip: request sets, answered clears', () => {
     let state = withRun();
     state = agent(state, {
       type: 'permission-request',
@@ -72,7 +72,7 @@ describe('chatReducer', () => {
     expect(state.pendingPermission).toBeNull();
   });
 
-  it('turn-complete beendet den Turn und übernimmt die Kosten', () => {
+  it('turn-complete ends the turn and adopts the cost', () => {
     let state = withRun();
     state = agent(state, { type: 'text-delta', text: 'fertig' });
     state = agent(state, { type: 'turn-complete', turnId: 't', stopReason: 'end', costUsd: 0.012 });
@@ -81,14 +81,14 @@ describe('chatReducer', () => {
     expect(assistant(state)).toMatchObject({ status: 'complete', costUsd: 0.012 });
   });
 
-  it('markiert Abbruch über turn-complete(interrupted)', () => {
+  it('marks an abort via turn-complete(interrupted)', () => {
     let state = withRun();
     state = agent(state, { type: 'turn-complete', turnId: 't', stopReason: 'interrupted' });
     expect(assistant(state).status).toBe('interrupted');
     expect(state.status).toBe('idle');
   });
 
-  it('markiert Fehler und behält ihn über den Abschluss hinweg', () => {
+  it('marks an error and keeps it across completion', () => {
     let state = withRun();
     state = agent(state, { type: 'error', message: 'Kein Guthaben', recoverable: false });
     expect(assistant(state)).toMatchObject({ status: 'error', errorText: 'Kein Guthaben' });
@@ -98,20 +98,20 @@ describe('chatReducer', () => {
     expect(state.status).toBe('idle');
   });
 
-  it('ignoriert Events eines fremden (veralteten) Turns', () => {
+  it('ignores events from a foreign (stale) turn', () => {
     let state = withRun();
     state = agent(state, { type: 'text-delta', text: 'X' }, 'anderer-run');
     expect(assistant(state).text).toBe('');
   });
 
-  it('reset stellt den Anfangszustand her', () => {
+  it('reset restores the initial state', () => {
     const state = chatReducer(withRun(), { type: 'reset' });
     expect(state).toEqual(initialChatState);
   });
 });
 
-describe('chatReducer — Fehlerursache (errorCause)', () => {
-  it('übernimmt die cause aus dem error-Event in die Assistant-Nachricht', () => {
+describe('chatReducer — error cause (errorCause)', () => {
+  it('adopts the cause from the error event into the assistant message', () => {
     let state = withRun();
     state = agent(state, {
       type: 'error',
@@ -126,7 +126,7 @@ describe('chatReducer — Fehlerursache (errorCause)', () => {
     });
   });
 
-  it('lässt errorCause weg, wenn das Event keine cause trägt', () => {
+  it('omits errorCause when the event carries no cause', () => {
     let state = withRun();
     state = agent(state, { type: 'error', message: 'Fehler', recoverable: false });
     expect(assistant(state).errorCause).toBeUndefined();

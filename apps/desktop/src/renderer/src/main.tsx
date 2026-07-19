@@ -7,13 +7,13 @@ import './app.css';
 import { App } from './App';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
-// Dark-mode-first: Light nur bei explizit gespeicherter Wahl (data-theme="light").
+// Dark-mode-first: light only on an explicitly saved choice (data-theme="light").
 if (localStorage.getItem('wab:theme') === 'light') {
   document.documentElement.dataset['theme'] = 'light';
 }
 
-// Renderer-Fehler ins lokale Log melden (M5, PLAN §1/§6) — über die typisierte
-// Bridge, nur lokal. Bewusst best effort: das Melden darf nie selbst crashen.
+// Report renderer errors to the local log (M5, PLAN §1/§6) — via the typed
+// bridge, local only. Deliberately best effort: reporting must never crash itself.
 window.addEventListener('error', (event) => {
   void window.wab.logs
     .report({
@@ -42,7 +42,7 @@ window.addEventListener('unhandledrejection', (event) => {
 });
 
 const rootElement = document.getElementById('root');
-if (rootElement === null) throw new Error('#root fehlt in index.html');
+if (rootElement === null) throw new Error('#root missing in index.html');
 
 createRoot(rootElement).render(
   <React.StrictMode>

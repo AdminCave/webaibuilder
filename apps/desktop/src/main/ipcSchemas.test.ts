@@ -1,7 +1,7 @@
 /**
- * Headless-Tests der IPC-Argument-Schemas (Defense-in-Depth, AP4): gültige
- * Nutzlasten passieren, fehlgeformte werden mit lesbarer Begründung abgelehnt.
- * Kein Electron nötig — reine zod-Validierung.
+ * Headless tests of the IPC argument schemas (defense-in-depth, AP4): valid
+ * payloads pass, malformed ones are rejected with a readable reason. No Electron
+ * needed — pure zod validation.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -11,15 +11,15 @@ import { IpcChannels } from '@webaibuilder/core';
 import { DesktopIpcChannels } from '../shared/channels';
 import { validateIpcArgs } from './ipcSchemas';
 
-describe('validateIpcArgs — Kanäle ohne Schema', () => {
-  it('lässt argumentlose/unbekannte Kanäle unvalidiert durch', () => {
+describe('validateIpcArgs — channels without a schema', () => {
+  it('passes argument-less/unknown channels through unvalidated', () => {
     expect(validateIpcArgs(DesktopIpcChannels.chatInterrupt, [])).toBeNull();
     expect(validateIpcArgs('wab:v1:gibts-nicht', ['egal'])).toBeNull();
   });
 });
 
-describe('validateIpcArgs — Chat & Einstellungen', () => {
-  it('chatSend: gültig / leerer Prompt / falsche Form', () => {
+describe('validateIpcArgs — chat & settings', () => {
+  it('chatSend: valid / empty prompt / wrong shape', () => {
     const ch = DesktopIpcChannels.chatSend;
     expect(validateIpcArgs(ch, [{ prompt: 'Bau eine Seite', runId: 'r1' }])).toBeNull();
     expect(validateIpcArgs(ch, [{ prompt: '', runId: 'r1' }])).not.toBeNull();
@@ -27,7 +27,7 @@ describe('validateIpcArgs — Chat & Einstellungen', () => {
     expect(validateIpcArgs(ch, [{ prompt: 'x', runId: 'r1', extra: true }])).not.toBeNull();
   });
 
-  it('settingsSet: erlaubt Teil-Updates, lehnt unbekannte Backends/Felder ab', () => {
+  it('settingsSet: allows partial updates, rejects unknown backends/fields', () => {
     const ch = DesktopIpcChannels.settingsSet;
     expect(validateIpcArgs(ch, [{}])).toBeNull();
     expect(validateIpcArgs(ch, [{ backendId: 'claude-cli' }])).toBeNull();
@@ -37,7 +37,7 @@ describe('validateIpcArgs — Chat & Einstellungen', () => {
     expect(validateIpcArgs(ch, [{ tokenUrl: 'https://evil' }])).not.toBeNull();
   });
 
-  it('chatPermission: requestId + allow sind Pflicht', () => {
+  it('chatPermission: requestId + allow are required', () => {
     const ch = DesktopIpcChannels.chatPermission;
     expect(validateIpcArgs(ch, [{ requestId: 'p1', allow: true }])).toBeNull();
     expect(validateIpcArgs(ch, [{ requestId: 'p1', allow: true, remember: false }])).toBeNull();
@@ -47,7 +47,7 @@ describe('validateIpcArgs — Chat & Einstellungen', () => {
 });
 
 describe('validateIpcArgs — Deploy', () => {
-  it('deployTargetsSave: vollständiges Ziel passiert, kaputte Ports/Protokolle nicht', () => {
+  it('deployTargetsSave: a complete target passes, broken ports/protocols do not', () => {
     const ch = DesktopIpcChannels.deployTargetsSave;
     const target = {
       name: 'Webspace',
@@ -65,7 +65,7 @@ describe('validateIpcArgs — Deploy', () => {
     expect(validateIpcArgs(ch, ['', target])).not.toBeNull();
   });
 
-  it('deployRollback: vier Strings, SHA nicht leer', () => {
+  it('deployRollback: four strings, SHA not empty', () => {
     const ch = DesktopIpcChannels.deployRollback;
     expect(validateIpcArgs(ch, ['p', 't', 'abc1234', 'run'])).toBeNull();
     expect(validateIpcArgs(ch, ['p', 't', '', 'run'])).not.toBeNull();
@@ -73,8 +73,8 @@ describe('validateIpcArgs — Deploy', () => {
   });
 });
 
-describe('validateIpcArgs — Backends, Logs, Projekte', () => {
-  it('backendsOpenHint: nur URLs', () => {
+describe('validateIpcArgs — backends, logs, projects', () => {
+  it('backendsOpenHint: URLs only', () => {
     const ch = DesktopIpcChannels.backendsOpenHint;
     expect(validateIpcArgs(ch, ['https://docs.claude.com/x'])).toBeNull();
     expect(validateIpcArgs(ch, ['kein-url'])).not.toBeNull();
@@ -88,7 +88,7 @@ describe('validateIpcArgs — Backends, Logs, Projekte', () => {
     expect(validateIpcArgs(ch, ['500'])).not.toBeNull();
   });
 
-  it('logsReport: nur bekannte Report-Formen', () => {
+  it('logsReport: known report shapes only', () => {
     const ch = DesktopIpcChannels.logsReport;
     expect(validateIpcArgs(ch, [{ kind: 'error', message: 'kaputt' }])).toBeNull();
     expect(
@@ -97,7 +97,7 @@ describe('validateIpcArgs — Backends, Logs, Projekte', () => {
     expect(validateIpcArgs(ch, [{ kind: 'panik', message: 'x' }])).not.toBeNull();
   });
 
-  it('projectsCreate/Update: Name + Vorlage bzw. striktes Teil-Update', () => {
+  it('projectsCreate/Update: name + template resp. strict partial update', () => {
     expect(
       validateIpcArgs(IpcChannels.projectsCreate, [{ name: 'Vereinsseite', templateId: 'basic' }]),
     ).toBeNull();

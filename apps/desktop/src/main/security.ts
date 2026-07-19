@@ -1,12 +1,12 @@
 /**
- * Security-Hardening (PLAN §4, Sicherheit): deny-by-default für Navigation,
- * Fenster-Öffnung und Browser-Permissions; IPC-Sender-Validierung.
+ * Security hardening (PLAN §4, security): deny-by-default for navigation, window
+ * opening, and browser permissions; IPC sender validation.
  */
 
 import { app, session } from 'electron';
 import type { IpcMainInvokeEvent, WebContents } from 'electron';
 
-/** Dev-Server-URL, die electron-vite im Dev-Modus setzt. */
+/** Dev server URL that electron-vite sets in dev mode. */
 export function devRendererUrl(): string | undefined {
   return process.env['ELECTRON_RENDERER_URL'];
 }
@@ -19,32 +19,32 @@ function sameOrigin(url: string, reference: string): boolean {
   }
 }
 
-/** Erlaubt ist ausschließlich der eigene Renderer (Dev-Server bzw. file://). */
+/** Only our own renderer is allowed (dev server or file://). */
 function isAllowedNavigation(url: string): boolean {
   const dev = devRendererUrl();
   if (!app.isPackaged && dev !== undefined) return sameOrigin(url, dev);
-  // Produktion lädt per loadFile; jede will-navigate-Navigation ist fremd.
+  // Production loads via loadFile; every will-navigate navigation is foreign.
   return false;
 }
 
-/** Deny-by-default-Härtung für JEDEN WebContents (auch künftige). */
+/** Deny-by-default hardening for EVERY WebContents (including future ones). */
 export function hardenWebContents(contents: WebContents): void {
-  // Keine neuen Fenster — egal wohin.
+  // No new windows — no matter where.
   contents.setWindowOpenHandler(() => ({ action: 'deny' }));
 
-  // Keine Navigation raus aus unserem Renderer.
+  // No navigation out of our renderer.
   contents.on('will-navigate', (event, url) => {
     if (!isAllowedNavigation(url)) event.preventDefault();
   });
 
-  // Keine <webview>-Tags.
+  // No <webview> tags.
   contents.on('will-attach-webview', (event) => event.preventDefault());
 }
 
 /**
- * Browser-Permissions: M0 braucht keine einzige — alles ablehnen.
- * TODO(M1): prüfen, ob die Preview z. B. `fullscreen` braucht; dann gezielt
- * pro Permission + Origin freigeben, nie pauschal.
+ * Browser permissions: M0 needs not a single one — deny everything.
+ * TODO(M1): check whether the preview needs e.g. `fullscreen`; then grant
+ * specifically per permission + origin, never wholesale.
  */
 export function installPermissionHandlers(): void {
   session.defaultSession.setPermissionRequestHandler((_contents, _permission, callback) => {
@@ -54,8 +54,8 @@ export function installPermissionHandlers(): void {
 }
 
 /**
- * IPC-Sender-Validierung: nur der Haupt-Frame unseres eigenen Renderers darf
- * IPC aufrufen (kein iframe, kein fremder Origin).
+ * IPC sender validation: only the main frame of our own renderer may call IPC
+ * (no iframe, no foreign origin).
  */
 export function isTrustedIpcSender(event: IpcMainInvokeEvent): boolean {
   const frame = event.senderFrame;

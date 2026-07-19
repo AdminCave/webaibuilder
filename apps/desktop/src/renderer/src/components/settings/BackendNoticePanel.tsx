@@ -1,8 +1,8 @@
 /**
- * Einmaliger Backend-Hinweis (Feature-Flag, PLAN §3) — aus dem BackendPicker
- * extrahiert, damit ihn auch der Chat-Empty-State (geführter Einrichtungs-Pfad)
- * anzeigen kann. Compliance: die Bestätigung ist IMMER ein expliziter, lesbarer
- * Schritt; sie wird nie übersprungen oder vorbelegt.
+ * One-time backend notice (feature flag, PLAN §3) — extracted from the
+ * BackendPicker so the chat empty state (guided setup path) can show it too.
+ * Compliance: the confirmation is ALWAYS an explicit, readable step; it is
+ * never skipped or pre-selected.
  */
 
 import type { BackendId } from '@webaibuilder/core';
@@ -38,10 +38,10 @@ export function BackendNoticePanel({
       </button>
       <div className="backend-notice__actions">
         <button type="button" className="btn" onClick={onCancel} disabled={busy}>
-          Abbrechen
+          Cancel
         </button>
         <button type="button" className="btn btn--primary" onClick={onConfirm} disabled={busy}>
-          {busy ? 'Speichere …' : 'Verstanden und bestätigen'}
+          {busy ? 'Saving …' : 'I understand — confirm'}
         </button>
       </div>
     </div>

@@ -2,7 +2,7 @@
   "name": "webaibuilder",
   "version": "0.0.0",
   "private": true,
-  "description": "Web AI Builder — Desktop-Client: Webseiten per KI-Chat bauen und auf klassischen Webspace deployen.",
+  "description": "Web AI Builder — desktop client: build websites via AI chat and deploy them to classic web hosting.",
   "packageManager": "pnpm@11.12.0",
   "engines": {
     "node": ">=22"

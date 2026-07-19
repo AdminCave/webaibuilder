@@ -1,13 +1,13 @@
 /**
- * Headless-Tests des Remote-Kill-Switch-Stores (PLAN §3 Regel 3, M4). Der Fetch
- * ist injiziert, der Cache liegt in einem temporären Verzeichnis, die Zeitquelle
- * ist injiziert → deterministisch, ohne Netz.
+ * Headless tests of the remote kill-switch store (PLAN §3 Rule 3, M4). The fetch
+ * is injected, the cache lives in a temporary directory, the time source is
+ * injected → deterministic, without network.
  *
- * Kernzusicherungen: gebündelter Default · Remote-Override · malformed ignorieren
- * · Netzfehler → last-known-good · TTL · Cache-Round-Trip. Fail-safe: der Store
- * wirft nie.
+ * Core guarantees: bundled default · remote override · ignore malformed · network
+ * error → last-known-good · TTL · cache round-trip. Fail-safe: the store never
+ * throws.
  *
- * Nur runtime-testbar (nicht hier): der echte HTTP-Abruf gegen die AdminCave-URL.
+ * Runtime-testable only (not here): the real HTTP fetch against the AdminCave URL.
  */
 
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -33,16 +33,16 @@ afterEach(() => {
 
 const REMOTE_URL = 'https://updates.example.test/backends.json';
 
-describe('KillSwitchStore — Default ohne Remote/Cache', () => {
-  it('liefert den gebündelten Default (alle Abo-Backends aktiv)', () => {
+describe('KillSwitchStore — default without remote/cache', () => {
+  it('returns the bundled default (all subscription backends active)', () => {
     const store = new KillSwitchStore({ cacheFilePath: cacheFile });
     expect(killSwitchFor(store.effective(), 'codex').enabled).toBe(true);
     expect(killSwitchFor(store.effective(), 'claude-cli').enabled).toBe(true);
   });
 });
 
-describe('KillSwitchStore — Remote-Override', () => {
-  it('übernimmt eine gültige Remote-Config und schreibt den Cache', async () => {
+describe('KillSwitchStore — remote override', () => {
+  it('adopts a valid remote config and writes the cache', async () => {
     const fetchConfig = vi.fn(async () => ({
       backends: { codex: { enabled: false, reason: 'Über Nacht deaktiviert.' } },
     }));
@@ -55,40 +55,40 @@ describe('KillSwitchStore — Remote-Override', () => {
       enabled: false,
       reason: 'Über Nacht deaktiviert.',
     });
-    // Cache wurde geschrieben.
+    // Cache was written.
     expect(existsSync(cacheFile)).toBe(true);
     const cached = JSON.parse(readFileSync(cacheFile, 'utf8')) as { config: { backends: unknown } };
     expect(cached.config.backends).toMatchObject({ codex: { enabled: false } });
   });
 });
 
-describe('KillSwitchStore — malformed Remote wird ignoriert', () => {
-  it('behält den letzten guten Zustand bei kaputter Antwort', async () => {
+describe('KillSwitchStore — malformed remote is ignored', () => {
+  it('keeps the last good state on a broken response', async () => {
     const responses: unknown[] = [
-      { backends: { codex: { enabled: false, reason: 'aus' } } }, // gut
-      { total: 'garbage' }, // kaputt → ignorieren
+      { backends: { codex: { enabled: false, reason: 'aus' } } }, // good
+      { total: 'garbage' }, // broken → ignore
     ];
     let call = 0;
     const fetchConfig = vi.fn(async () => responses[call++]);
     const store = new KillSwitchStore({
       cacheFilePath: cacheFile,
       remoteUrl: REMOTE_URL,
-      ttlMs: 0, // immer refetchen
+      ttlMs: 0, // always refetch
       fetchConfig,
     });
 
     await store.refresh(true);
     expect(killSwitchFor(store.effective(), 'codex').enabled).toBe(false);
 
-    // Zweiter Abruf liefert Müll → last-known-good bleibt (codex weiter aus).
+    // Second fetch returns garbage → last-known-good remains (codex still off).
     await store.refresh(true);
     expect(killSwitchFor(store.effective(), 'codex').enabled).toBe(false);
   });
 });
 
-describe('KillSwitchStore — Netzfehler → last-known-good', () => {
-  it('nutzt den Cache, wenn der Abruf wirft', async () => {
-    // Cache vorbefüllen (simuliert einen früheren erfolgreichen Lauf).
+describe('KillSwitchStore — network error → last-known-good', () => {
+  it('uses the cache when the fetch throws', async () => {
+    // Pre-fill the cache (simulates an earlier successful run).
     writeFileSync(
       cacheFile,
       JSON.stringify({
@@ -106,17 +106,17 @@ describe('KillSwitchStore — Netzfehler → last-known-good', () => {
       fetchConfig,
     });
 
-    // Aus dem Cache bereits der letzte gute Zustand.
+    // The last good state already comes from the cache.
     expect(killSwitchFor(store.effective(), 'grok-cli').enabled).toBe(false);
 
-    // Refresh wirft NICHT und lässt den guten Zustand bestehen (fail-safe).
+    // Refresh does NOT throw and leaves the good state intact (fail-safe).
     await expect(store.refresh(true)).resolves.toBeDefined();
     expect(killSwitchFor(store.effective(), 'grok-cli').enabled).toBe(false);
   });
 });
 
 describe('KillSwitchStore — TTL', () => {
-  it('refetcht innerhalb der TTL nicht, danach schon', async () => {
+  it('does not refetch within the TTL, but does afterwards', async () => {
     let clock = 10_000;
     const fetchConfig = vi.fn(async () => ({ backends: { codex: { enabled: true } } }));
     const store = new KillSwitchStore({
@@ -130,20 +130,20 @@ describe('KillSwitchStore — TTL', () => {
     await store.refresh();
     expect(fetchConfig).toHaveBeenCalledTimes(1);
 
-    // Innerhalb der TTL: kein zweiter Abruf.
+    // Within the TTL: no second fetch.
     clock += 1_000;
     await store.refresh();
     expect(fetchConfig).toHaveBeenCalledTimes(1);
 
-    // Nach Ablauf der TTL: neuer Abruf.
+    // After the TTL expires: a new fetch.
     clock += 10_000;
     await store.refresh();
     expect(fetchConfig).toHaveBeenCalledTimes(2);
   });
 });
 
-describe('KillSwitchStore — Cache-Round-Trip', () => {
-  it('liest einen vorhandenen Cache als last-known-good', () => {
+describe('KillSwitchStore — cache round-trip', () => {
+  it('reads an existing cache as last-known-good', () => {
     writeFileSync(
       cacheFile,
       JSON.stringify({
@@ -158,15 +158,15 @@ describe('KillSwitchStore — Cache-Round-Trip', () => {
     });
   });
 
-  it('ignoriert einen kaputten Cache und nutzt den Default', () => {
+  it('ignores a corrupt cache and uses the default', () => {
     writeFileSync(cacheFile, '{ kaputt');
     const store = new KillSwitchStore({ cacheFilePath: cacheFile });
     expect(killSwitchFor(store.effective(), 'gemini-cli').enabled).toBe(true);
   });
 });
 
-describe('KillSwitchStore — ohne remoteUrl', () => {
-  it('macht keinen Fetch und liefert den Default', async () => {
+describe('KillSwitchStore — without remoteUrl', () => {
+  it('does not fetch and returns the default', async () => {
     const fetchConfig = vi.fn();
     const store = new KillSwitchStore({ cacheFilePath: cacheFile, fetchConfig });
     await store.refresh(true);

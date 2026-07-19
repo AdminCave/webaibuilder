@@ -1,13 +1,13 @@
 /* ============================================================
-   Mehrseiter — gemeinsames Stylesheet für alle Seiten.
-   Kein Build-Schritt. Dunkel auf Schwarz, Hairline-Rahmen,
-   ein blauer Akzent. Farben/Abstände hängen an :root.
+   Multi-Page — shared stylesheet for all pages.
+   No build step. Dark on black, hairline borders,
+   one blue accent. Colors/spacing live in :root.
    ============================================================ */
 
 :root {
   color-scheme: dark;
 
-  /* Farben */
+  /* Colors */
   --bg: #000000;
   --surface: #050506;
   --border: rgba(255, 255, 255, 0.1);
@@ -18,13 +18,13 @@
   --text-subtle: #6e757c;
   --accent: #4f9dff;
 
-  /* Form */
+  /* Shape */
   --radius-card: 16px;
   --radius-pill: 999px;
   --measure: 68ch;
 
-  /* Schrift: Geist, falls installiert — sonst die System-Grotesk.
-     Bewusst kein Webfont-Import: die Seite bleibt selbstständig. */
+  /* Typeface: Geist if installed — otherwise the system grotesque.
+     Deliberately no webfont import: the site stays self-contained. */
   --font: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
@@ -58,7 +58,7 @@ h2 {
   letter-spacing: -0.02em;
 }
 
-/* ---- Kopf & Navigation (auf allen Seiten identisch) ---- */
+/* ---- Header & navigation (identical on all pages) ---- */
 
 .site-header {
   display: flex;
@@ -96,14 +96,14 @@ h2 {
   text-decoration: none;
 }
 
-/* Aktive Seite: Gewicht + Unterstrich — keine gefüllte Pille. */
+/* Active page: weight + underline — not a filled pill. */
 .nav a[aria-current='page'] {
   color: var(--text-strong);
   font-weight: 600;
   border-bottom: 1px solid var(--text-strong);
 }
 
-/* ---- Inhalt ---- */
+/* ---- Content ---- */
 
 .page {
   max-width: var(--measure);
@@ -146,7 +146,7 @@ h2 {
   margin-bottom: 0;
 }
 
-/* ---- Buttons: Pills, primär = weiß auf schwarz ---- */
+/* ---- Buttons: pills, primary = white on black ---- */
 
 .button {
   display: inline-block;
@@ -174,7 +174,7 @@ h2 {
   background: #dfe2e5;
 }
 
-/* ---- Fußzeile (auf allen Seiten identisch) ---- */
+/* ---- Footer (identical on all pages) ---- */
 
 .site-footer {
   max-width: var(--measure);

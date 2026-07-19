@@ -1,8 +1,8 @@
 /**
- * Zentrale Icon-Komponente (AP3): monochrom (`currentColor`), Strichstärke 1.5
- * passend zur Hairline-Ästhetik des DS. Dekorative Icons sind automatisch
- * `aria-hidden`; wer ein bedeutungstragendes Icon rendert, gibt `aria-label`.
- * Die Icon-Quelle ist hinter der Registry (icons.ts) austauschbar.
+ * Central icon component (AP3): monochrome (`currentColor`), stroke width 1.5
+ * matching the DS's hairline aesthetic. Decorative icons are automatically
+ * `aria-hidden`; render a meaningful icon by passing `aria-label`.
+ * The icon source is swappable behind the registry (icons.ts).
  */
 
 import { ICONS, type IconName } from './icons';

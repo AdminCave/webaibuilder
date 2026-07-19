@@ -1,6 +1,6 @@
 /**
- * IPC-Registrierung im Main-Prozess — typisiert gegen die Kanal-Registry aus
- * packages/core, jeder Handler hinter der Sender-Validierung.
+ * IPC registration in the main process — typed against the channel registry from
+ * packages/core, with every handler behind sender validation.
  */
 
 import { app, ipcMain, shell } from 'electron';
@@ -44,27 +44,27 @@ import { isTrustedIpcSender } from './security';
 import { applySettingsUpdate, AgentSettingsStore } from './settingsStore';
 
 /**
- * Gemeinsamer Guard vor jedem Handler: (1) Sender-Validierung — nur der eigene
- * Haupt-Frame; (2) Payload-Validierung gegen die zod-Schemas (Defense-in-Depth,
- * siehe ipcSchemas.ts). Fehlgeformte Nutzlasten werden geloggt und abgelehnt,
- * BEVOR sie einen Service erreichen.
+ * Shared guard before every handler: (1) sender validation — only our own
+ * main frame; (2) payload validation against the zod schemas (defense-in-depth,
+ * see ipcSchemas.ts). Malformed payloads are logged and rejected BEFORE they
+ * reach a service.
  */
 function guardIpc(channel: string, event: Electron.IpcMainInvokeEvent, args: unknown[]): void {
   if (!isTrustedIpcSender(event)) {
-    throw new Error(`IPC-Aufruf auf "${channel}" von nicht vertrauenswürdigem Absender blockiert.`);
+    throw new Error(`IPC call on "${channel}" blocked from an untrusted sender.`);
   }
   const issue = validateIpcArgs(channel, args);
   if (issue !== null) {
     try {
-      getLogger().warn('ipc', `Ungültige Argumente auf "${channel}"`, { issue });
+      getLogger().warn('ipc', `Invalid arguments on "${channel}"`, { issue });
     } catch {
-      /* Logger noch nicht initialisiert — Ablehnung reicht. */
+      /* Logger not yet initialized — rejection is enough. */
     }
-    throw new Error(`Ungültige Anfrage an "${channel}".`);
+    throw new Error(`Invalid request to "${channel}".`);
   }
 }
 
-/** `ipcMain.handle` mit Typen aus der IpcInvokeMap + Sender-/Payload-Validierung. */
+/** `ipcMain.handle` with types from the IpcInvokeMap + sender/payload validation. */
 function handle<C extends IpcChannel>(
   channel: C,
   handler: (...args: IpcArgs<C>) => IpcResult<C> | Promise<IpcResult<C>>,
@@ -75,7 +75,7 @@ function handle<C extends IpcChannel>(
   });
 }
 
-/** Wie {@link handle}, aber für die desktop-lokalen M2-Kanäle. */
+/** Like {@link handle}, but for the desktop-local M2 channels. */
 function handleDesktop<C extends DesktopIpcChannel>(
   channel: C,
   handler: (...args: DesktopIpcArgs<C>) => DesktopIpcResult<C> | Promise<DesktopIpcResult<C>>,
@@ -87,18 +87,18 @@ function handleDesktop<C extends DesktopIpcChannel>(
 }
 
 export function registerIpcHandlers(): void {
-  // Öffnet die SQLite-DB genau einmal pro App-Lauf (userData ist erst nach
-  // app.whenReady() zuverlässig — registerIpcHandlers läuft danach).
+  // Opens the SQLite DB exactly once per app run (userData is only reliable
+  // after app.whenReady() — registerIpcHandlers runs after that).
   const registry = initProjectRegistry(defaultRegistryOptions());
-  // Secrets (API-Keys, später Deploy-Credentials) laufen über den
-  // OS-Schlüsselbund; der Store hält nur die secret-freien Einstellungen.
+  // Secrets (API keys, later deploy credentials) go through the OS keychain;
+  // the store holds only the secret-free settings.
   const secrets = getSecretsService();
-  // process.env explizit durchreichen: ermöglicht den env-Key-Fallback
-  // (ANTHROPIC_API_KEY & Co.), ohne dass Tests am realen env hängen.
+  // Pass process.env through explicitly: enables the env-key fallback
+  // (ANTHROPIC_API_KEY & co.) without tests depending on the real env.
   const settings = new AgentSettingsStore(settingsFilePath(), secrets, process.env);
   const session = initAppSession(registry, settings);
 
-  // --- M3: Deploy-Ziele, Deploy-Orchestrierung, Historie ---
+  // --- M3: deploy targets, deploy orchestration, history ---
   const deployTargets = new DeployTargetService(registry, secrets);
   const deployHistory = new DeployHistoryStore(deployHistoryFilePath());
   const deploy = new DeployService({
@@ -111,24 +111,24 @@ export function registerIpcHandlers(): void {
     emitTargets: (message) => session.pushDeployTargets(message),
   });
 
-  // --- M4: Backend-Erkennung + Remote-Kill-Switch (PLAN §3/§4) ---
+  // --- M4: backend detection + remote kill switch (PLAN §3/§4) ---
   const killSwitch = new KillSwitchStore({
     cacheFilePath: killSwitchCacheFilePath(),
     remoteUrl: backendsConfigUrl(),
   });
-  // Fire-and-forget: blockiert NIE den Start; fail-safe (Cache → Default).
+  // Fire-and-forget: NEVER blocks startup; fail-safe (cache → default).
   killSwitch.refreshInBackground();
   const backends = new BackendService({
-    // Lose typisiert übernommen — resilient gegen additive Änderungen an
-    // BackendAvailability in @webaibuilder/agents (paralleler Umbau).
-    // Login-Probe: fragt die offizielle CLI seiteneffektfrei nach ihrem
-    // Login-Status („eingeloggt als …" statt ewig „gefunden", PLAN §6).
+    // Taken loosely typed — resilient against additive changes to
+    // BackendAvailability in @webaibuilder/agents (parallel refactor).
+    // Login probe: asks the official CLI, without side effects, for its login
+    // status ("logged in as …" instead of a perpetual "found", PLAN §6).
     detect: () => detectBackends({ probe: makeLoginProbe() }),
     killSwitch,
     acks: new FileAckStore(backendAcksFilePath()),
   });
 
-  // --- M5: Erst-Start-Onboarding + lokale Fehlerberichte/Logs ---
+  // --- M5: first-run onboarding + local error reports/logs ---
   const onboarding = new OnboardingStore(onboardingStateFilePath());
 
   handle(IpcChannels.ping, () => ({
@@ -149,7 +149,7 @@ export function registerIpcHandlers(): void {
   handle(IpcChannels.projectsDelete, (id) => registry.delete(id));
   handle(IpcChannels.templatesList, () => registry.listTemplates());
 
-  // --- M2: Session / Chat / Checkpoints / Einstellungen ---
+  // --- M2: session / chat / checkpoints / settings ---
   handleDesktop(DesktopIpcChannels.sessionOpen, (projectId) => session.openProject(projectId));
   handleDesktop(DesktopIpcChannels.sessionClose, () => session.closeProject());
   handleDesktop(DesktopIpcChannels.chatSend, (input) => session.sendChat(input.prompt, input.runId));
@@ -160,13 +160,13 @@ export function registerIpcHandlers(): void {
   handleDesktop(DesktopIpcChannels.checkpointsList, () => session.listCheckpoints());
   handleDesktop(DesktopIpcChannels.checkpointsRestore, (id) => session.restore(id));
   handleDesktop(DesktopIpcChannels.settingsGet, () => settings.get());
-  // Abo-Backends dürfen nur aktiv werden, wenn sie nach Erkennung + Kill-Switch +
-  // Bestätigung nutzbar sind — der Main-Prozess erzwingt das autoritativ.
+  // Subscription backends may only become active if they are usable after
+  // detection + kill switch + acknowledgment — the main process enforces this authoritatively.
   handleDesktop(DesktopIpcChannels.settingsSet, (input) =>
     applySettingsUpdate(settings, backends, input),
   );
 
-  // --- M3: Deploy-Ziel-CRUD + Deploy/Rollback/Test/Drift/Historie ---
+  // --- M3: deploy-target CRUD + deploy/rollback/test/drift/history ---
   handleDesktop(DesktopIpcChannels.deployTargetsList, (projectId) => deployTargets.list(projectId));
   handleDesktop(DesktopIpcChannels.deployTargetsSave, (projectId, input) =>
     deployTargets.save(projectId, input),
@@ -188,22 +188,22 @@ export function registerIpcHandlers(): void {
   );
   handleDesktop(DesktopIpcChannels.deployHistory, (projectId) => deploy.listHistory(projectId));
 
-  // --- M4: Backend-Erkennung, Kill-Switch-Merge, Bestätigung, Onboarding-Links ---
+  // --- M4: backend detection, kill-switch merge, acknowledgment, onboarding links ---
   handleDesktop(DesktopIpcChannels.backendsList, () => backends.availability());
   handleDesktop(DesktopIpcChannels.backendsRefresh, () => backends.refresh());
   handleDesktop(DesktopIpcChannels.backendsAck, (backendId) => backends.acknowledge(backendId));
   handleDesktop(DesktopIpcChannels.backendsOpenHint, async (url) => {
-    // Nur offizielle Vendor-Domains (https) öffnen — nie eine beliebige URL.
+    // Only open official vendor domains (https) — never an arbitrary URL.
     if (!isAllowedExternalUrl(url)) return { opened: false };
     await shell.openExternal(url);
     return { opened: true };
   });
 
-  // --- M5: Onboarding-Zustand ---
+  // --- M5: onboarding state ---
   handleDesktop(DesktopIpcChannels.onboardingGet, () => onboarding.get());
   handleDesktop(DesktopIpcChannels.onboardingSet, (input) => onboarding.set(input));
 
-  // --- M5: lokale Fehlerberichte & Logs (kein Remote, PLAN §1) ---
+  // --- M5: local error reports & logs (no remote, PLAN §1) ---
   handleDesktop(DesktopIpcChannels.logsInfo, () => {
     const logger = getLogger();
     return { dir: logger.dir, file: logger.filePath };
@@ -213,7 +213,7 @@ export function registerIpcHandlers(): void {
   });
   handleDesktop(DesktopIpcChannels.logsTail, (lines) => ({ text: getLogger().tail(lines) }));
   handleDesktop(DesktopIpcChannels.logsOpen, async () => {
-    // shell.openPath öffnet den Ordner im Dateimanager; '' = Erfolg.
+    // shell.openPath opens the folder in the file manager; '' = success.
     const error = await shell.openPath(getLogger().dir);
     return { opened: error === '' };
   });

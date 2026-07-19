@@ -1,20 +1,19 @@
 /**
- * Vendor-spezifische Login-Proben (PLAN §4/§6): macht aus dem ewigen „gefunden"
- * ein ehrliches „eingeloggt als …" bzw. „nicht eingeloggt".
+ * Vendor-specific login probes (PLAN §4/§6): turns the perpetual "found" into
+ * an honest "logged in as …" or "not logged in".
  *
- * Compliance (PLAN §3, nicht verhandelbar): Es wird ausschließlich die
- * OFFIZIELLE, vom Nutzer installierte CLI mit einem seiteneffektfreien
- * Status-Kommando gestartet — niemals werden Credential-Dateien gelesen oder
- * Tokens angefasst.
+ * Compliance (PLAN §3, non-negotiable): Only the OFFICIAL, user-installed CLI is
+ * started, with a side-effect-free status command — credential files are never
+ * read and tokens are never touched.
  *
- * Fail-safe: unbekanntes Kommando (ältere CLI-Version), Timeout oder unklare
- * Ausgabe → Login-Status bleibt „unbekannt" (Feld weglassen). Lieber „gefunden"
- * anzeigen als einen falschen Login-Status behaupten.
+ * Fail-safe: an unknown command (older CLI version), a timeout, or unclear
+ * output → login status stays "unknown" (omit the field). Better to show "found"
+ * than to claim a false login status.
  *
- * Geprüfte Kommandos (Stand Juli 2026):
- *  - `claude auth status`  → JSON mit `loggedIn` + `email`
- *  - `codex login status`  → Text „Logged in …" (Exit 0) / „Not logged in"
- *  - gemini/grok: noch kein stabiles Status-Kommando → nur Versions-Probe.
+ * Checked commands (as of July 2026):
+ *  - `claude auth status`  → JSON with `loggedIn` + `email`
+ *  - `codex login status`  → text "Logged in …" (exit 0) / "Not logged in"
+ *  - gemini/grok: no stable status command yet → version probe only.
  */
 
 import type { BackendId } from '@webaibuilder/core';
@@ -24,7 +23,7 @@ import { makeDefaultProbe, probeCommand, type ProbeFn, type ProbeResult } from '
 
 const LOGIN_PROBE_TIMEOUT_MS = 5000;
 
-/** `claude auth status` liefert JSON: `{"loggedIn": true, "email": "…", …}`. */
+/** `claude auth status` returns JSON: `{"loggedIn": true, "email": "…", …}`. */
 async function probeClaudeLogin(
   binaryPath: string,
   spawnFn: SpawnFn,
@@ -40,7 +39,7 @@ async function probeClaudeLogin(
   try {
     parsed = JSON.parse(result.stdout.trim());
   } catch {
-    return {}; // ältere CLI ohne JSON-Status → unbekannt (fail-safe)
+    return {}; // older CLI without JSON status → unknown (fail-safe)
   }
   if (typeof parsed !== 'object' || parsed === null) return {};
   const obj = parsed as Record<string, unknown>;
@@ -55,7 +54,7 @@ async function probeClaudeLogin(
   return {};
 }
 
-/** `codex login status`: Exit 0 + „Logged in …" bzw. „Not logged in". */
+/** `codex login status`: exit 0 + "Logged in …" or "Not logged in". */
 async function probeCodexLogin(
   binaryPath: string,
   spawnFn: SpawnFn,
@@ -68,7 +67,7 @@ async function probeCodexLogin(
   );
   if (result === undefined) return {};
   const text = `${result.stdout}\n${result.stderr}`.toLowerCase();
-  // Reihenfolge wichtig: „not logged in" enthält „logged in".
+  // Order matters: "not logged in" contains "logged in".
   if (text.includes('not logged in')) return { loggedIn: false };
   if (result.exitCode === 0 && text.includes('logged in')) return { loggedIn: true };
   return {};
@@ -85,15 +84,15 @@ function loginFor(
     case 'codex':
       return probeCodexLogin(binaryPath, spawnFn);
     default:
-      // gemini-cli/grok-cli: kein verlässliches Status-Kommando bekannt →
-      // Login bleibt „unbekannt" (nur Versions-Probe).
+      // gemini-cli/grok-cli: no reliable status command known →
+      // login stays "unknown" (version probe only).
       return Promise.resolve({});
   }
 }
 
 /**
- * Probe für {@link detectCliBackends}: Versions-Probe (wie der Default) plus
- * vendor-spezifischem Login-Status. Wird im Desktop-Main injiziert (ipc.ts).
+ * Probe for {@link detectCliBackends}: version probe (like the default) plus
+ * vendor-specific login status. Injected in the desktop main process (ipc.ts).
  */
 export function makeLoginProbe(spawnFn: SpawnFn = defaultSpawn): ProbeFn {
   const base = makeDefaultProbe(spawnFn);

@@ -1,13 +1,13 @@
 /**
- * Agent-Adapter (PLAN §4): ein Interface, sechs Backends.
- * Electron-frei — dieses Paket darf niemals `electron` importieren.
+ * Agent adapters (PLAN §4): one interface, six backends.
+ * Electron-free — this package must never import `electron`.
  *
- * M2: `byok` (Vercel AI SDK v7, workspace-scoped Tools) und `claude-sdk`
- *     (@anthropic-ai/claude-agent-sdk, API-Key).
- * M4: die vier Abo-/CLI-Backends — `claude-cli`, `codex`, `gemini-cli`,
- *     `grok-cli` — spawnen die OFFIZIELLE, UNVERÄNDERTE Vendor-CLI, die der
- *     Nutzer selbst installiert und eingeloggt hat (PLAN §3). Es werden nie
- *     Tokens angefasst oder Backends umgeleitet.
+ * M2: `byok` (Vercel AI SDK v7, workspace-scoped tools) and `claude-sdk`
+ *     (@anthropic-ai/claude-agent-sdk, API key).
+ * M4: the four subscription/CLI backends — `claude-cli`, `codex`, `gemini-cli`,
+ *     `grok-cli` — spawn the OFFICIAL, UNMODIFIED vendor CLI that the user has
+ *     installed and logged in to themselves (PLAN §3). Tokens are never touched
+ *     and backends are never redirected.
  */
 
 import type { AgentBackend, BackendId } from '@webaibuilder/core';
@@ -27,7 +27,7 @@ export { DEFAULT_MODELS, resolveModel, type ByokProvider } from './providers';
 export { createSiteTools, type SiteTools } from './tools';
 export { PathEscapeError, resolveInSite } from './paths';
 
-// M4: Abo-/CLI-Adapter + gemeinsame Engine.
+// M4: subscription/CLI adapters + shared engine.
 export {
   createCliBackend,
   defaultSpawn,
@@ -61,56 +61,56 @@ export {
 export { makeLoginProbe } from './loginProbes';
 
 /**
- * Ergebnis der Backend-Erkennung ("Claude Code gefunden, eingeloggt als …").
+ * Result of backend detection ("Claude Code found, logged in as …").
  *
- * M4 erweitert die M2-Form ADDITIV (keine bestehenden Felder geändert): neu sind
- * `loggedIn` (best-effort/unbekannt), `installHintUrl` (Onboarding-Deeplink) und
+ * M4 extends the M2 shape ADDITIVELY (no existing fields changed): new are
+ * `loggedIn` (best-effort/unknown), `installHintUrl` (onboarding deep link), and
  * `experimental` (grok).
  */
 export interface BackendAvailability {
   id: BackendId;
-  /** CLI/SDK vorhanden und nutzbar. */
+  /** CLI/SDK present and usable. */
   installed: boolean;
   version?: string;
-  /** Eingeloggtes Konto, falls erkennbar. */
+  /** Logged-in account, if detectable. */
   account?: string;
-  /** Per Remote-Kill-Switch deaktiviert (PLAN §3, Compliance). */
+  /** Disabled via remote kill switch (PLAN §3, compliance). */
   killSwitched: boolean;
-  /** Best-effort Login-Status; `undefined` = unbekannt (nicht geprüft). */
+  /** Best-effort login status; `undefined` = unknown (not checked). */
   loggedIn?: boolean;
-  /** Onboarding-Deeplink zur offiziellen Vendor-Installation. */
+  /** Onboarding deep link to the official vendor installation. */
   installHintUrl?: string;
-  /** Experimentelles Backend (grok, PLAN §3-Statuszeile xAI). */
+  /** Experimental backend (grok, PLAN §3 status line xAI). */
   experimental?: boolean;
 }
 
 export interface CreateBackendOptions {
-  /** API-Key für `claude-sdk` und `byok`. */
+  /** API key for `claude-sdk` and `byok`. */
   apiKey?: string;
-  /** Pfad zur nutzer-installierten Vendor-CLI (`claude-cli`, `codex`, `gemini-cli`, `grok-cli`). */
+  /** Path to the user-installed vendor CLI (`claude-cli`, `codex`, `gemini-cli`, `grok-cli`). */
   cliPath?: string;
-  /** Modell-Override für `byok`/`claude-sdk`. */
+  /** Model override for `byok`/`claude-sdk`. */
   model?: string;
-  /** Anbieter für `byok` (anthropic | openai | google | xai). Default: anthropic. */
+  /** Provider for `byok` (anthropic | openai | google | xai). Default: anthropic. */
   provider?: ByokProvider;
 }
 
 /**
- * Erzeugt den Adapter für ein Backend.
+ * Creates the adapter for a backend.
  *
- * M2: `byok` (Vercel AI SDK, workspace-scoped read/write/edit-Tools) und
+ * M2: `byok` (Vercel AI SDK, workspace-scoped read/write/edit tools) and
  *     `claude-sdk` (@anthropic-ai/claude-agent-sdk, `canUseTool`
  *     → permission-request).
- * M4: `claude-cli`, `codex`, `gemini-cli`, `grok-cli` — jeweils die offizielle,
- *     unveränderte Vendor-CLI spawnen, nie Tokens anfassen (PLAN §3). Der Login
- *     liegt allein bei der CLI; die App reicht nur `cliPath` (optional) durch.
+ * M4: `claude-cli`, `codex`, `gemini-cli`, `grok-cli` — each spawns the
+ *     official, unmodified vendor CLI and never touches tokens (PLAN §3). The
+ *     login lives solely with the CLI; the app only passes `cliPath` (optional).
  */
 export function createBackend(id: BackendId, options: CreateBackendOptions): AgentBackend {
   const cliConfig = options.cliPath !== undefined ? { cliPath: options.cliPath } : {};
   switch (id) {
     case 'byok': {
       if (!options.apiKey) {
-        throw new Error('Für "byok" brauchst du einen API-Key.');
+        throw new Error('"byok" requires an API key.');
       }
       return createByokBackend({
         provider: options.provider ?? 'anthropic',
@@ -130,25 +130,25 @@ export function createBackend(id: BackendId, options: CreateBackendOptions): Age
       return createGrokCliBackend(cliConfig);
     default: {
       const exhaustive: never = id;
-      throw new Error(`Unbekanntes Agent-Backend "${String(exhaustive)}".`);
+      throw new Error(`Unknown agent backend "${String(exhaustive)}".`);
     }
   }
 }
 
-/** Optionen für {@link detectBackends} (alles injizierbar; siehe {@link DetectCliOptions}). */
+/** Options for {@link detectBackends} (everything injectable; see {@link DetectCliOptions}). */
 export interface DetectBackendsOptions extends DetectCliOptions {
-  /** Env für die `claude-sdk`-Schlüsselprüfung. Default: `process.env`. */
+  /** Env for the `claude-sdk` key check. Default: `process.env`. */
   keyEnv?: NodeJS.ProcessEnv;
 }
 
 /**
- * Erkennt installierte Backends und deren Login-Status.
+ * Detects installed backends and their login status.
  *
- * `byok` ist immer verfügbar (braucht nur einen Key beim Erzeugen); `claude-sdk`
- * ist verfügbar, sobald `ANTHROPIC_API_KEY` in der Umgebung liegt. Die vier
- * Abo-/CLI-Backends werden per PATH-Lookup + best-effort Login-Probe erkannt
- * (injizierbar, nie blockierend, PLAN §4/§6). Kill-Switch-Abfrage via
- * `options.killSwitched` (Remote-Config, PLAN §3).
+ * `byok` is always available (only needs a key when created); `claude-sdk` is
+ * available as soon as `ANTHROPIC_API_KEY` is in the environment. The four
+ * subscription/CLI backends are detected via PATH lookup + best-effort login
+ * probe (injectable, never blocking, PLAN §4/§6). Kill-switch query via
+ * `options.killSwitched` (remote config, PLAN §3).
  */
 export async function detectBackends(options: DetectBackendsOptions = {}): Promise<BackendAvailability[]> {
   const keyEnv = options.keyEnv ?? process.env;

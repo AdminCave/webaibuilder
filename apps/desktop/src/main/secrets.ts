@@ -1,26 +1,26 @@
 /**
- * Secrets-Dienst des Main-Prozesses über den OS-Schlüsselbund
- * (`@napi-rs/keyring`, PLAN §4: kein bare `safeStorage` — Linux-Plaintext-Falle).
+ * Main-process secrets service backed by the OS keychain
+ * (`@napi-rs/keyring`, PLAN §4: no bare `safeStorage` — the Linux plaintext trap).
  *
- * Ein Eintrag ist ein `Entry(service, account)`. Der `service` ist konstant
- * ("WebAIBuilder"); der `account` kodiert Art und Identität des Secrets:
+ * An entry is an `Entry(service, account)`. The `service` is constant
+ * ("WebAIBuilder"); the `account` encodes the kind and identity of the secret:
  *
- *   Key-Naming-Schema (M3 — auch von der Deploy-Engine wiederverwendet):
+ *   Key naming scheme (M3 — also reused by the deploy engine):
  *     account = `<kind>:<id>`
- *       apikey:<provider>   API-Key eines KI-Providers (anthropic | openai | …)
- *       deploy:<targetId>   Zugangsdaten eines Deploy-Ziels (packages/deploy, M3)
+ *       apikey:<provider>   API key of an AI provider (anthropic | openai | …)
+ *       deploy:<targetId>   Credentials of a deploy target (packages/deploy, M3)
  *
- *   Der `credentialRef` eines DeployTarget (packages/core) verweist auf so einen
- *   Eintrag; die Deploy-UI ruft dafür `setSecret('deploy', targetId, …)`.
+ *   A DeployTarget's `credentialRef` (packages/core) points to such an entry;
+ *   the deploy UI calls `setSecret('deploy', targetId, …)` for it.
  *
- * Robustheit (PLAN §4, Sicherheit): Fehlt ein Systemschlüsselbund (headless
- * Linux, Sway/Hyprland ohne Secret Service), darf die App NICHT crashen und
- * schreibt KEINEN stillen Klartext. Ein Selbsttest beim Start erkennt das; der
- * Dienst fällt dann auf einen reinen In-Memory-Speicher für die laufende Sitzung
- * zurück (`keychainAvailable()` meldet das inkl. Grund an die UI).
+ * Robustness (PLAN §4, security): if an OS keychain is missing (headless
+ * Linux, Sway/Hyprland without a Secret Service), the app must NOT crash and
+ * writes NO silent plaintext. A self-test at startup detects this; the service
+ * then falls back to a pure in-memory store for the running session
+ * (`keychainAvailable()` reports this, including the reason, to the UI).
  *
- * Nur im Main-Prozess importierbar (native Abhängigkeit). Der Klartext eines
- * Secrets wird nie geloggt und nie an den Renderer gegeben.
+ * Importable only in the main process (native dependency). The plaintext of a
+ * secret is never logged and never handed to the renderer.
  */
 
 import { Entry } from '@napi-rs/keyring';
@@ -31,24 +31,24 @@ import {
   type ByokProvider,
 } from '../shared/settings';
 
-/** Konstanter Schlüsselbund-Dienstname. */
+/** Constant keychain service name. */
 export const KEYCHAIN_SERVICE = 'WebAIBuilder';
 
-/** Art eines Secrets — bestimmt das `account`-Präfix. */
+/** Kind of a secret — determines the `account` prefix. */
 export type SecretKind = 'apikey' | 'deploy';
 
-/** Ergebnis des Schlüsselbund-Selbsttests. */
+/** Result of the keychain self-test. */
 export interface KeychainStatus {
-  /** true = OS-Schlüsselbund nutzbar; false = In-Memory-Fallback aktiv. */
+  /** true = OS keychain usable; false = in-memory fallback active. */
   available: boolean;
-  /** Technischer Grund, falls nicht verfügbar (nicht für Endnutzer-Copy). */
+  /** Technical reason if unavailable (not for end-user copy). */
   reason?: string;
 }
 
 /**
- * Minimaler synchroner Keyring-Eintrag — die von uns genutzte Teilmenge von
- * `@napi-rs/keyring`s `Entry`. Als Interface, damit Tests einen Eintrag
- * injizieren können, der Backend-Ausfälle deterministisch simuliert.
+ * Minimal synchronous keyring entry — the subset of `@napi-rs/keyring`'s `Entry`
+ * that we use. Kept as an interface so tests can inject an entry that
+ * deterministically simulates backend failures.
  */
 export interface KeyringEntry {
   setPassword(password: string): void;
@@ -56,13 +56,13 @@ export interface KeyringEntry {
   deleteCredential(): boolean;
 }
 
-/** Baut einen Eintrag für (service, account). Injizierbar für Tests. */
+/** Builds an entry for (service, account). Injectable for tests. */
 export type KeyringEntryFactory = (service: string, account: string) => KeyringEntry;
 
 const defaultEntryFactory: KeyringEntryFactory = (service, account) =>
   new Entry(service, account);
 
-/** account-String aus Art + Id (das dokumentierte Key-Naming-Schema). */
+/** account string from kind + id (the documented key naming scheme). */
 export function secretAccount(kind: SecretKind, id: string): string {
   return `${kind}:${id}`;
 }
@@ -73,22 +73,22 @@ function describeError(error: unknown): string {
 }
 
 export interface SecretsServiceOptions {
-  /** Schlüsselbund-Dienstname (Default: "WebAIBuilder"). */
+  /** Keychain service name (default: "WebAIBuilder"). */
   service?: string;
-  /** Eintrags-Fabrik (Default: echter `@napi-rs/keyring`-`Entry`). */
+  /** Entry factory (default: the real `@napi-rs/keyring` `Entry`). */
   entryFactory?: KeyringEntryFactory;
   /**
-   * Erzwingt den In-Memory-Fallback ohne Schlüsselbund-Zugriff. Für Tests und
-   * bewusst headless betriebene Umgebungen.
+   * Forces the in-memory fallback without any keychain access. For tests and
+   * deliberately headless environments.
    */
   forceFallback?: boolean;
 }
 
 /**
- * Secrets über einen konstanten `service`-Namen. Sitzt entweder auf dem echten
- * OS-Schlüsselbund oder — wenn dieser fehlt/ausfällt — auf einem In-Memory-Store
- * hinter derselben Schnittstelle. Der Fallback aktiviert sich beim Selbsttest
- * oder bei einem unerwarteten Backend-Fehler zur Laufzeit (fail-safe, nie Crash).
+ * Secrets under a constant `service` name. Sits either on the real OS keychain
+ * or — if it is missing/fails — on an in-memory store behind the same interface.
+ * The fallback activates on the self-test or on an unexpected backend error at
+ * runtime (fail-safe, never crashes).
  */
 export class SecretsService {
   private readonly service: string;
@@ -100,18 +100,18 @@ export class SecretsService {
     this.service = options.service ?? KEYCHAIN_SERVICE;
     this.entryFactory = options.entryFactory ?? defaultEntryFactory;
     this.status = options.forceFallback === true
-      ? { available: false, reason: 'Fallback erzwungen.' }
+      ? { available: false, reason: 'Fallback forced.' }
       : this.probe();
   }
 
-  /** Aktueller Schlüsselbund-Status (Renderer bekommt nur `available`). */
+  /** Current keychain status (the renderer only gets `available`). */
   keychainAvailable(): KeychainStatus {
     return { ...this.status };
   }
 
-  /* ---------------- Generische Secrets (auch für die Deploy-Engine) ---------------- */
+  /* ---------------- Generic secrets (also for the deploy engine) ---------------- */
 
-  /** Legt ein Secret ab. Leerer Wert = löschen. */
+  /** Stores a secret. Empty value = delete. */
   setSecret(kind: SecretKind, id: string, value: string): void {
     const account = secretAccount(kind, id);
     if (value === '') {
@@ -121,25 +121,25 @@ export class SecretsService {
     this.write(account, value);
   }
 
-  /** Liest ein Secret oder null, wenn keins hinterlegt ist. */
+  /** Reads a secret, or null if none is stored. */
   getSecret(kind: SecretKind, id: string): string | null {
     return this.read(secretAccount(kind, id));
   }
 
-  /** Löscht ein Secret. true, wenn eins entfernt wurde. */
+  /** Deletes a secret. true if one was removed. */
   deleteSecret(kind: SecretKind, id: string): boolean {
     return this.remove(secretAccount(kind, id));
   }
 
-  /** Liegt ein Secret vor? (ohne den Wert zu offenbaren) */
+  /** Is a secret present? (without revealing the value) */
   hasSecret(kind: SecretKind, id: string): boolean {
     const value = this.getSecret(kind, id);
     return value !== null && value !== '';
   }
 
-  /* ---------------- API-Keys (pro Provider, backend-übergreifend geteilt) ---------------- */
+  /* ---------------- API keys (per provider, shared across backends) ---------------- */
 
-  /** Setzt den API-Key des effektiven Providers. Leerer Key = löschen. */
+  /** Sets the API key of the effective provider. Empty key = delete. */
   setApiKey(backendId: ActiveBackendId, provider: ByokProvider, key: string): void {
     this.setSecret('apikey', effectiveProvider(backendId, provider), key.trim());
   }
@@ -156,12 +156,12 @@ export class SecretsService {
     return this.hasSecret('apikey', effectiveProvider(backendId, provider));
   }
 
-  /* ---------------- Interna: Schlüsselbund mit fail-safe Fallback ---------------- */
+  /* ---------------- Internals: keychain with fail-safe fallback ---------------- */
 
   /**
-   * Selbsttest: ein Sentinel-Eintrag wird geschrieben, gelesen und wieder
-   * gelöscht (hinterlässt nichts). Wirft eine Operation, gilt der Schlüsselbund
-   * als nicht verfügbar.
+   * Self-test: a sentinel entry is written, read, and deleted again (leaves
+   * nothing behind). If an operation throws, the keychain is considered
+   * unavailable.
    */
   private probe(): KeychainStatus {
     const account = secretAccount('apikey', '__probe__');
@@ -172,7 +172,7 @@ export class SecretsService {
       const read = entry.getPassword();
       entry.deleteCredential();
       if (read !== sentinel) {
-        return { available: false, reason: 'Schlüsselbund-Selbsttest lieferte falschen Wert.' };
+        return { available: false, reason: 'Keychain self-test returned a wrong value.' };
       }
       return { available: true };
     } catch (error) {
@@ -180,7 +180,7 @@ export class SecretsService {
     }
   }
 
-  /** Degradiert dauerhaft auf den In-Memory-Store (fail-safe, kein Crash). */
+  /** Permanently degrades to the in-memory store (fail-safe, no crash). */
   private degrade(error: unknown): void {
     if (this.status.available) {
       this.status = { available: false, reason: describeError(error) };
@@ -215,7 +215,7 @@ export class SecretsService {
       try {
         return this.entryFactory(this.service, account).deleteCredential();
       } catch (error) {
-        // NoEntry ist kein Backend-Ausfall — nur "nichts zu löschen".
+        // NoEntry is not a backend failure — just "nothing to delete".
         if (isNoEntry(error)) return false;
         this.degrade(error);
       }
@@ -224,14 +224,14 @@ export class SecretsService {
   }
 }
 
-/** Erkennt den "kein Eintrag vorhanden"-Fehler des Keyrings (kein Backend-Ausfall). */
+/** Detects the keyring's "no entry present" error (not a backend failure). */
 function isNoEntry(error: unknown): boolean {
   const message = describeError(error).toLowerCase();
   return message.includes('no matching entry') || message.includes('no entry');
 }
 
 /* ------------------------------------------------------------------ */
-/* Singleton pro App-Lauf.                                            */
+/* Singleton per app run.                                             */
 /* ------------------------------------------------------------------ */
 
 let instance: SecretsService | null = null;

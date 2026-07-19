@@ -1,14 +1,14 @@
 /**
- * Commit-Message-Format der Checkpoints (PLAN §4):
- * Subject = erste Prompt-Zeile; Turn-Metadaten als git-Trailer im Body.
- * Format hin (buildCommitMessage) und zurück (parseCheckpoint).
+ * Commit message format of the checkpoints (PLAN §4):
+ * subject = first prompt line; turn metadata as git trailers in the body.
+ * Format one way (buildCommitMessage) and back (parseCheckpoint).
  */
 
 import type { BackendId, Checkpoint } from '@webaibuilder/core';
 
 import type { RawCommit } from './repo';
 
-/** Trailer-Metadaten eines Agent-Turns für den Checkpoint-Commit. */
+/** Trailer metadata of an agent turn for the checkpoint commit. */
 export interface CheckpointMeta {
   turnId?: string;
   backend?: BackendId;
@@ -19,7 +19,7 @@ export interface CheckpointMeta {
 const TRAILER_PREFIX = 'Wab-';
 const TRAILER_RE = /^Wab-([A-Za-z-]+):[ \t]*(.*)$/;
 
-/** Geschlossene Menge der Backend-IDs aus core — für sicheres Zurücklesen. */
+/** Closed set of backend IDs from core — for safe read-back. */
 const BACKEND_IDS: ReadonlySet<string> = new Set([
   'claude-sdk',
   'claude-cli',
@@ -29,17 +29,17 @@ const BACKEND_IDS: ReadonlySet<string> = new Set([
   'byok',
 ]);
 
-/** Erste Zeile eines Texts, getrimmt (Subject einer Prompt/Message/Tag-Message). */
+/** First line of a text, trimmed (subject of a prompt/message/tag message). */
 export function firstLine(text: string): string {
   return text.split('\n', 1)[0]?.trim() ?? '';
 }
 
-/** Trailer-Werte müssen einzeilig bleiben. */
+/** Trailer values must stay single-line. */
 function trailerValue(value: string): string {
   return value.replace(/\s+/g, ' ').trim();
 }
 
-/** Baut die volle Commit-Message: Subject + Leerzeile + Trailer-Block. */
+/** Builds the full commit message: subject + blank line + trailer block. */
 export function buildCommitMessage(subject: string, meta?: CheckpointMeta): string {
   const trailers: string[] = [];
   if (meta?.turnId) trailers.push(`${TRAILER_PREFIX}Turn-Id: ${trailerValue(meta.turnId)}`);
@@ -51,7 +51,7 @@ export function buildCommitMessage(subject: string, meta?: CheckpointMeta): stri
   return trailers.length > 0 ? `${subject}\n\n${trailers.join('\n')}` : subject;
 }
 
-/** Interpretiert einen Roh-Commit als Checkpoint (Subject + Trailer zurücklesen). */
+/** Interprets a raw commit as a checkpoint (read back subject + trailers). */
 export function parseCheckpoint(commit: RawCommit, versionName?: string): Checkpoint {
   const lines = commit.body.split('\n');
   const checkpoint: Checkpoint = {
@@ -59,7 +59,7 @@ export function parseCheckpoint(commit: RawCommit, versionName?: string): Checkp
     message: lines[0]?.trim() ?? '',
     createdAt: new Date(commit.date).toISOString(),
   };
-  // Erste Zeile ist immer das Subject — Trailer nur im Body suchen.
+  // The first line is always the subject — only search for trailers in the body.
   for (const line of lines.slice(1)) {
     const match = TRAILER_RE.exec(line.trim());
     if (!match) continue;

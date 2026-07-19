@@ -3,15 +3,15 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    // apps/desktop/resources/templates: Starter-Vorlagen sind Browser-Code,
-    // der in Nutzer-Workspaces kopiert wird — kein Repo-Quellcode.
+    // apps/desktop/resources/templates: starter templates are browser code
+    // copied into user workspaces — not repo source code.
     ignores: ['**/node_modules/**', '**/dist/**', '**/out/**', 'apps/desktop/resources/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    // Node-ESM-Skripte (z. B. apps/desktop/scripts/rebuild-native.mjs) laufen
-    // unter Node — process/console sind dort echte Globals.
+    // Node ESM scripts (e.g. apps/desktop/scripts/rebuild-native.mjs) run
+    // under Node — process/console are real globals there.
     files: ['**/*.mjs'],
     languageOptions: {
       globals: {

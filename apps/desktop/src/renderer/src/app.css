@@ -1,8 +1,8 @@
 /* ============================================================
-   Web AI Builder — App-Layout (v1, PLAN §5)
-   Titlebar · Chat ⟷ Vorschau (tauschbar via Grid-Order) ·
-   Timeline-Sidebar · Statusleiste.
-   Baut ausschließlich auf den AdminCave-DS-Tokens auf.
+   Web AI Builder — app layout (v1, PLAN §5)
+   Titlebar · Chat ⟷ Preview (swappable via grid order) ·
+   Timeline sidebar · Status bar.
+   Built exclusively on the AdminCave DS tokens.
    ============================================================ */
 
 html,
@@ -51,7 +51,7 @@ body,
   gap: var(--space-2);
 }
 
-/* ---- Buttons: Pills nach DS ---- */
+/* ---- Buttons: pills per DS ---- */
 
 .btn {
   appearance: none;
@@ -74,13 +74,13 @@ body,
     border-color var(--dur-fast) var(--ease-out);
 }
 
-/* Icon-only-Button (quadratisch, title + aria-label sind Pflicht) */
+/* Icon-only button (square, title + aria-label are required) */
 .btn--icon {
   padding: var(--space-2);
   aspect-ratio: 1;
 }
 
-/* Icons erben currentColor; Statusfarben über diese Modifier */
+/* Icons inherit currentColor; status colors via these modifiers */
 .status-icon {
   flex-shrink: 0;
 }
@@ -121,7 +121,7 @@ body,
   background: transparent;
 }
 
-/* Primär = weiß-auf-schwarz im Dark-Theme (--fill-solid) */
+/* Primary = white-on-black in the dark theme (--fill-solid) */
 .btn--primary {
   background: var(--fill-solid);
   border-color: transparent;
@@ -136,7 +136,7 @@ body,
   background: var(--fill-solid);
 }
 
-/* ---- Workbench: Chat ⟷ Vorschau ⟷ Timeline ---- */
+/* ---- Workbench: Chat ⟷ Preview ⟷ Timeline ---- */
 
 .workbench {
   display: grid;
@@ -145,7 +145,7 @@ body,
   min-height: 0;
 }
 
-/* Panel-Tausch links/rechts = CSS-Grid-Order (PLAN §4, Live-Preview) */
+/* Panel swap left/right = CSS grid order (PLAN §4, live preview) */
 .panel--chat {
   order: 1;
 }
@@ -196,7 +196,7 @@ body,
   gap: var(--space-2);
 }
 
-/* Mono-Chip für Metadaten (Ports, Backend-Status) */
+/* Mono chip for metadata (ports, backend status) */
 .chip {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -238,7 +238,7 @@ body,
   line-height: var(--lh-relaxed);
 }
 
-/* Nachrichten als Cards: Surface + Hairline + 16px-Radius, kein Schatten */
+/* Messages as cards: surface + hairline + 16px radius, no shadow */
 .msg {
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
@@ -328,7 +328,7 @@ body,
   overflow-y: auto;
 }
 
-/* Error-Boundary-Fallback (DS-konform: Card, Hairline, kein Schatten) */
+/* Error boundary fallback (DS-compliant: card, hairline, no shadow) */
 .error-boundary {
   display: grid;
   gap: var(--space-3);
@@ -358,7 +358,7 @@ body,
   gap: var(--space-2);
 }
 
-/* App-weites Hinweis-Banner (z. B. Einstellungen nicht ladbar) */
+/* App-wide notice banner (e.g. settings can't be loaded) */
 .app__banner {
   display: flex;
   align-items: center;
@@ -378,7 +378,7 @@ body,
   color: var(--text-subtle);
 }
 
-/* Tool-Aktivität als Mono-Chips */
+/* Tool activity as mono chips */
 .tool-chips {
   display: flex;
   flex-wrap: wrap;
@@ -407,7 +407,7 @@ body,
   font-size: var(--text-sm);
 }
 
-/* Geführter Einrichtungs-Pfad im leeren Chat */
+/* Guided setup path in the empty chat */
 .chat__setup {
   display: grid;
   gap: var(--space-3);
@@ -422,7 +422,7 @@ body,
   justify-content: center;
 }
 
-/* Permission-Anfrage im Chat */
+/* Permission request in the chat */
 .permission {
   align-self: stretch;
   border: 1px solid var(--accent-border);
@@ -450,7 +450,7 @@ body,
   gap: var(--space-2);
 }
 
-/* „Fehler beheben"-Banner */
+/* "Fix error" banner */
 .chat__error {
   display: flex;
   align-items: flex-start;
@@ -517,7 +517,7 @@ body,
   color: var(--text-subtle);
 }
 
-/* ---- Vorschau ---- */
+/* ---- Preview ---- */
 
 .preview__frame {
   flex: 1;
@@ -574,7 +574,7 @@ body,
   color: var(--text);
 }
 
-/* Metadaten in Mono (Zeitstempel, Versions-IDs) */
+/* Metadata in mono (timestamps, version IDs) */
 .checkpoint__meta {
   display: flex;
   align-items: center;
@@ -610,7 +610,7 @@ body,
   border: 1px solid var(--success-border);
 }
 
-/* ---- Startansicht: Neues Projekt + Projektliste ---- */
+/* ---- Start view: new project + project list ---- */
 
 .start {
   flex: 1;
@@ -684,7 +684,7 @@ body,
   outline-offset: 1px;
 }
 
-/* Vorlagen-Auswahl: Radio-Cards, aktive Wahl = Akzent-Hairline */
+/* Template selection: radio cards, active choice = accent hairline */
 .tpl {
   border: 0;
   padding: 0;
@@ -801,7 +801,7 @@ body,
   word-break: break-all;
 }
 
-/* ---- Statusleiste ---- */
+/* ---- Status bar ---- */
 
 .statusbar {
   display: flex;
@@ -828,12 +828,12 @@ body,
   margin-left: auto;
 }
 
-/* ---- Auto-Update-Hinweis (M5) ---- */
+/* ---- Auto-update notice (M5) ---- */
 
 .update-notice {
   position: fixed;
   right: var(--space-4);
-  bottom: calc(32px + var(--space-4)); /* über der 32px-Statusleiste */
+  bottom: calc(32px + var(--space-4)); /* above the 32px status bar */
   z-index: 40;
   max-width: 400px;
   display: flex;
@@ -868,7 +868,7 @@ body,
   white-space: nowrap;
 }
 
-/* ---- Modal: Einstellungen ---- */
+/* ---- Modal: settings ---- */
 
 .modal {
   position: fixed;
@@ -947,7 +947,7 @@ select.field__input {
   cursor: pointer;
 }
 
-/* ---- Einstellungen: Modal mit Seitennavigation ---- */
+/* ---- Settings: modal with side navigation ---- */
 
 .modal__header--split {
   display: flex;
@@ -960,7 +960,7 @@ select.field__input {
   max-width: 860px;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* Scrollen übernimmt .settings__content */
+  overflow: hidden; /* .settings__content handles scrolling */
 }
 
 .settings {
@@ -1016,7 +1016,7 @@ select.field__input {
   max-height: 72vh;
 }
 
-/* Inline-Formular in einer API-Key-Karte */
+/* Inline form in an API-key card */
 .backend-form {
   grid-column: 1 / -1;
   display: grid;
@@ -1037,7 +1037,7 @@ select.field__input {
   gap: var(--space-4);
 }
 
-/* ---- Deploy: Dialog, Ziele, Fortschritt, Historie (M3) ---- */
+/* ---- Deploy: dialog, targets, progress, history (M3) ---- */
 
 .modal__panel--wide {
   max-width: 620px;
@@ -1090,7 +1090,7 @@ select.field__input {
   font-weight: var(--type-mono-weight);
 }
 
-/* Ziel-Liste */
+/* Target list */
 .deploy__targets {
   list-style: none;
   margin: 0;
@@ -1149,7 +1149,7 @@ select.field__input {
   justify-content: center;
 }
 
-/* Formular */
+/* Form */
 .deploy__form {
   display: grid;
   gap: var(--space-4);
@@ -1179,7 +1179,7 @@ select.field__input {
   gap: var(--space-2);
 }
 
-/* Test + Veröffentlichen */
+/* Test + publish */
 .deploy__actions {
   display: flex;
   gap: var(--space-2);
@@ -1222,7 +1222,7 @@ select.field__input {
   color: var(--text-muted);
 }
 
-/* Fortschritt */
+/* Progress */
 .deploy__progress {
   border: 1px solid var(--border);
   border-radius: var(--radius-card);
@@ -1259,7 +1259,7 @@ select.field__input {
   color: var(--text-subtle);
 }
 
-/* Historie */
+/* History */
 .deploy__history {
   list-style: none;
   margin: 0;
@@ -1323,7 +1323,7 @@ select.field__input {
   word-break: break-word;
 }
 
-/* Timeline: Drift-Hinweis */
+/* Timeline: drift notice */
 .timeline__drift {
   border: 1px solid var(--warning-border);
   background: var(--warning-bg);
@@ -1345,7 +1345,7 @@ select.field__input {
   word-break: break-word;
 }
 
-/* ---- KI-Backends: Erkennung, Kill-Switch, Onboarding (M4) ---- */
+/* ---- AI backends: detection, kill switch, onboarding (M4) ---- */
 
 .backends {
   display: grid;
@@ -1459,7 +1459,7 @@ select.field__input {
   padding: var(--space-1) var(--space-3);
 }
 
-/* „experimentell"-Tag — Hairline-Pill, keine Füllung/Farbe außer Ton */
+/* "experimental" tag — hairline pill, no fill/color except tone */
 .backend-tag {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
@@ -1481,7 +1481,7 @@ select.field__input {
   padding: 0 var(--space-2);
 }
 
-/* Fuß-Zeile einer Zeile: Grund/Hinweis/Link, volle Breite */
+/* Foot row of a row: reason/notice/link, full width */
 .backend-row__foot {
   grid-column: 1 / -1;
   display: grid;
@@ -1500,7 +1500,7 @@ select.field__input {
   line-height: var(--lh-normal);
 }
 
-/* Onboarding-/Terms-Link: textueller Button (kein <a> — Navigation ist deny) */
+/* Onboarding/terms link: text button (no <a> — navigation is deny) */
 .backend-link {
   justify-self: start;
   appearance: none;
@@ -1528,7 +1528,7 @@ select.field__input {
   opacity: 0.85;
 }
 
-/* Projektkarten-Aktionen (Umbenennen / Entfernen) */
+/* Project card actions (rename / remove) */
 .project-item {
   display: grid;
   gap: var(--space-2);
@@ -1560,7 +1560,7 @@ select.field__input {
   font-size: var(--text-xs);
 }
 
-/* Claude-Abo-Hinweis (Feature-Flag, PLAN §3) */
+/* Claude subscription notice (feature flag, PLAN §3) */
 .backend-notice {
   display: grid;
   gap: var(--space-2);
@@ -1589,7 +1589,7 @@ select.field__input {
   margin-top: var(--space-1);
 }
 
-/* ---- Erst-Start-Onboarding (M5) ---- */
+/* ---- First-launch onboarding (M5) ---- */
 
 .onboarding {
   display: flex;
@@ -1729,7 +1729,7 @@ select.field__input {
   border-top: 1px solid var(--border);
 }
 
-/* ---- Einführung & Fehlerberichte (M5, in den Einstellungen) ---- */
+/* ---- Intro & error reports (M5, in settings) ---- */
 
 .help-logs {
   display: grid;

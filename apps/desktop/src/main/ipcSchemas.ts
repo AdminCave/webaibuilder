@@ -1,12 +1,12 @@
 /**
- * Laufzeit-Validierung der IPC-Argumente (Defense-in-Depth, AP4): Die Sender-
- * Validierung (security.ts) stellt sicher, WER ruft; diese Schemas stellen
- * sicher, WAS ankommt — sollte der sandboxed Renderer je kompromittiert sein,
- * erreichen fehlgeformte Nutzlasten die Services/Registry nicht mehr.
+ * Runtime validation of the IPC arguments (defense-in-depth, AP4): sender
+ * validation (security.ts) ensures WHO is calling; these schemas ensure WHAT
+ * arrives — should the sandboxed renderer ever be compromised, malformed
+ * payloads no longer reach the services/registry.
  *
- * Die Schemas beschreiben das jeweilige Argument-TUPEL eines Kanals. Kanäle
- * ohne Eintrag (argumentlose wie `chat:interrupt`) laufen unvalidiert durch —
- * dort gibt es nichts zu prüfen. Nur node-frei (zod) → headless testbar.
+ * The schemas describe the argument TUPLE of each channel. Channels without an
+ * entry (argument-less ones like `chat:interrupt`) pass through unvalidated —
+ * there is nothing to check there. Node-free (zod) only → headless testable.
  */
 
 import { z } from 'zod';
@@ -19,7 +19,7 @@ import { DesktopIpcChannels } from '../shared/channels';
 const id = z.string().min(1);
 const backendId = z.enum(ACTIVE_BACKEND_IDS as [string, ...string[]]);
 
-/** Deploy-Ziel-Eingabe (Secrets fließen nur in diese Richtung). */
+/** Deploy-target input (secrets flow only in this direction). */
 const deployTargetInput = z
   .object({
     id: z.string().min(1).optional(),
@@ -55,12 +55,12 @@ const rendererErrorReport = z
   .strict();
 
 /**
- * Argument-Tupel-Schema pro Kanal. Bewusst als String-Map (nicht generisch an
- * die IpcInvokeMap gebunden): die Compile-Zeit-Typen sichern die Handler, die
- * Schemas sichern die Laufzeit — Drift fällt in ipcSchemas.test.ts auf.
+ * Argument-tuple schema per channel. Deliberately a string map (not generically
+ * bound to the IpcInvokeMap): the compile-time types secure the handlers, the
+ * schemas secure the runtime — drift is caught in ipcSchemas.test.ts.
  */
 export const IPC_ARG_SCHEMAS: Readonly<Record<string, z.ZodType<unknown>>> = {
-  // --- core: Projekte & Vorlagen ---
+  // --- core: projects & templates ---
   [IpcChannels.projectsGet]: z.tuple([id]),
   [IpcChannels.projectsCreate]: z.tuple([
     z.object({ name: z.string().min(1), templateId: z.string().min(1) }).strict(),
@@ -77,7 +77,7 @@ export const IPC_ARG_SCHEMAS: Readonly<Record<string, z.ZodType<unknown>>> = {
   ]),
   [IpcChannels.projectsDelete]: z.tuple([id]),
 
-  // --- Session / Chat / Checkpoints / Einstellungen ---
+  // --- session / chat / checkpoints / settings ---
   [DesktopIpcChannels.sessionOpen]: z.tuple([id]),
   [DesktopIpcChannels.chatSend]: z.tuple([
     z.object({ prompt: z.string().min(1), runId: z.string() }).strict(),
@@ -113,8 +113,8 @@ export const IPC_ARG_SCHEMAS: Readonly<Record<string, z.ZodType<unknown>>> = {
 };
 
 /**
- * Prüft die Argumente eines Kanals. `null` = gültig (oder kein Schema);
- * sonst eine kompakte Fehlerbeschreibung fürs Log.
+ * Validates a channel's arguments. `null` = valid (or no schema); otherwise a
+ * compact error description for the log.
  */
 export function validateIpcArgs(channel: string, args: readonly unknown[]): string | null {
   const schema = IPC_ARG_SCHEMAS[channel];

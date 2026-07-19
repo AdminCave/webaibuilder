@@ -1,20 +1,19 @@
-# electron-builder-Konfiguration — Web AI Builder (M5, Packaging + Auto-Update)
+# electron-builder configuration — Web AI Builder (M5, packaging + auto-update)
 #
-# Wird von `electron-builder` (apps/desktop) gelesen. electron-vite baut zuvor
-# main/preload/renderer nach `out/`; electron-builder verpackt `out/` + die
-# Produktions-node_modules (inkl. der nativen Module better-sqlite3 und
-# @napi-rs/keyring) und lädt die Auto-Update-Metadaten (`latest.yml` etc.) zu
-# GitHub Releases hoch.
+# Read by `electron-builder` (apps/desktop). electron-vite first builds
+# main/preload/renderer into `out/`; electron-builder packages `out/` + the
+# production node_modules (including the native modules better-sqlite3 and
+# @napi-rs/keyring) and uploads the auto-update metadata (`latest.yml` etc.) to
+# GitHub Releases.
 #
-# --- pnpm-Monorepo-Hinweis (WICHTIG) --------------------------------------
-# electron-builder erwartet ein flaches node_modules, um die (transitiven)
-# Produktions-Abhängigkeiten der gebundelten Workspace-Pakete zuverlässig zu
-# finden und die nativen Module zu rebuilden. pnpm nutzt standardmäßig einen
-# isolierten Linker (Symlinks in .pnpm), den electron-builders Dateisammler
-# nicht vollständig traversiert (electron-userland/electron-builder#6389).
-# Deshalb setzt `pnpm-workspace.yaml` `node-linker: hoisted` — damit liegen die
-# Laufzeit-Deps flach in node_modules und werden korrekt eingesammelt/rebuildet.
-# Siehe SETUP.md.
+# --- pnpm monorepo note (IMPORTANT) ---------------------------------------
+# electron-builder expects a flat node_modules to reliably find the (transitive)
+# production dependencies of the bundled workspace packages and rebuild the
+# native modules. By default pnpm uses an isolated linker (symlinks in .pnpm)
+# that electron-builder's file collector does not fully traverse
+# (electron-userland/electron-builder#6389). That's why `pnpm-workspace.yaml`
+# sets `node-linker: hoisted` — so the runtime deps sit flat in node_modules and
+# are collected/rebuilt correctly. See SETUP.md.
 # --------------------------------------------------------------------------
 
 appId: dev.admincave.webaibuilder
@@ -22,84 +21,83 @@ productName: Web AI Builder
 copyright: © 2026 AdminCave
 
 directories:
-  # Installer/Artefakte landen hier (in .gitignore).
+  # Installer/artifacts land here (in .gitignore).
   output: dist
-  # Icons/Installer-Assets. electron-builder findet hier automatisch
-  # build/icon.png (Linux, 1024²), build/icon.ico (Windows, 7 Auflösungen)
-  # und build/icon.icns (macOS, iconutil-Format). Abgeleitet aus dem
-  # AdminCave-Design-System (weiße Marke auf Schwarz), siehe build/README.md.
+  # Icons/installer assets. electron-builder automatically finds
+  # build/icon.png (Linux, 1024²), build/icon.ico (Windows, 7 resolutions)
+  # and build/icon.icns (macOS, iconutil format) here. Derived from the
+  # AdminCave design system (white mark on black), see build/README.md.
   buildResources: build
 
-# App-Dateien: nur das gebaute `out/` + die Manifeste. Die Produktions-
+# App files: only the built `out/` + the manifests. The production
 # node_modules (better-sqlite3, @napi-rs/keyring, chokidar, ws, simple-git,
-# ssh2, basic-ftp, ...) fügt electron-builder anhand des Dependency-Baums selbst
-# hinzu; Quellen/Configs/Tests werden bewusst nicht mitverpackt.
+# ssh2, basic-ftp, ...) are added by electron-builder itself based on the
+# dependency tree; sources/configs/tests are deliberately not packaged.
 files:
   - out/**
   - package.json
   - '!**/*.map'
   - '!**/*.tsbuildinfo'
 
-# Starter-Vorlagen müssen mit der App ausgeliefert werden (PLAN M1). Der
-# Laufzeit-Code liest sie aus `process.resourcesPath/templates`
-# (src/main/paths.ts) — daher als extraResources dorthin kopieren, nicht ins
-# asar bundeln.
+# Starter templates must ship with the app (PLAN M1). The runtime code reads
+# them from `process.resourcesPath/templates` (src/main/paths.ts) — so copy them
+# there as extraResources rather than bundling them into the asar.
 extraResources:
   - from: resources/templates
     to: templates
     filter:
       - '**/*'
 
-# Native Module NICHT von electron-builder neu bauen. Grund: electron-builders
-# install-app-deps würde ALLE nativen Module bauen (auch die optionale
-# ssh2-Abhängigkeit `cpu-features`, die einen node-gyp-Bug hat und den Build
-# abbricht). Stattdessen baut das `package`-Skript vorab NUR better-sqlite3 für
-# Electrons ABI (scripts/rebuild-native.mjs); @napi-rs/keyring ist N-API und
-# braucht keinen Rebuild. electron-builder bündelt die bereits passenden
-# Binärdateien unverändert. (`pnpm -r test` läuft unter node-ABI — vor Tests
+# Do NOT let electron-builder rebuild native modules. Reason: electron-builder's
+# install-app-deps would build ALL native modules (including the optional
+# ssh2 dependency `cpu-features`, which has a node-gyp bug that aborts the
+# build). Instead the `package` script rebuilds ONLY better-sqlite3 for
+# Electron's ABI beforehand (scripts/rebuild-native.mjs); @napi-rs/keyring is
+# N-API and needs no rebuild. electron-builder bundles the already-matching
+# binaries unchanged. (`pnpm -r test` runs under the node ABI — before tests run
 # `pnpm --filter @webaibuilder/desktop rebuild:node`.)
 npmRebuild: false
 nodeGypRebuild: false
 buildDependenciesFromSource: false
 
-# Auto-Update-Feed (electron-updater liest die generierte app-update.yml).
+# Auto-update feed (electron-updater reads the generated app-update.yml).
 publish:
   provider: github
   owner: AdminCave
   repo: webaibuilder
 
-# --- Linux: AppImage + deb (Kern-Zielgruppe, PLAN §7 Risiko 6) ---
+# --- Linux: AppImage + deb (core target audience, PLAN §7 risk 6) ---
 linux:
   target:
     - AppImage
     - deb
   category: Development
   maintainer: AdminCave <mail@kevin-stenzel.de>
-  synopsis: Webseiten per KI-Chat bauen und auf klassischen Webspace deployen.
+  synopsis: Build websites via AI chat and deploy them to classic web hosting.
   description: >-
-    Desktop-Client, mit dem du per KI-Chat Webseiten erstellst und per
-    Knopfdruck auf klassischen Webspace deployst — inklusive Rollback.
+    Desktop client for building websites via AI chat and deploying them to
+    classic web hosting at the push of a button — including rollback.
 
-# --- Windows: NSIS-Installer ---
+# --- Windows: NSIS installer ---
 win:
   target:
     - nsis
-# TODO(user): Code-Signing (win.certificateFile/-Password bzw. Azure Trusted
-# Signing) — Secrets in CI ergänzen, siehe .github/workflows/release.yml.
+# TODO(user): Code signing (win.certificateFile/-Password or Azure Trusted
+# Signing) — add secrets in CI, see .github/workflows/release.yml.
 
 nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
 
-# --- macOS: dmg (Notarisierung TODO) ---
+# --- macOS: dmg (notarization TODO) ---
 mac:
   target:
     - dmg
   category: public.app-category.developer-tools
-# TODO(user): Signierung + Notarisierung (mac.notarize, APPLE_ID/-Team/-Password
-# bzw. API-Key) für Gatekeeper-taugliche Builds. Ohne diese laufen dmg-Builds
-# nur unsigniert.
+# TODO(user): Signing + notarization (mac.notarize, APPLE_ID/-Team/-Password
+# or API key) for Gatekeeper-compatible builds. Without these, dmg builds run
+# unsigned only.
 
 dmg:
   writeUpdateInfo: true

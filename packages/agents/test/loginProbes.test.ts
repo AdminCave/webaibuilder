@@ -1,8 +1,8 @@
 /**
- * Tests der vendor-spezifischen Login-Proben — KEINE echten CLIs: ein
- * argument-sensitiver Fake-spawn spielt die Status-Kommandos ab. Kernzusagen:
- * eingeloggt/nicht eingeloggt werden korrekt erkannt, alles Unklare bleibt
- * fail-safe „unbekannt" (Feld fehlt), und die Versions-Probe läuft weiter mit.
+ * Tests for the vendor-specific login probes — NO real CLIs: an argument-aware
+ * fake spawn plays back the status commands. Core guarantees: logged in / not
+ * logged in are detected correctly, anything unclear stays fail-safe "unknown"
+ * (field absent), and the version probe still runs alongside.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -11,26 +11,26 @@ import type { SpawnFn } from '../src/cliEngine';
 import { makeLoginProbe } from '../src/loginProbes';
 import { FakeChild } from './helpers/fakeSpawn';
 
-/** Antwort-Skript für ein Kommando (nach args gematcht). */
+/** Response script for a command (matched by args). */
 interface Scripted {
   match: (args: readonly string[]) => boolean;
   stdout?: string;
   stderr?: string;
   exitCode?: number;
-  /** true = nie antworten (Timeout-Fall). */
+  /** true = never respond (timeout case). */
   hang?: boolean;
 }
 
-/** spawn-Fake, der pro Aufruf anhand der Argumente ein Skript abspielt. */
+/** spawn fake that plays back a script per call based on the arguments. */
 function scriptedByArgs(scripts: readonly Scripted[]): SpawnFn {
   return (_command, args) => {
     const child = new FakeChild();
     const script = scripts.find((s) => s.match(args));
     queueMicrotask(() => {
-      if (script === undefined || script.hang === true) return; // hängt → Timeout greift
+      if (script === undefined || script.hang === true) return; // hangs → timeout kicks in
       if (script.stdout !== undefined) child.emitStdoutRaw(script.stdout);
       if (script.stderr !== undefined) {
-        // FakeChild.stderr ist ein No-op-Stub — stderr-Fälle testen wir über stdout.
+        // FakeChild.stderr is a no-op stub — we test stderr cases via stdout.
       }
       child.emitClose(script.exitCode ?? 0, null);
     });
@@ -44,7 +44,7 @@ const versionScript: Scripted = {
 };
 
 describe('makeLoginProbe — claude-cli (`claude auth status`, JSON)', () => {
-  it('erkennt eingeloggt + Konto aus der JSON-Ausgabe', async () => {
+  it('detects logged in + account from the JSON output', async () => {
     const spawn = scriptedByArgs([
       versionScript,
       {
@@ -61,7 +61,7 @@ describe('makeLoginProbe — claude-cli (`claude auth status`, JSON)', () => {
     });
   });
 
-  it('erkennt nicht eingeloggt', async () => {
+  it('detects not logged in', async () => {
     const spawn = scriptedByArgs([
       versionScript,
       { match: (args) => args[0] === 'auth', stdout: '{"loggedIn": false}\n', exitCode: 1 },
@@ -71,19 +71,19 @@ describe('makeLoginProbe — claude-cli (`claude auth status`, JSON)', () => {
     expect(result.account).toBeUndefined();
   });
 
-  it('bleibt fail-safe „unbekannt" bei Nicht-JSON-Ausgabe (ältere CLI)', async () => {
+  it('stays fail-safe "unknown" on non-JSON output (older CLI)', async () => {
     const spawn = scriptedByArgs([
       versionScript,
       { match: (args) => args[0] === 'auth', stdout: 'Unknown command: auth\n', exitCode: 1 },
     ]);
     const result = await makeLoginProbe(spawn)('claude-cli', '/usr/bin/claude');
     expect(result.loggedIn).toBeUndefined();
-    expect(result.version).toBe('2.1.0 (Klaus)'); // Versions-Probe unbeeinflusst
+    expect(result.version).toBe('2.1.0 (Klaus)'); // version probe unaffected
   });
 });
 
-describe('makeLoginProbe — codex (`codex login status`, Text)', () => {
-  it('erkennt eingeloggt (Exit 0, „Logged in …")', async () => {
+describe('makeLoginProbe — codex (`codex login status`, text)', () => {
+  it('detects logged in (exit 0, "Logged in …")', async () => {
     const spawn = scriptedByArgs([
       versionScript,
       { match: (args) => args[0] === 'login', stdout: 'Logged in using ChatGPT\n' },
@@ -92,7 +92,7 @@ describe('makeLoginProbe — codex (`codex login status`, Text)', () => {
     expect(result.loggedIn).toBe(true);
   });
 
-  it('erkennt nicht eingeloggt („Not logged in" schlägt „logged in")', async () => {
+  it('detects not logged in ("Not logged in" beats "logged in")', async () => {
     const spawn = scriptedByArgs([
       versionScript,
       { match: (args) => args[0] === 'login', stdout: 'Not logged in\n', exitCode: 1 },
@@ -101,7 +101,7 @@ describe('makeLoginProbe — codex (`codex login status`, Text)', () => {
     expect(result.loggedIn).toBe(false);
   });
 
-  it('unklare Ausgabe → unbekannt', async () => {
+  it('unclear output → unknown', async () => {
     const spawn = scriptedByArgs([
       versionScript,
       { match: (args) => args[0] === 'login', stdout: 'error: unexpected\n', exitCode: 2 },
@@ -111,8 +111,8 @@ describe('makeLoginProbe — codex (`codex login status`, Text)', () => {
   });
 });
 
-describe('makeLoginProbe — übrige Backends und Timeout', () => {
-  it('gemini/grok: nur Versions-Probe, Login bleibt unbekannt', async () => {
+describe('makeLoginProbe — remaining backends and timeout', () => {
+  it('gemini/grok: version probe only, login stays unknown', async () => {
     const spawn = scriptedByArgs([versionScript]);
     const gemini = await makeLoginProbe(spawn)('gemini-cli', '/usr/bin/gemini');
     expect(gemini).toEqual({ installed: true, version: '2.1.0 (Klaus)' });

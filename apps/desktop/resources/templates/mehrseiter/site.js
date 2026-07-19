@@ -1,6 +1,6 @@
-// Mehrseiter — gemeinsames Skript für alle Seiten. Vanilla-JS, kein Build-Schritt.
+// Multi-Page — shared script for all pages. Vanilla JS, no build step.
 
-// Jahr in der Fußzeile aktuell halten.
+// Keep the year in the footer up to date.
 document.querySelectorAll('[data-year]').forEach((el) => {
   el.textContent = String(new Date().getFullYear());
 });

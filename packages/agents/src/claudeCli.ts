@@ -1,17 +1,16 @@
 /**
- * `claude-cli`-Adapter (Abo, PLAN §4 + §3) — spawnt die vom NUTZER installierte
- * und eingeloggte offizielle Claude-Code-CLI:
+ * `claude-cli` adapter (subscription, PLAN §4 + §3) — spawns the official
+ * Claude Code CLI that the USER has installed and logged in to:
  *
  *   claude -p --output-format stream-json --input-format stream-json \
  *          --include-partial-messages --verbose --permission-mode <mode>
  *
- * cwd = `<workspace>/site`. Der Prompt geht als stream-json-User-Nachricht auf
- * stdin. Der JSONL-Ausgabestrom wird auf core-`AgentEvent`s gemappt.
+ * cwd = `<workspace>/site`. The prompt is sent as a stream-json user message on
+ * stdin. The JSONL output stream is mapped onto core `AgentEvent`s.
  *
- * Compliance (PLAN §3, nicht verhandelbar): Die App nutzt den EIGENEN Login der
- * `claude`-CLI. Es werden KEINE Credentials/Tokens gelesen, gespeichert oder
- * gesetzt; KEIN `ANTHROPIC_BASE_URL`. Der Adapter ist hinter einem Feature-Flag
- * gedacht (In-App-Hinweis, PLAN §6).
+ * Compliance (PLAN §3, non-negotiable): The app uses the `claude` CLI's OWN
+ * login. NO credentials/tokens are read, stored, or set; NO `ANTHROPIC_BASE_URL`.
+ * The adapter is intended to sit behind a feature flag (in-app notice, PLAN §6).
  */
 
 import type {
@@ -39,7 +38,7 @@ import {
   type TurnState,
 } from './cliEngine';
 
-/** Deep-Link auf die offizielle Installationsanleitung (Onboarding, PLAN §6). */
+/** Deep link to the official installation guide (onboarding, PLAN §6). */
 export const CLAUDE_CLI_INSTALL_URL = 'https://docs.claude.com/en/docs/claude-code/setup';
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -65,9 +64,9 @@ function blocksOf(message: unknown): ContentBlock[] {
 }
 
 /**
- * Baut das permission-request-Event aus einer CLI-`control_request`-Zeile.
- * Der Adapter tolerert Protokoll-Drift: sowohl `control_request` als auch
- * `sdk_control_request`, sowohl `can_use_tool` als auch `permission`.
+ * Builds the permission-request event from a CLI `control_request` line.
+ * The adapter tolerates protocol drift: both `control_request` and
+ * `sdk_control_request`, both `can_use_tool` and `permission`.
  */
 function permissionFromControl(json: Record<string, unknown>): PermissionRequestEvent | null {
   const request = asRecord(json.request);
@@ -93,15 +92,15 @@ const claudeCliSpec: CliSpec = {
   binary: 'claude',
 
   capabilities(): AgentCapabilities {
-    // Session-Resume via --resume, partielle Deltas via --include-partial-messages,
-    // Kosten aus der result-Nachricht.
+    // Session resume via --resume, partial deltas via --include-partial-messages,
+    // cost from the result message.
     return { resume: true, partialText: true, cost: true };
   },
 
   notFound(): AgentErrorEvent {
     return {
       type: 'error',
-      message: `Claude Code nicht gefunden — installiere es von ${CLAUDE_CLI_INSTALL_URL} und logge dich mit deinem Abo ein.`,
+      message: `Claude Code not found — install it from ${CLAUDE_CLI_INSTALL_URL} and log in with your subscription.`,
       recoverable: false,
     };
   },
@@ -121,9 +120,9 @@ const claudeCliSpec: CliSpec = {
     if (req.sessionId !== undefined) args.push('--resume', req.sessionId);
     return {
       args,
-      // Prompt als stream-json-User-Nachricht auf stdin (kein positional prompt).
+      // Prompt as a stream-json user message on stdin (no positional prompt).
       stdinInit: [{ type: 'user', message: { role: 'user', content: req.prompt } }],
-      // Offen halten, um control_response-Antworten zu schreiben.
+      // Keep open to write control_response replies.
       keepStdinOpen: true,
     };
   },
@@ -204,8 +203,8 @@ const claudeCliSpec: CliSpec = {
     const input = asRecord(event.payload?.input) ?? {};
     const inner = decision?.allow
       ? { behavior: 'allow', updatedInput: input }
-      : { behavior: 'deny', message: 'Vom Nutzer abgelehnt.' };
-    // control_response über stdin, korreliert per request_id (PLAN §11-Naht).
+      : { behavior: 'deny', message: 'Denied by the user.' };
+    // control_response over stdin, correlated by request_id (PLAN §11 seam).
     return {
       type: 'control_response',
       response: { subtype: 'success', request_id: event.requestId, response: inner },
@@ -213,7 +212,7 @@ const claudeCliSpec: CliSpec = {
   },
 };
 
-/** Erzeugt den claude-cli-Adapter (Abo, offizielle Vendor-CLI). */
+/** Creates the claude-cli adapter (subscription, official vendor CLI). */
 export function createClaudeCliBackend(config: CliBackendConfig = {}): AgentBackend {
   return createCliBackend(claudeCliSpec, config);
 }

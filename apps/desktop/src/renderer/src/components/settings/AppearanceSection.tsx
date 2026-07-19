@@ -1,14 +1,14 @@
 /**
- * Sektion „Darstellung": Theme-Wahl (Dunkel/Hell). Die Quelle der Wahrheit
- * bleibt der App-State + localStorage 'wab:theme' — der Titlebar-Toggle bleibt
- * als Schnellzugriff bestehen; hier ist der auffindbare Ort dafür.
+ * "Appearance" section: theme choice (Dark/Light). The source of truth stays
+ * the app state + localStorage 'wab:theme' — the titlebar toggle remains as a
+ * quick access; this is the discoverable place for it.
  */
 
 import type { Theme } from '../../App';
 
 const THEMES: readonly { id: Theme; label: string; hint: string }[] = [
-  { id: 'dark', label: 'Dunkel', hint: 'Schwarz mit Hairlines — der Standard.' },
-  { id: 'light', label: 'Hell', hint: 'Weiß, gleiche Struktur.' },
+  { id: 'dark', label: 'Dark', hint: 'Black with hairlines — the default.' },
+  { id: 'light', label: 'Light', hint: 'White, same structure.' },
 ];
 
 export function AppearanceSection({
@@ -19,10 +19,10 @@ export function AppearanceSection({
   onThemeChange: (theme: Theme) => void;
 }): React.JSX.Element {
   return (
-    <section aria-label="Darstellung" className="appearance">
+    <section aria-label="Appearance" className="appearance">
       <fieldset className="tpl">
-        <legend className="field__label">Erscheinungsbild</legend>
-        <div className="tpl__grid" role="radiogroup" aria-label="Theme wählen">
+        <legend className="field__label">Theme</legend>
+        <div className="tpl__grid" role="radiogroup" aria-label="Choose theme">
           {THEMES.map((option) => (
             <label
               key={option.id}
@@ -43,8 +43,8 @@ export function AppearanceSection({
         </div>
       </fieldset>
       <p className="field__hint">
-        Die Wahl wird lokal gespeichert und gilt sofort. Der Schnell-Umschalter oben in der
-        Titelleiste bleibt zusätzlich verfügbar.
+        The choice is saved locally and applies immediately. The quick toggle at the top of the
+        title bar also remains available.
       </p>
     </section>
   );

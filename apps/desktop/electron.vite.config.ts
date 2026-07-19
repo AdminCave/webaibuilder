@@ -3,11 +3,11 @@ import { defineConfig, externalizeDepsPlugin } from 'electron-vite';
 import type { Plugin } from 'vite';
 
 /**
- * Produktions-CSP für den Renderer. Im Dev-Modus injiziert Vite/React-Refresh
- * Inline-Skripte, deshalb wird das Meta-Tag nur beim Build eingesetzt.
- * Google-Fonts-Hosts: das Design-System lädt Geist/Geist Mono per @import.
- * frame-src erlaubt den loopback-Preview-Server (packages/preview, M2); die
- * KI-Seite läuft im sandboxed <iframe> mit eigenem, token-geschütztem Origin.
+ * Production CSP for the renderer. In dev mode, Vite/React Refresh injects
+ * inline scripts, so the meta tag is only applied on build.
+ * Google Fonts hosts: the design system loads Geist/Geist Mono via @import.
+ * frame-src allows the loopback preview server (packages/preview, M2); the AI
+ * page runs in a sandboxed <iframe> with its own token-protected origin.
  */
 const CSP = [
   "default-src 'self'",
@@ -23,9 +23,9 @@ const CSP = [
 ].join('; ');
 
 /**
- * Workspace-Pakete sind reine TS-Quellen → in main/preload mitbundeln
- * (nicht externalisieren). Ihre echten npm-Abhängigkeiten bleiben dagegen
- * externalisiert (aus node_modules geladen, nicht in den Bundle gezogen).
+ * Workspace packages are pure TS sources → bundle them into main/preload
+ * (don't externalize). Their actual npm dependencies, however, stay
+ * externalized (loaded from node_modules, not pulled into the bundle).
  */
 const WORKSPACE_PACKAGES = [
   '@webaibuilder/core',
@@ -35,7 +35,7 @@ const WORKSPACE_PACKAGES = [
   '@webaibuilder/deploy',
 ];
 
-/** Transitive Laufzeit-Abhängigkeiten der gebundelten Workspace-Pakete. */
+/** Transitive runtime dependencies of the bundled workspace packages. */
 const WORKSPACE_RUNTIME_DEPS = [
   'chokidar',
   'mime',
@@ -49,7 +49,7 @@ const WORKSPACE_RUNTIME_DEPS = [
   '@ai-sdk/openai',
   '@ai-sdk/xai',
   '@anthropic-ai/claude-agent-sdk',
-  // Deploy-Engine-Transporte (packages/deploy) — nativ/CJS, nicht bundlen.
+  // Deploy-engine transports (packages/deploy) — native/CJS, don't bundle.
   'ssh2-sftp-client',
   'ssh2',
   'basic-ftp',

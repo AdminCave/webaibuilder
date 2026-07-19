@@ -1,37 +1,37 @@
-# App-Icons (electron-builder buildResources)
+# App icons (electron-builder buildResources)
 
-electron-builder findet hier automatisch:
+electron-builder automatically finds here:
 
-- `icon.png` — 1024×1024 RGBA, Linux-Quelle (electron-builder leitet die
-  weiteren Größen ab)
-- `icon.ico` — Windows, 7 Auflösungen (16/24/32/48/64/128/256)
-- `icon.icns` — macOS, iconutil-Format (icp4–ic10 + ic11–ic14, PNG-basiert)
+- `icon.png` — 1024×1024 RGBA, Linux source (electron-builder derives the
+  other sizes)
+- `icon.ico` — Windows, 7 resolutions (16/24/32/48/64/128/256)
+- `icon.icns` — macOS, iconutil format (icp4–ic10 + ic11–ic14, PNG-based)
 
-## Herkunft
+## Origin
 
-Abgeleitet aus dem AdminCave-Design-System (privates Repo
-`AdminCave/DesignSystem`): weiße Marke auf True-Black, Marke bei ~62 % der
-Kantenlänge (identische Komposition wie `assets/logo/app/icon-512.png`).
-Quelle der Marke: `assets/logo/png/mark-white-1024.png`.
+Derived from the AdminCave design system (private repo
+`AdminCave/DesignSystem`): white mark on true black, mark at ~62% of the
+edge length (identical composition to `assets/logo/app/icon-512.png`).
+Source of the mark: `assets/logo/png/mark-white-1024.png`.
 
-## Neu erzeugen
+## Regenerate
 
 ```bash
-# Marke aus dem DesignSystem-Repo holen (gh authentifiziert):
+# Fetch the mark from the DesignSystem repo (gh authenticated):
 gh api repos/AdminCave/DesignSystem/contents/assets/logo/png/mark-white-1024.png \
   -H "Accept: application/vnd.github.raw" > mark-white-1024.png
 
-# 1024er-Master: Marke auf 634 px, zentriert auf Schwarz
+# 1024 master: mark at 634 px, centered on black
 magick -size 1024x1024 xc:black \
   \( mark-white-1024.png -resize 634x634 \) -gravity center -composite \
   -background black -flatten PNG32:icon.png
 
-# Windows-ICO (Multi-Res)
+# Windows ICO (multi-res)
 magick icon.png -define icon:auto-resize=256,128,64,48,32,24,16 icon.ico
 
-# macOS-ICNS: Größen erzeugen und als PNG-Container packen
+# macOS ICNS: generate the sizes and pack them as a PNG container
 for s in 16 32 64 128 256 512 1024; do magick icon.png -resize ${s}x${s} -strip PNG32:icon_${s}.png; done
-# … dann mit dem icns-Packer aus der Projekt-Historie zu icon.icns bündeln
+# … then bundle them into icon.icns with the icns packer from the project history
 # (icp4=16, icp5=32, icp6=64, ic07=128, ic08=256, ic09=512, ic10=1024,
 #  ic11=32, ic12=64, ic13=256, ic14=512).
 ```

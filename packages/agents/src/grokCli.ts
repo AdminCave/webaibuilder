@@ -1,17 +1,18 @@
 /**
- * `grok-cli`-Adapter (experimentell, PLAN §4 + §3) — spawnt die vom Nutzer
- * installierte offizielle Grok-Build-CLI im Headless-Modus:
+ * `grok-cli` adapter (experimental, PLAN §4 + §3) — spawns the user-installed
+ * official Grok Build CLI in headless mode:
  *
  *   grok -p "<prompt>" --output-format streaming-json --no-auto-update
  *
- * cwd = `<workspace>/site`. Grok gibt ohne `--output-format` menschenlesbaren
- * Text aus; `streaming-json` liefert JSONL-Events (ACP-nah: `session/update`
- * mit `agent_message_chunk`/`tool_call`). Das exakte Schema ist am wenigsten
- * dokumentiert — der Mapper ist bewusst tolerant und deckt mehrere Formen ab.
+ * cwd = `<workspace>/site`. Without `--output-format`, Grok emits
+ * human-readable text; `streaming-json` yields JSONL events (ACP-like:
+ * `session/update` with `agent_message_chunk`/`tool_call`). The exact schema is
+ * the least documented — the mapper is deliberately tolerant and covers several
+ * shapes.
  *
- * Compliance (PLAN §3): Offiziell; eigene CLI zu spawnen ist toleriert. Die App
- * reicht keine Credentials weiter — die CLI nutzt den eigenen SuperGrok-Login.
- * Als "experimentell" markiert (PLAN-Statuszeile xAI).
+ * Compliance (PLAN §3): Official; spawning your own CLI is tolerated. The app
+ * passes no credentials through — the CLI uses its own SuperGrok login.
+ * Marked as "experimental" (PLAN status line xAI).
  */
 
 import type {
@@ -31,8 +32,8 @@ import {
   type TurnState,
 } from './cliEngine';
 
-/** Deep-Link auf die offizielle Installationsanleitung (Onboarding, PLAN §6).
- *  Auf einer erlaubten Vendor-Domain (x.ai). */
+/** Deep link to the official installation guide (onboarding, PLAN §6).
+ *  On an allowed vendor domain (x.ai). */
 export const GROK_CLI_INSTALL_URL = 'https://docs.x.ai/docs/overview';
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -43,7 +44,7 @@ function asString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
-/** Text aus einem ACP-`content`-Feld ziehen (String oder `{type:'text',text}`). */
+/** Extract text from an ACP `content` field (string or `{type:'text',text}`). */
 function contentText(content: unknown): string | undefined {
   if (typeof content === 'string') return content;
   const record = asRecord(content);
@@ -58,7 +59,7 @@ function statusPhase(status: string | undefined): ToolActivityPhase {
   return 'start';
 }
 
-/** ACP-`session/update`-Notification → AgentEvents. */
+/** ACP `session/update` notification → AgentEvents. */
 function mapSessionUpdate(update: Record<string, unknown>, state: TurnState): AgentEvent[] {
   const kind = asString(update.sessionUpdate);
   switch (kind) {
@@ -69,7 +70,7 @@ function mapSessionUpdate(update: Record<string, unknown>, state: TurnState): Ag
       return [];
     }
     case 'agent_thought_chunk':
-      return []; // internes Denken nicht anzeigen
+      return []; // do not display internal reasoning
     case 'tool_call':
     case 'tool_call_update': {
       const id = asString(update.toolCallId) ?? asString(update.id) ?? 'tool';
@@ -95,37 +96,37 @@ const grokCliSpec: CliSpec = {
   binary: 'grok',
 
   capabilities(): AgentCapabilities {
-    // Experimentell: Text-Streaming ja; Resume/Kosten nicht verlässlich.
+    // Experimental: text streaming yes; resume/cost not reliable.
     return { resume: false, partialText: true, cost: false };
   },
 
   notFound(): AgentErrorEvent {
     return {
       type: 'error',
-      message: `Grok Build CLI nicht gefunden — installiere sie von ${GROK_CLI_INSTALL_URL} und melde dich mit deinem SuperGrok-Konto an (experimentell).`,
+      message: `Grok Build CLI not found — install it from ${GROK_CLI_INSTALL_URL} and sign in with your SuperGrok account (experimental).`,
       recoverable: false,
     };
   },
 
   buildInvocation(req: AgentTurnRequest): CliInvocation {
-    // `-p` = Headless-Einzelprompt; streaming-json macht die Ausgabe parsebar.
+    // `-p` = single headless prompt; streaming-json makes the output parseable.
     const args = ['-p', req.prompt, '--output-format', 'streaming-json', '--no-auto-update'];
     return { args, keepStdinOpen: false };
   },
 
   mapLine(json: Record<string, unknown>, state: TurnState): AgentEvent[] {
-    // 1) ACP-JSON-RPC-Notification (`method: "session/update"`).
+    // 1) ACP JSON-RPC notification (`method: "session/update"`).
     if (asString(json.method) === 'session/update') {
       const params = asRecord(json.params);
       const update = asRecord(params?.update);
       if (update) return mapSessionUpdate(update, state);
       return [];
     }
-    // 2) Direkt eingebettetes `update`-Objekt.
+    // 2) Directly embedded `update` object.
     const directUpdate = asRecord(json.update);
     if (directUpdate) return mapSessionUpdate(directUpdate, state);
 
-    // 3) Generische, flache Formen (defensiv gegen Schema-Drift).
+    // 3) Generic, flat shapes (defensive against schema drift).
     const type = asString(json.type);
     switch (type) {
       case 'text':
@@ -148,7 +149,7 @@ const grokCliSpec: CliSpec = {
         return [
           {
             type: 'error',
-            message: 'Grok hat einen Fehler gemeldet.',
+            message: 'Grok reported an error.',
             recoverable: true,
             ...(message ? { cause: message } : {}),
           },
@@ -168,7 +169,7 @@ const grokCliSpec: CliSpec = {
   },
 };
 
-/** Erzeugt den grok-cli-Adapter (experimentell, offizielle Vendor-CLI). */
+/** Creates the grok-cli adapter (experimental, official vendor CLI). */
 export function createGrokCliBackend(config: CliBackendConfig = {}): AgentBackend {
   return createCliBackend(grokCliSpec, config);
 }

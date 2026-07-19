@@ -28,7 +28,7 @@ export function App(): React.JSX.Element {
   const [activeProject, setActiveProject] = useState<Project | null>(null);
   const [settings, setSettings] = useState<AgentSettings | null>(null);
   const [settingsError, setSettingsError] = useState(false);
-  /** Offene Einstellungen inkl. Deep-Link-Ziel (null = geschlossen). */
+  /** Open settings including deep-link target (null = closed). */
   const [settingsRoute, setSettingsRoute] = useState<SettingsRoute | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [costUsd, setCostUsd] = useState<number | null>(null);
@@ -43,8 +43,8 @@ export function App(): React.JSX.Element {
     localStorage.setItem('wab:theme', theme);
   }, [theme]);
 
-  // Scheitert das Laden, wäre der Chat sonst still und dauerhaft gesperrt —
-  // deshalb ein sichtbares Banner mit Retry statt eines stummen `null`.
+  // If loading fails, the chat would otherwise be silently and permanently
+  // locked — hence a visible banner with retry instead of a mute `null`.
   const loadSettings = useCallback(() => {
     window.wab.settings
       .get()
@@ -58,8 +58,8 @@ export function App(): React.JSX.Element {
       });
   }, []);
 
-  // Ladefehler nicht wie „keine Projekte/Vorlagen" aussehen lassen — der
-  // StartScreen zeigt dafür eine Meldung mit „Erneut versuchen".
+  // Don't let a load error look like "no projects/templates" — the
+  // StartScreen shows a message with "Try again" for that.
   const loadProjects = useCallback(() => {
     window.wab.projects
       .list()
@@ -94,16 +94,16 @@ export function App(): React.JSX.Element {
     loadProjects();
     loadTemplates();
     loadSettings();
-    // Onboarding nur beim ersten Start zeigen (fail-open: bei Fehler zeigen).
+    // Only show onboarding on first launch (fail-open: show on error).
     window.wab.onboarding
       .get()
       .then((state) => setShowOnboarding(shouldShowOnboarding(state)))
       .catch(() => setShowOnboarding(true));
   }, [loadSettings, loadProjects, loadTemplates]);
 
-  // Umbenennen/Löschen: die IPC-Kanäle waren komplett verdrahtet, es fehlte nur
-  // die UI (StartScreen-Projektkarten). Löschen entfernt nur den Registry-
-  // Eintrag — der Workspace-Ordner bleibt bewusst liegen (siehe registry.ts).
+  // Rename/delete: the IPC channels were fully wired, only the UI was missing
+  // (StartScreen project cards). Deleting only removes the registry entry —
+  // the workspace folder is deliberately left in place (see registry.ts).
   const renameProject = useCallback(async (projectId: string, name: string) => {
     const updated = await window.wab.projects.update(projectId, { name });
     setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
@@ -114,7 +114,7 @@ export function App(): React.JSX.Element {
     setProjects((prev) => prev.filter((p) => p.id !== projectId));
   }, []);
 
-  // Tastenkürzel: Ctrl+,/Cmd+, öffnet die Einstellungen, Escape schließt sie.
+  // Keyboard shortcut: Ctrl+,/Cmd+, opens settings, Escape closes them.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent): void {
       if ((event.ctrlKey || event.metaKey) && event.key === ',') {
@@ -146,9 +146,9 @@ export function App(): React.JSX.Element {
       />
       {settingsError && (
         <div className="app__banner" role="alert">
-          <span>Einstellungen konnten nicht geladen werden — der Chat bleibt solange gesperrt.</span>
+          <span>Couldn't load settings — the chat stays locked until they load.</span>
           <button type="button" className="btn" onClick={loadSettings}>
-            Erneut versuchen
+            Try again
           </button>
         </div>
       )}

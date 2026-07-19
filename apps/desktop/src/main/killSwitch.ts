@@ -1,19 +1,18 @@
 /**
- * Remote-Kill-Switch-Store (PLAN §3 Regel 3, M4) — Main-Prozess.
+ * Remote kill-switch store (PLAN §3 rule 3, M4) — main process.
  *
- * Zweck: Einen Abo-Backend-Pfad über Nacht deaktivieren können, OHNE Release.
+ * Purpose: be able to disable a subscription backend path overnight, WITHOUT a release.
  *
- * Design (fail-safe, in dieser Reihenfolge):
- *   1. Gebündelter Default (alle Abo-Backends aktiv, shared/backends.ts).
- *   2. Überschrieben von einer Remote-JSON von einer konfigurierbaren URL.
- *   3. Die zuletzt erfolgreich geladene Remote-Config wird nach `<userData>`
- *      gecacht (mit TTL). Netzfehler → letzter Cache → gebündelter Default.
- *   4. Eine strukturell kaputte Remote-/Cache-Config wird IGNORIERT
- *      (coerceKillSwitchConfig → null), nie teilweise übernommen.
+ * Design (fail-safe, in this order):
+ *   1. Bundled default (all subscription backends active, shared/backends.ts).
+ *   2. Overridden by a remote JSON from a configurable URL.
+ *   3. The last successfully loaded remote config is cached to `<userData>`
+ *      (with a TTL). Network error → last cache → bundled default.
+ *   4. A structurally broken remote/cache config is IGNORED
+ *      (coerceKillSwitchConfig → null), never partially applied.
  *
- * Der Fetch blockiert NIE den App-Start (refreshInBackground = fire-and-forget)
- * und sendet KEINE Nutzerdaten (reiner GET, kein Body, keine Query, keine
- * Credentials).
+ * The fetch NEVER blocks app startup (refreshInBackground = fire-and-forget)
+ * and sends NO user data (a plain GET, no body, no query, no credentials).
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -25,10 +24,10 @@ import {
   type KillSwitchConfig,
 } from '../shared/backends';
 
-/** Holt und parst die Remote-Config. Injizierbar für Tests. Wirft bei Fehlern. */
+/** Fetches and parses the remote config. Injectable for tests. Throws on errors. */
 export type KillSwitchFetch = (url: string) => Promise<unknown>;
 
-/** Default-Fetch über das globale `fetch` (Node ≥18). Keine Nutzerdaten. */
+/** Default fetch via the global `fetch` (Node ≥18). No user data. */
 const defaultFetch: KillSwitchFetch = async (url) => {
   const response = await fetch(url, {
     method: 'GET',
@@ -40,15 +39,15 @@ const defaultFetch: KillSwitchFetch = async (url) => {
 };
 
 export interface KillSwitchStoreOptions {
-  /** Cache-Datei unter `<userData>` (z. B. backends-cache.json). */
+  /** Cache file under `<userData>` (e.g. backends-cache.json). */
   cacheFilePath: string;
-  /** Remote-URL der `backends.json` (AdminCave-gehostet). Fehlt sie, kein Fetch. */
+  /** Remote URL of `backends.json` (AdminCave-hosted). If absent, no fetch. */
   remoteUrl?: string;
-  /** Cache-Lebensdauer in ms (Default: 60 Minuten). */
+  /** Cache lifetime in ms (default: 60 minutes). */
   ttlMs?: number;
-  /** Fetch-Implementierung (Default: globales fetch). */
+  /** Fetch implementation (default: the global fetch). */
   fetchConfig?: KillSwitchFetch;
-  /** Zeitquelle in ms (Default: Date.now). */
+  /** Time source in ms (default: Date.now). */
   now?: () => number;
 }
 
@@ -66,7 +65,7 @@ export class KillSwitchStore {
   private readonly fetchConfig: KillSwitchFetch;
   private readonly now: () => number;
 
-  /** Zuletzt erfolgreich geladene, gültige Remote-Config (last-known-good). */
+  /** Last successfully loaded, valid remote config (last-known-good). */
   private remote: KillSwitchConfig | null = null;
   private fetchedAt = 0;
   private inflight: Promise<KillSwitchConfig> | null = null;
@@ -81,22 +80,22 @@ export class KillSwitchStore {
   }
 
   /**
-   * Effektiver Kill-Switch JETZT (synchron, nie werfend): gebündelter Default,
-   * überschrieben von der zuletzt bekannten guten Remote-Config.
+   * Effective kill switch RIGHT NOW (synchronous, never throws): the bundled
+   * default, overridden by the last-known-good remote config.
    */
   effective(): KillSwitchConfig {
     return resolveKillSwitch(this.remote);
   }
 
-  /** Ist der letzte erfolgreiche Fetch noch innerhalb der TTL? */
+  /** Is the last successful fetch still within the TTL? */
   private isFresh(): boolean {
     return this.remote !== null && this.now() - this.fetchedAt < this.ttlMs;
   }
 
   /**
-   * Aktualisiert die Remote-Config. Fail-safe: bei Netzfehler oder kaputter
-   * Antwort bleibt der letzte gute Zustand erhalten (Cache → Default). Wirft nie.
-   * Läuft nicht doppelt (In-flight-Deduplizierung).
+   * Updates the remote config. Fail-safe: on a network error or a broken
+   * response, the last good state is retained (cache → default). Never throws.
+   * Does not run twice (in-flight deduplication).
    */
   refresh(force = false): Promise<KillSwitchConfig> {
     if (this.remoteUrl === undefined) return Promise.resolve(this.effective());
@@ -109,14 +108,14 @@ export class KillSwitchStore {
         const parsed = await this.fetchConfig(url);
         const config = coerceKillSwitchConfig(parsed);
         if (config !== null) {
-          // Gültig → als last-known-good übernehmen und cachen.
+          // Valid → adopt as last-known-good and cache it.
           this.remote = config;
           this.fetchedAt = this.now();
           this.persist();
         }
-        // Kaputt (null) → ignorieren, alter Zustand bleibt (fail-safe).
+        // Broken (null) → ignore, the old state remains (fail-safe).
       } catch {
-        // Netzfehler → letzter Cache/Default bleibt (fail-safe).
+        // Network error → the last cache/default remains (fail-safe).
       } finally {
         this.inflight = null;
       }
@@ -125,12 +124,12 @@ export class KillSwitchStore {
     return this.inflight;
   }
 
-  /** Fire-and-forget: blockiert NIE den App-Start (PLAN §3). */
+  /** Fire-and-forget: NEVER blocks app startup (PLAN §3). */
   refreshInBackground(): void {
     void this.refresh().catch(() => undefined);
   }
 
-  /* ---------------- Cache-Persistenz ---------------- */
+  /* ---------------- Cache persistence ---------------- */
 
   private load(): void {
     try {
@@ -142,7 +141,7 @@ export class KillSwitchStore {
         this.fetchedAt = typeof parsed.fetchedAt === 'number' ? parsed.fetchedAt : 0;
       }
     } catch {
-      /* Kaputter Cache → ignorieren, gebündelter Default greift. */
+      /* Broken cache → ignore, the bundled default applies. */
     }
   }
 
@@ -153,7 +152,7 @@ export class KillSwitchStore {
       const payload: CacheFile = { fetchedAt: this.fetchedAt, config: this.remote };
       writeFileSync(this.cacheFilePath, `${JSON.stringify(payload, null, 2)}\n`);
     } catch {
-      /* Best effort — der In-Memory-Zustand bleibt führend. */
+      /* Best effort — the in-memory state remains authoritative. */
     }
   }
 }

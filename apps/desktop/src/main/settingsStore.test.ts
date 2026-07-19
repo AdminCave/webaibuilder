@@ -1,9 +1,9 @@
 /**
- * Headless-Tests des Einstellungs-Stores (Node, ohne Electron). Der Secrets-
- * Dienst wird injiziert (erzwungener In-Memory-Fallback bzw. Fake-Backend),
- * damit die Tests deterministisch laufen und keine echten Credentials berühren.
+ * Headless tests of the settings store (Node, without Electron). The secrets
+ * service is injected (forced in-memory fallback resp. fake backend) so the
+ * tests run deterministically and never touch real credentials.
  *
- * Kernzusicherung (PLAN §4): der API-Key landet NIE in der persistierten JSON.
+ * Core guarantee (PLAN §4): the API key NEVER ends up in the persisted JSON.
  */
 
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -52,8 +52,8 @@ afterEach(() => {
   rmSync(tmp, { recursive: true, force: true });
 });
 
-describe('AgentSettingsStore — Persistenz ohne Secret', () => {
-  it('schreibt nur secret-freie Felder auf die Platte (kein API-Key)', () => {
+describe('AgentSettingsStore — persistence without a secret', () => {
+  it('writes only secret-free fields to disk (no API key)', () => {
     const secrets = new SecretsService({ forceFallback: true });
     const store = new AgentSettingsStore(filePath, secrets);
 
@@ -64,13 +64,13 @@ describe('AgentSettingsStore — Persistenz ohne Secret', () => {
     expect(Object.keys(parsed).sort()).toEqual(['backendId', 'model', 'provider']);
     expect(parsed).not.toHaveProperty('apiKey');
     expect(parsed).not.toHaveProperty('hasApiKey');
-    // Der Key-Klartext taucht nirgends in der Datei auf.
+    // The key plaintext appears nowhere in the file.
     expect(raw).not.toContain('sk-geheim-123');
   });
 });
 
-describe('AgentSettingsStore — abgeleitete Flags', () => {
-  it('hasApiKey/currentApiKey spiegeln den Schlüsselbund-Zustand', () => {
+describe('AgentSettingsStore — derived flags', () => {
+  it('hasApiKey/currentApiKey reflect the keychain state', () => {
     const secrets = new SecretsService({ forceFallback: true });
     const store = new AgentSettingsStore(filePath, secrets);
 
@@ -81,13 +81,13 @@ describe('AgentSettingsStore — abgeleitete Flags', () => {
     expect(store.get().hasApiKey).toBe(true);
     expect(store.currentApiKey()).toBe('sk-openai');
 
-    // apiKey: null löscht.
+    // apiKey: null deletes.
     store.set({ apiKey: null });
     expect(store.get().hasApiKey).toBe(false);
     expect(store.currentApiKey()).toBeUndefined();
   });
 
-  it('keychainAvailable=false beim Fallback, true beim funktionierenden Backend', () => {
+  it('keychainAvailable=false with the fallback, true with a working backend', () => {
     const fallback = new AgentSettingsStore(filePath, new SecretsService({ forceFallback: true }));
     expect(fallback.get().keychainAvailable).toBe(false);
 
@@ -98,35 +98,35 @@ describe('AgentSettingsStore — abgeleitete Flags', () => {
     expect(withBackend.get().keychainAvailable).toBe(true);
   });
 
-  it('Keys sind pro Provider getrennt', () => {
+  it('keys are separated per provider', () => {
     const secrets = new SecretsService({ forceFallback: true });
     const store = new AgentSettingsStore(filePath, secrets);
 
     store.set({ backendId: 'byok', provider: 'openai', apiKey: 'sk-openai' });
-    // Provider wechseln, ohne Key → hasApiKey false für den neuen Provider.
+    // Switch provider, no key → hasApiKey false for the new provider.
     store.set({ provider: 'anthropic' });
     expect(store.get().hasApiKey).toBe(false);
     expect(store.currentApiKey()).toBeUndefined();
-    // Zurück zu openai → Key ist noch da.
+    // Back to openai → the key is still there.
     store.set({ provider: 'openai' });
     expect(store.get().hasApiKey).toBe(true);
     expect(store.currentApiKey()).toBe('sk-openai');
   });
 });
 
-describe('AgentSettingsStore — env-Key-Fallback', () => {
-  it('hasApiKey/currentApiKey fallen auf die Umgebungsvariable zurück', () => {
+describe('AgentSettingsStore — env key fallback', () => {
+  it('hasApiKey/currentApiKey fall back to the environment variable', () => {
     const secrets = new SecretsService({ forceFallback: true });
     const store = new AgentSettingsStore(filePath, secrets, { ANTHROPIC_API_KEY: 'sk-env' });
 
-    // Default byok/anthropic ohne Keychain-Key → env-Key schaltet frei.
+    // Default byok/anthropic without a keychain key → the env key unlocks it.
     const view = store.get();
     expect(view.hasApiKey).toBe(true);
     expect(view.apiKeySource).toBe('env');
     expect(store.currentApiKey()).toBe('sk-env');
   });
 
-  it('Schlüsselbund gewinnt vor der Umgebung', () => {
+  it('the keychain wins over the environment', () => {
     const secrets = new SecretsService({ forceFallback: true });
     const store = new AgentSettingsStore(filePath, secrets, { ANTHROPIC_API_KEY: 'sk-env' });
 
@@ -135,22 +135,22 @@ describe('AgentSettingsStore — env-Key-Fallback', () => {
     expect(store.currentApiKey()).toBe('sk-keychain');
   });
 
-  it('zählt pro EFFEKTIVEM Provider (claude-sdk → anthropic, byok/openai → OPENAI_API_KEY)', () => {
+  it('counts per EFFECTIVE provider (claude-sdk → anthropic, byok/openai → OPENAI_API_KEY)', () => {
     const secrets = new SecretsService({ forceFallback: true });
     const store = new AgentSettingsStore(filePath, secrets, { OPENAI_API_KEY: 'sk-oai' });
 
-    // byok/anthropic: kein ANTHROPIC_API_KEY in der Umgebung → gesperrt.
+    // byok/anthropic: no ANTHROPIC_API_KEY in the environment → locked.
     expect(store.get().hasApiKey).toBe(false);
-    // byok/openai: OPENAI_API_KEY greift.
+    // byok/openai: OPENAI_API_KEY takes effect.
     store.set({ provider: 'openai' });
     expect(store.get().hasApiKey).toBe(true);
     expect(store.currentApiKey()).toBe('sk-oai');
-    // claude-sdk spricht immer Anthropic — der OpenAI-Key zählt dort nicht.
+    // claude-sdk always speaks Anthropic — the OpenAI key does not count there.
     store.set({ backendId: 'claude-sdk' });
     expect(store.get().hasApiKey).toBe(false);
   });
 
-  it('Abo-Backends bleiben vom env-Key unberührt; leere Werte zählen nicht', () => {
+  it('subscription backends stay unaffected by the env key; empty values do not count', () => {
     const secrets = new SecretsService({ forceFallback: true });
     const subscription = new AgentSettingsStore(filePath, secrets, {
       ANTHROPIC_API_KEY: 'sk-env',
@@ -168,27 +168,27 @@ describe('AgentSettingsStore — env-Key-Fallback', () => {
   });
 });
 
-describe('AgentSettingsStore — Abo-/CLI-Backends brauchen keinen Key', () => {
-  it('hasApiKey ist false und currentApiKey undefined, obwohl ein Anthropic-Key vorliegt', () => {
+describe('AgentSettingsStore — subscription/CLI backends need no key', () => {
+  it('hasApiKey is false and currentApiKey undefined even though an Anthropic key is present', () => {
     const secrets = new SecretsService({ forceFallback: true });
     const store = new AgentSettingsStore(filePath, secrets);
 
-    // Anthropic-Key hinterlegen (byok) — er darf ein Abo-Backend NICHT gaten.
+    // Store an Anthropic key (byok) — it must NOT gate a subscription backend.
     store.set({ backendId: 'byok', provider: 'anthropic', apiKey: 'sk-ant' });
     expect(store.get().hasApiKey).toBe(true);
 
-    // Auf ein Abo-/CLI-Backend wechseln: kein app-verwalteter Key (PLAN §3).
+    // Switch to a subscription/CLI backend: no app-managed key (PLAN §3).
     store.set({ backendId: 'claude-cli' });
     expect(store.get().hasApiKey).toBe(false);
     expect(store.currentApiKey()).toBeUndefined();
-    // Modell ist für CLI-Backends leer (die CLI bestimmt es selbst).
+    // Model is empty for CLI backends (the CLI determines it itself).
     expect(store.currentModel()).toBe('');
     expect(store.currentBackendId()).toBe('claude-cli');
   });
 });
 
 /* ------------------------------------------------------------------ */
-/* Main-Gate: Abo-Backend nur aktiv, wenn bereit (injizierte Fakes)     */
+/* Main gate: subscription backend only active when ready (injected fakes) */
 /* ------------------------------------------------------------------ */
 
 function raw(id: BackendId, over: Partial<RawBackendAvailability> = {}): RawBackendAvailability {
@@ -207,8 +207,8 @@ function readiness(
   return { availability: () => Promise.resolve(state) };
 }
 
-describe('applySettingsUpdate — autoritative Aktivierungsprüfung', () => {
-  it('persistiert ein bereites Abo-Backend als aktives Backend', async () => {
+describe('applySettingsUpdate — authoritative activation check', () => {
+  it('persists a ready subscription backend as the active backend', async () => {
     const store = new AgentSettingsStore(filePath, new SecretsService({ forceFallback: true }));
     const src = readiness([raw('codex', { installed: true, loggedIn: true })]);
 
@@ -219,27 +219,27 @@ describe('applySettingsUpdate — autoritative Aktivierungsprüfung', () => {
     expect(store.currentApiKey()).toBeUndefined();
   });
 
-  it('lehnt ein nicht installiertes Abo-Backend ab und persistiert NICHT', async () => {
+  it('rejects a not-installed subscription backend and does NOT persist', async () => {
     const store = new AgentSettingsStore(filePath, new SecretsService({ forceFallback: true }));
     const src = readiness([raw('codex', { installed: false })]);
 
     await expect(applySettingsUpdate(store, src, { backendId: 'codex' })).rejects.toThrow(
-      /nicht installiert/,
+      /not installed/,
     );
-    expect(store.currentBackendId()).toBe('byok'); // unverändert (Default)
+    expect(store.currentBackendId()).toBe('byok'); // unchanged (default)
   });
 
-  it('lehnt ein nicht eingeloggtes Abo-Backend ab', async () => {
+  it('rejects a not-signed-in subscription backend', async () => {
     const store = new AgentSettingsStore(filePath, new SecretsService({ forceFallback: true }));
     const src = readiness([raw('gemini-cli', { installed: true, loggedIn: false })]);
 
     await expect(applySettingsUpdate(store, src, { backendId: 'gemini-cli' })).rejects.toThrow(
-      /nicht eingeloggt/,
+      /not signed in/,
     );
     expect(store.currentBackendId()).toBe('byok');
   });
 
-  it('lehnt ein per Kill-Switch deaktiviertes Abo-Backend mit dem Grund ab', async () => {
+  it('rejects a kill-switch-disabled subscription backend with the reason', async () => {
     const store = new AgentSettingsStore(filePath, new SecretsService({ forceFallback: true }));
     const remote = coerceKillSwitchConfig({
       backends: { 'grok-cli': { enabled: false, reason: 'xAI-Pfad pausiert.' } },
@@ -252,11 +252,11 @@ describe('applySettingsUpdate — autoritative Aktivierungsprüfung', () => {
     expect(store.currentBackendId()).toBe('byok');
   });
 
-  it('claude-cli: erst nach Bestätigung aktivierbar', async () => {
+  it('claude-cli: activatable only after acknowledgment', async () => {
     const store = new AgentSettingsStore(filePath, new SecretsService({ forceFallback: true }));
     const notAcked = readiness([raw('claude-cli', { installed: true, loggedIn: true })]);
     await expect(applySettingsUpdate(store, notAcked, { backendId: 'claude-cli' })).rejects.toThrow(
-      /Bestätige zuerst/,
+      /Acknowledge the notice/,
     );
     expect(store.currentBackendId()).toBe('byok');
 
@@ -266,7 +266,7 @@ describe('applySettingsUpdate — autoritative Aktivierungsprüfung', () => {
     expect(store.currentBackendId()).toBe('claude-cli');
   });
 
-  it('API-Key-Backends laufen ungehindert durch (keine Erkennung nötig)', async () => {
+  it('API-key backends pass through unhindered (no detection needed)', async () => {
     const store = new AgentSettingsStore(filePath, new SecretsService({ forceFallback: true }));
     const src = readiness([]);
     const spy = vi.spyOn(src, 'availability');
@@ -277,15 +277,15 @@ describe('applySettingsUpdate — autoritative Aktivierungsprüfung', () => {
     });
     expect(next.backendId).toBe('claude-sdk');
     expect(next.hasApiKey).toBe(true);
-    // Für API-Key-Backends wird die Abo-Erkennung gar nicht konsultiert.
+    // For API-key backends the subscription detection is not consulted at all.
     expect(spy).not.toHaveBeenCalled();
   });
 });
 
-describe('AgentSettingsStore — Wiedereröffnen', () => {
-  it('secret-freie Einstellungen überleben einen Neustart; Key bleibt im Schlüsselbund', () => {
-    // Gemeinsamer Secrets-Dienst = simuliert einen persistenten Schlüsselbund
-    // über zwei "App-Läufe" hinweg.
+describe('AgentSettingsStore — reopening', () => {
+  it('secret-free settings survive a restart; the key stays in the keychain', () => {
+    // Shared secrets service = simulates a persistent keychain
+    // across two "app runs".
     const secrets = new SecretsService({ entryFactory: fakeKeyringFactory() });
 
     const first = new AgentSettingsStore(filePath, secrets);

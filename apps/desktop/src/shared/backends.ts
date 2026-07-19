@@ -1,39 +1,39 @@
 /**
- * Backend-Erkennung, Onboarding und Remote-Kill-Switch (PLAN §3/§4, M4) —
- * die reine, umgebungsneutrale Logik. Von main, preload und renderer geteilt
- * und headless testbar (kein node/electron/DOM).
+ * Backend detection, onboarding, and remote kill switch (PLAN §3/§4, M4) —
+ * the pure, environment-neutral logic. Shared by main, preload, and renderer,
+ * and headless-testable (no node/electron/DOM).
  *
- * Compliance (PLAN §3, nicht verhandelbar):
- *  - Abo-Backends laufen ausschließlich über die vom Nutzer selbst installierte
- *    und selbst eingeloggte offizielle Vendor-CLI. Diese App liest, speichert
- *    oder überträgt NIEMALS ein Abo-Token. Es gibt hier bewusst KEINE
- *    Base-URL-/Token-Override-Logik.
- *  - Pro Abo-Anbieter existiert ein Remote-Kill-Switch (Regel 3): ein Abo-Pfad
- *    muss ohne Release über Nacht deaktivierbar sein. Der Kill-Switch ist
- *    fail-safe (Netzfehler → letzter Cache → gebündelter Default).
- *  - Der Claude-Abo-Pfad (`claude-cli`) steht hinter einem Feature-Flag samt
- *    In-App-Hinweis, den der Nutzer einmalig bestätigen muss.
- *  - Branding: nie „Claude Code" als Produktname; „Claude (Abo)" bzw.
- *    „works with Claude Agent"-Formulierungen sind ok.
+ * Compliance (PLAN §3, non-negotiable):
+ *  - Subscription backends run exclusively through the official vendor CLI that
+ *    the user installed and signed into themselves. This app NEVER reads, stores,
+ *    or transmits a subscription token. There is deliberately NO base-URL or
+ *    token-override logic here.
+ *  - Each subscription provider has a remote kill switch (Rule 3): a subscription
+ *    path must be disableable overnight without a release. The kill switch is
+ *    fail-safe (network error → last cache → bundled default).
+ *  - The Claude subscription path (`claude-cli`) sits behind a feature flag with
+ *    an in-app notice that the user must acknowledge once.
+ *  - Branding: never "Claude Code" as a product name; "Claude (subscription)" and
+ *    "works with Claude Agent" phrasings are fine.
  */
 
 import type { BackendId } from '@webaibuilder/core';
 
 /* ------------------------------------------------------------------ */
-/* Gruppierung: Abo vs. API-Key                                        */
+/* Grouping: subscription vs. API key                                  */
 /* ------------------------------------------------------------------ */
 
 export type BackendGroup = 'subscription' | 'apikey';
 
-/** Abo-Backends (offizielle Vendor-CLI des Nutzers, PLAN §3/§4). */
+/** Subscription backends (the user's official vendor CLI, PLAN §3/§4). */
 export const SUBSCRIPTION_BACKEND_IDS = ['claude-cli', 'codex', 'gemini-cli', 'grok-cli'] as const;
-/** API-Key-Backends (Fundament + Fallback, PLAN §3 Regel 4). */
+/** API-key backends (foundation + fallback, PLAN §3 Rule 4). */
 export const APIKEY_BACKEND_IDS = ['byok', 'claude-sdk'] as const;
 
 export type SubscriptionBackendId = (typeof SUBSCRIPTION_BACKEND_IDS)[number];
 export type ApiKeyBackendId = (typeof APIKEY_BACKEND_IDS)[number];
 
-/** Alle sechs Backends in stabiler Anzeigereihenfolge (API-Key zuerst). */
+/** All six backends in a stable display order (API-key backends first). */
 export const ALL_BACKEND_IDS: readonly BackendId[] = [
   ...APIKEY_BACKEND_IDS,
   ...SUBSCRIPTION_BACKEND_IDS,
@@ -54,14 +54,14 @@ function toBackendId(value: unknown): BackendId | null {
   return typeof value === 'string' && ALL_SET.has(value) ? (value as BackendId) : null;
 }
 
-/** Als „experimentell" markierte Backends (PLAN §3: Grok = experimentell). */
+/** Backends marked as "experimental" (PLAN §3: Grok = experimental). */
 export const EXPERIMENTAL_BACKEND_IDS: ReadonlySet<BackendId> = new Set<BackendId>(['grok-cli']);
 
-/** Anzeigenamen — nie „Claude Code" (PLAN §3 Regel 5). */
+/** Display names — never "Claude Code" (PLAN §3 Rule 5). */
 export const BACKEND_DISPLAY_NAME: Record<BackendId, string> = {
-  byok: 'Eigener API-Key',
-  'claude-sdk': 'Claude (Agent-SDK, API-Key)',
-  'claude-cli': 'Claude (Abo)',
+  byok: 'Your own API key',
+  'claude-sdk': 'Claude (Agent SDK, API key)',
+  'claude-cli': 'Claude (subscription)',
   codex: 'Codex CLI (OpenAI)',
   'gemini-cli': 'Gemini CLI (Google)',
   'grok-cli': 'Grok CLI (xAI)',
@@ -72,13 +72,13 @@ export function backendDisplayName(id: BackendId): string {
 }
 
 /* ------------------------------------------------------------------ */
-/* Externe Onboarding-Links — nur offizielle Vendor-Domains            */
+/* External onboarding links — official vendor domains only            */
 /* ------------------------------------------------------------------ */
 
 /**
- * Zugelassene registrierbare Vendor-Domains für `shell.openExternal`. Nur diese
- * dürfen im externen Browser geöffnet werden (Compliance/Sicherheit). Alles
- * andere wird abgelehnt — auch wenn eine Remote-/Detection-Quelle es liefert.
+ * Allowed registrable vendor domains for `shell.openExternal`. Only these may be
+ * opened in the external browser (compliance/security). Everything else is
+ * rejected — even if a remote or detection source provides it.
  */
 export const ALLOWED_EXTERNAL_DOMAINS: readonly string[] = [
   'anthropic.com',
@@ -89,7 +89,7 @@ export const ALLOWED_EXTERNAL_DOMAINS: readonly string[] = [
   'x.ai',
 ];
 
-/** true, wenn `url` https ist und auf einer offiziellen Vendor-Domain liegt. */
+/** true if `url` is https and lies on an official vendor domain. */
 export function isAllowedExternalUrl(url: string): boolean {
   let parsed: URL;
   try {
@@ -105,8 +105,8 @@ export function isAllowedExternalUrl(url: string): boolean {
 }
 
 /**
- * Fallback-Onboarding-Links (offizielle Vendor-Docs). Bevorzugt wird ein von der
- * Detection gelieferter `installHintUrl`, sofern er die Allowlist besteht.
+ * Fallback onboarding links (official vendor docs). An `installHintUrl` provided
+ * by detection is preferred, as long as it passes the allowlist.
  */
 const DEFAULT_INSTALL_HINTS: Partial<Record<BackendId, string>> = {
   'claude-cli': 'https://docs.claude.com/en/docs/claude-code/setup',
@@ -115,7 +115,7 @@ const DEFAULT_INSTALL_HINTS: Partial<Record<BackendId, string>> = {
   'grok-cli': 'https://docs.x.ai/docs/overview',
 };
 
-/** Wählt den anzuzeigenden Onboarding-Link: Detection-URL (falls erlaubt) sonst Fallback. */
+/** Picks the onboarding link to display: detection URL (if allowed), otherwise the fallback. */
 export function pickInstallHint(id: BackendId, detected?: string): string | undefined {
   if (detected !== undefined && isAllowedExternalUrl(detected)) return detected;
   const fallback = DEFAULT_INSTALL_HINTS[id];
@@ -123,13 +123,13 @@ export function pickInstallHint(id: BackendId, detected?: string): string | unde
 }
 
 /* ------------------------------------------------------------------ */
-/* Claude-Abo: Feature-Flag-Hinweis + Bestätigung (PLAN §3)            */
+/* Claude subscription: feature-flag notice + acknowledgment (PLAN §3)  */
 /* ------------------------------------------------------------------ */
 
-/** Backends, die vor der ersten Nutzung einen einmaligen Hinweis erfordern. */
+/** Backends that require a one-time notice before first use. */
 export const BACKENDS_REQUIRING_NOTICE: ReadonlySet<BackendId> = new Set<BackendId>(['claude-cli']);
 
-/** Struktur eines In-App-Hinweises (deutsch, Du-Form, ohne Emojis). */
+/** Structure of an in-app notice (concise, direct tone, no emojis). */
 export interface BackendNotice {
   backendId: BackendId;
   title: string;
@@ -139,21 +139,21 @@ export interface BackendNotice {
 }
 
 /**
- * Claude-Abo-Hinweis (PLAN §3, Anthropic „unless previously approved"). Erklärt,
- * dass der Modus das EIGENE Abo über die selbst installierte, selbst eingeloggte
- * offizielle CLI nutzt, dass diese App keine Token anfasst, und verlinkt die
- * Anthropic-Bedingungen. Nie „Claude Code" als Produktname.
+ * Claude subscription notice (PLAN §3, Anthropic "unless previously approved").
+ * Explains that the mode uses the user's OWN subscription through the official
+ * CLI they installed and signed into themselves, that this app never touches any
+ * token, and links to the Anthropic terms. Never "Claude Code" as a product name.
  */
 export const CLAUDE_CLI_NOTICE: BackendNotice = {
   backendId: 'claude-cli',
-  title: 'Claude (Abo) verwenden',
+  title: 'Use Claude (subscription)',
   paragraphs: [
-    'Dieser Modus nutzt dein eigenes Claude-Abo über die offizielle Anthropic-CLI, die du selbst auf deinem Rechner installiert und in die du dich selbst eingeloggt hast.',
-    'Web AI Builder liest, speichert oder überträgt dabei keine Zugangs-Token. Der Login passiert ausschließlich im Flow von Anthropic — diese App startet nur die unveränderte offizielle CLI.',
-    'Die Nutzung eines Abos über Dritt-Werkzeuge ist von Anthropic nur eingeschränkt erlaubt („unless previously approved"). Prüfe vorab die Bedingungen von Anthropic. Für den stabilen Standardbetrieb empfehlen wir den API-Key-Modus.',
+    'This mode uses your own Claude subscription through the official Anthropic CLI that you installed on your machine and signed into yourself.',
+    'Web AI Builder never reads, stores, or transmits any access token in the process. The login happens entirely within Anthropic’s own flow — this app only launches the unmodified official CLI.',
+    'Using a subscription through third-party tools is only conditionally permitted by Anthropic ("unless previously approved"). Review Anthropic’s terms first. For stable everyday use, we recommend API-key mode.',
   ],
   termsUrl: 'https://www.anthropic.com/legal/consumer-terms',
-  termsLabel: 'Anthropic-Nutzungsbedingungen',
+  termsLabel: 'Anthropic terms of use',
 };
 
 const NOTICES: Partial<Record<BackendId, BackendNotice>> = {
@@ -164,33 +164,33 @@ export function noticeFor(id: BackendId): BackendNotice | null {
   return NOTICES[id] ?? null;
 }
 
-/* ---------------- Notice-Bestätigungs-Automat ---------------- */
+/* ---------------- Notice acknowledgment state machine ---------------- */
 
 export type NoticeGateStatus = 'no-notice' | 'needs-ack' | 'ready';
 
 /**
- * Feature-Flag-Gate für einen Backend-Hinweis: braucht das Backend einen
- * Hinweis, und wurde er schon bestätigt?
+ * Feature-flag gate for a backend notice: does the backend need a notice, and
+ * has it already been acknowledged?
  */
 export function noticeGate(id: BackendId, acknowledged: ReadonlySet<BackendId>): NoticeGateStatus {
   if (!BACKENDS_REQUIRING_NOTICE.has(id)) return 'no-notice';
   return acknowledged.has(id) ? 'ready' : 'needs-ack';
 }
 
-/** Fügt eine Bestätigung hinzu (rein, ohne Seiteneffekt auf die Eingabe). */
+/** Adds an acknowledgment (pure, no side effect on the input). */
 export function applyAck(acknowledged: ReadonlySet<BackendId>, id: BackendId): Set<BackendId> {
   const next = new Set(acknowledged);
   next.add(id);
   return next;
 }
 
-/** Zustände des Hinweis-Dialogs im Renderer. */
+/** States of the notice dialog in the renderer. */
 export type AckFlowState = 'idle' | 'showing' | 'acknowledged';
 export type AckFlowAction = { type: 'open' } | { type: 'acknowledge' } | { type: 'dismiss' };
 
 /**
- * Reiner Automat für den Hinweis-Dialog: idle →(open)→ showing →(acknowledge)→
- * acknowledged; showing →(dismiss)→ idle. `acknowledged` ist terminal.
+ * Pure state machine for the notice dialog: idle →(open)→ showing →(acknowledge)→
+ * acknowledged; showing →(dismiss)→ idle. `acknowledged` is terminal.
  */
 export function ackFlowReducer(state: AckFlowState, action: AckFlowAction): AckFlowState {
   switch (action.type) {
@@ -208,30 +208,30 @@ export function ackFlowReducer(state: AckFlowState, action: AckFlowAction): AckF
 }
 
 /* ------------------------------------------------------------------ */
-/* Remote-Kill-Switch: Schema, Default, Validierung, Auflösung          */
+/* Remote kill switch: schema, default, validation, resolution          */
 /* ------------------------------------------------------------------ */
 
-/** Kill-Switch-Zustand eines Abo-Backends (PLAN §3 Regel 3). */
+/** Kill-switch state of a subscription backend (PLAN §3 Rule 3). */
 export interface BackendKillSwitch {
   enabled: boolean;
-  /** Grund der Deaktivierung (deutsch, für die UI). */
+  /** Reason for the deactivation (for the UI). */
   reason?: string;
-  /** Optionaler Markdown-Hinweis (Remote-Kommunikation an den Nutzer). */
+  /** Optional Markdown notice (remote communication to the user). */
   noticeMarkdown?: string;
 }
 
 export type KillSwitchMap = Partial<Record<SubscriptionBackendId, BackendKillSwitch>>;
 
-/** Gesamter Kill-Switch-Datensatz (gebündelt oder remote). */
+/** The complete kill-switch record (bundled or remote). */
 export interface KillSwitchConfig {
   version?: number;
   backends: KillSwitchMap;
 }
 
 /**
- * Gebündelter Default (PLAN §3): alle Abo-Backends aktiv. Grok wird separat als
- * „experimentell" markiert (siehe {@link EXPERIMENTAL_BACKEND_IDS}) — das ist
- * kein Kill-Switch-Zustand, sondern statische Metadaten.
+ * Bundled default (PLAN §3): all subscription backends active. Grok is marked
+ * separately as "experimental" (see {@link EXPERIMENTAL_BACKEND_IDS}) — that is
+ * not a kill-switch state but static metadata.
  */
 export const BUNDLED_KILLSWITCH: KillSwitchConfig = {
   version: 1,
@@ -254,10 +254,10 @@ function coerceKillSwitchEntry(value: unknown): BackendKillSwitch | null {
 }
 
 /**
- * Liest einen (remote oder aus dem Cache gelesenen) Kill-Switch-Datensatz
- * defensiv ein. Gibt `null` zurück, wenn er strukturell kaputt ist — der Aufrufer
- * IGNORIERT ihn dann (fail-safe, PLAN §3). Unbekannte Backend-Schlüssel und
- * ungültige Einzeleinträge werden verworfen, nicht der ganze Datensatz.
+ * Defensively parses a kill-switch record (read from remote or the cache).
+ * Returns `null` if it is structurally broken — the caller then IGNORES it
+ * (fail-safe, PLAN §3). Unknown backend keys and invalid individual entries are
+ * discarded, not the whole record.
  */
 export function coerceKillSwitchConfig(value: unknown): KillSwitchConfig | null {
   if (typeof value !== 'object' || value === null) return null;
@@ -277,9 +277,9 @@ export function coerceKillSwitchConfig(value: unknown): KillSwitchConfig | null 
 }
 
 /**
- * Effektiver Kill-Switch = gebündelter Default, pro Abo-Backend von einem
- * gültigen Remote-Eintrag überschrieben. `null` (kein/kaputtes Remote) →
- * reiner gebündelter Default.
+ * Effective kill switch = bundled default, overridden per subscription backend by
+ * a valid remote entry. `null` (missing/broken remote) → the bundled default
+ * alone.
  */
 export function resolveKillSwitch(remote: KillSwitchConfig | null): KillSwitchConfig {
   const backends: KillSwitchMap = { ...BUNDLED_KILLSWITCH.backends };
@@ -292,21 +292,21 @@ export function resolveKillSwitch(remote: KillSwitchConfig | null): KillSwitchCo
   return { version: remote?.version ?? BUNDLED_KILLSWITCH.version, backends };
 }
 
-/** Kill-Switch-Zustand für EIN Backend (API-Key-Backends sind immer aktiv). */
+/** Kill-switch state for ONE backend (API-key backends are always active). */
 export function killSwitchFor(config: KillSwitchConfig, id: BackendId): BackendKillSwitch {
   if (!isSubscriptionBackend(id)) return { enabled: true };
   return config.backends[id] ?? { enabled: true };
 }
 
 /* ------------------------------------------------------------------ */
-/* Availability: rohe Detection → normalisierte, gemergte Sicht         */
+/* Availability: raw detection → normalized, merged view                */
 /* ------------------------------------------------------------------ */
 
 /**
- * Defensiv normalisierte Detection eines Backends. Bewusst permissiv, damit
- * additive Änderungen an `BackendAvailability` in @webaibuilder/agents (anderer
- * Agent baut sie gerade um) diese Schicht nicht brechen — die rohe Detection
- * wird als `unknown` entgegengenommen und hier defensiv gelesen.
+ * Defensively normalized detection of a backend. Deliberately permissive so that
+ * additive changes to `BackendAvailability` in @webaibuilder/agents (another
+ * agent is currently reworking it) don't break this layer — the raw detection is
+ * accepted as `unknown` and read defensively here.
  */
 export interface RawBackendAvailability {
   backendId: BackendId;
@@ -325,9 +325,8 @@ function readLoggedIn(value: unknown): boolean | 'unknown' {
 }
 
 /**
- * Liest ein rohes Detection-Objekt defensiv ein. Akzeptiert sowohl `backendId`
- * (neue Form) als auch `id` (bestehende M2-Form). `null`, wenn kein bekanntes
- * Backend erkennbar ist.
+ * Defensively parses a raw detection object. Accepts both `backendId` (new form)
+ * and `id` (existing M2 form). `null` if no known backend can be identified.
  */
 export function coerceRawAvailability(value: unknown): RawBackendAvailability | null {
   if (typeof value !== 'object' || value === null) return null;
@@ -347,7 +346,7 @@ export function coerceRawAvailability(value: unknown): RawBackendAvailability | 
   return raw;
 }
 
-/** Renderer-taugliche, gemergte Sicht auf ein Backend. */
+/** Renderer-friendly, merged view of a backend. */
 export interface BackendAvailabilityView {
   backendId: BackendId;
   group: BackendGroup;
@@ -355,30 +354,30 @@ export interface BackendAvailabilityView {
   loggedIn: boolean | 'unknown';
   version?: string;
   account?: string;
-  /** Offizieller Onboarding-Link (nur erlaubte Vendor-Domain). */
+  /** Official onboarding link (allowed vendor domain only). */
   installHintUrl?: string;
   experimental: boolean;
-  /** Effektiv aktiv? Nur Abo-Backends können per Kill-Switch aus sein. */
+  /** Effectively active? Only subscription backends can be off via kill switch. */
   enabled: boolean;
-  /** Grund der Kill-Switch-Deaktivierung (deutsch). */
+  /** Reason for the kill-switch deactivation. */
   disabledReason?: string;
-  /** Optionaler Remote-Markdown-Hinweis (Kill-Switch-Kommunikation). */
+  /** Optional remote Markdown notice (kill-switch communication). */
   noticeMarkdown?: string;
-  /** Erfordert einen einmalig zu bestätigenden Hinweis (Feature-Flag). */
+  /** Requires a one-time notice to acknowledge (feature flag). */
   requiresAck: boolean;
-  /** Hinweis bereits bestätigt? */
+  /** Notice already acknowledged? */
   acknowledged: boolean;
 }
 
-/** Ein leeres (nicht installiertes) Backend synthetisieren, falls die Detection es auslässt. */
+/** Synthesize an empty (not installed) backend if detection omits it. */
 function emptyRaw(id: BackendId): RawBackendAvailability {
   return { backendId: id, installed: false, loggedIn: 'unknown' };
 }
 
 /**
- * Mergt eine rohe Detection mit dem effektiven Kill-Switch und dem
- * Bestätigungs-Zustand zur Renderer-Sicht. Ein per Kill-Switch deaktiviertes
- * Backend wird mit `enabled:false` (+ Grund) gemeldet.
+ * Merges a raw detection with the effective kill switch and the acknowledgment
+ * state into the renderer view. A backend disabled via kill switch is reported
+ * with `enabled:false` (+ reason).
  */
 export function mergeAvailability(
   raw: RawBackendAvailability,
@@ -409,8 +408,8 @@ export function mergeAvailability(
 }
 
 /**
- * Baut die vollständige, geordnete Sicht auf alle sechs Backends. Fehlt eines in
- * der Detection, wird es defensiv als „nicht installiert" ergänzt.
+ * Builds the complete, ordered view of all six backends. If one is missing from
+ * detection, it is defensively added as "not installed".
  */
 export function buildAvailabilityViews(
   raws: readonly RawBackendAvailability[],
@@ -424,32 +423,32 @@ export function buildAvailabilityViews(
   );
 }
 
-/** Vollständige Picker-Nutzlast an den Renderer. */
+/** Complete picker payload sent to the renderer. */
 export interface BackendPickerState {
   backends: BackendAvailabilityView[];
   acknowledged: BackendId[];
 }
 
 /* ------------------------------------------------------------------ */
-/* Status-Label + Auswählbarkeit (Abo-Backends)                        */
+/* Status label + selectability (subscription backends)                */
 /* ------------------------------------------------------------------ */
 
 /**
- * Deutsches Status-Label für ein Abo-Backend (PLAN §5, Du-Form):
- *  „nicht installiert" · „nicht eingeloggt" · „gefunden" · „eingeloggt als …" ·
- *  bei Kill-Switch der Grund.
+ * Status label for a subscription backend (PLAN §5):
+ *  "not installed" · "not logged in" · "found" · "logged in as …" · or the reason
+ *  when the kill switch is active.
  */
 export function subscriptionStatusLabel(view: BackendAvailabilityView): string {
-  if (!view.enabled) return view.disabledReason ?? 'vorübergehend deaktiviert';
-  if (!view.installed) return 'nicht installiert';
-  if (view.loggedIn === false) return 'gefunden · nicht eingeloggt';
+  if (!view.enabled) return view.disabledReason ?? 'temporarily disabled';
+  if (!view.installed) return 'not installed';
+  if (view.loggedIn === false) return 'found · not logged in';
   if (view.loggedIn === true) {
     return view.account !== undefined && view.account !== ''
-      ? `eingeloggt als ${view.account}`
-      : 'gefunden · eingeloggt';
+      ? `logged in as ${view.account}`
+      : 'found · logged in';
   }
-  // loggedIn === 'unknown' → installiert, Login nicht ermittelbar.
-  return 'gefunden';
+  // loggedIn === 'unknown' → installed, login status not determinable.
+  return 'found';
 }
 
 export type BackendBlockReason =
@@ -460,9 +459,9 @@ export type BackendBlockReason =
   | null;
 
 /**
- * Warum ein Backend gerade NICHT nutzbar ist (oder `null`, wenn nutzbar).
- * API-Key-Backends sind hier nie blockiert (ihr „bereit" hängt am API-Key, der
- * getrennt in den Einstellungen verwaltet wird).
+ * Why a backend is currently NOT usable (or `null` if usable). API-key backends
+ * are never blocked here (their "ready" state depends on the API key, which is
+ * managed separately in Settings).
  */
 export function backendBlockReason(view: BackendAvailabilityView): BackendBlockReason {
   if (view.group === 'apikey') return null;
@@ -473,22 +472,21 @@ export function backendBlockReason(view: BackendAvailabilityView): BackendBlockR
   return null;
 }
 
-/** Ist das Backend auswählbar/nutzbar? */
+/** Is the backend selectable/usable? */
 export function isBackendSelectable(view: BackendAvailabilityView): boolean {
   return backendBlockReason(view) === null;
 }
 
 /* ------------------------------------------------------------------ */
-/* Aktivierung eines Abo-Backends als aktives (turn-treibendes) Backend  */
+/* Activating a subscription backend as the active (turn-driving) backend */
 /* ------------------------------------------------------------------ */
 
 /**
- * Autoritative Aktivierungsprüfung für ein Abo-Backend (Main-Prozess, PLAN §3/§4).
- * Gibt eine deutsche, handlungsleitende Fehlermeldung zurück, wenn das Backend
- * NICHT als aktives Backend gesetzt werden darf (nicht installiert, nicht
- * eingeloggt, per Kill-Switch aus oder Hinweis nicht bestätigt) — sonst `null`.
- * Dieselbe Blockier-Logik wie in der UI ({@link backendBlockReason}), damit
- * Renderer und Main identisch entscheiden.
+ * Authoritative activation check for a subscription backend (main process, PLAN
+ * §3/§4). Returns an actionable error message if the backend may NOT be set as
+ * the active backend (not installed, not logged in, off via kill switch, or
+ * notice not acknowledged) — otherwise `null`. Same blocking logic as in the UI
+ * ({@link backendBlockReason}), so the renderer and main decide identically.
  */
 export function subscriptionActivationError(view: BackendAvailabilityView): string | null {
   const name = backendDisplayName(view.backendId);
@@ -496,21 +494,21 @@ export function subscriptionActivationError(view: BackendAvailabilityView): stri
     case null:
       return null;
     case 'kill-switch':
-      return view.disabledReason ?? `${name} ist derzeit deaktiviert.`;
+      return view.disabledReason ?? `${name} is currently disabled.`;
     case 'not-installed':
-      return `${name} ist nicht installiert. Installiere die offizielle CLI und logge dich mit deinem Abo ein, dann versuch es erneut.`;
+      return `${name} is not installed. Install the official CLI and sign in with your subscription, then try again.`;
     case 'not-logged-in':
-      return `${name} ist installiert, aber nicht eingeloggt. Melde dich in der CLI mit deinem Abo an, dann versuch es erneut.`;
+      return `${name} is installed but not signed in. Sign in to the CLI with your subscription, then try again.`;
     case 'needs-ack':
-      return `Bestätige zuerst den Hinweis zu ${name}, bevor du es als aktives Backend nutzt.`;
+      return `Acknowledge the notice for ${name} before using it as the active backend.`;
   }
 }
 
 /**
- * Reine Entscheidung, was ein Klick auf ein Abo-Backend im Picker auslöst:
- *  - `activate`: bereit → als aktives Backend setzen (`settings.set`)
- *  - `acknowledge`: erst den einmaligen Hinweis bestätigen
- *  - `blocked`: nicht nutzbar → Onboarding-Link öffnen + deutschen Hinweis zeigen
+ * Pure decision of what a click on a subscription backend in the picker triggers:
+ *  - `activate`: ready → set as the active backend (`settings.set`)
+ *  - `acknowledge`: acknowledge the one-time notice first
+ *  - `blocked`: not usable → open the onboarding link + show a hint
  */
 export type BackendSelectAction =
   | { kind: 'activate' }
@@ -523,10 +521,10 @@ export function backendSelectAction(view: BackendAvailabilityView): BackendSelec
   if (reason === 'needs-ack') return { kind: 'acknowledge' };
   const message =
     reason === 'kill-switch'
-      ? 'Dieses Backend ist derzeit deaktiviert.'
+      ? 'This backend is currently disabled.'
       : reason === 'not-logged-in'
-        ? 'Zuerst in der CLI anmelden (Link geöffnet).'
-        : 'Zuerst die CLI installieren (Link geöffnet).';
+        ? 'Sign in to the CLI first (link opened).'
+        : 'Install the CLI first (link opened).';
   return {
     kind: 'blocked',
     ...(view.installHintUrl !== undefined ? { hintUrl: view.installHintUrl } : {}),
@@ -535,28 +533,28 @@ export function backendSelectAction(view: BackendAvailabilityView): BackendSelec
 }
 
 /**
- * Statusleisten-Label für das aktive Backend (PLAN §5). Abo-Backends laufen über
- * die eigene CLI und haben keinen app-verwalteten Key — kein „(kein Key)"-Zusatz.
+ * Status-bar label for the active backend (PLAN §5). Subscription backends run
+ * through their own CLI and have no app-managed key — no "(no key)" suffix.
  */
 export function activeBackendStatusLabel(backendId: BackendId, hasApiKey: boolean): string {
   const name = backendDisplayName(backendId);
   if (isSubscriptionBackend(backendId)) return name;
-  return hasApiKey ? name : `${name} (kein Key)`;
+  return hasApiKey ? name : `${name} (no key)`;
 }
 
 /* ------------------------------------------------------------------ */
-/* Chat-Readiness: schaltet den Chat-Composer frei                     */
+/* Chat readiness: unlocks the chat composer                           */
 /* ------------------------------------------------------------------ */
 
 export type ChatBlockReason = 'no-settings' | 'missing-key' | null;
 
 /**
- * Warum der Chat gerade NICHT sendbereit ist (oder `null`, wenn bereit) — die
- * eine geteilte Quelle für die Composer-Freischaltung (vorher Inline-Logik in
- * Workbench.tsx). Abo-Backends sind als aktives Backend immer bereit, denn ihre
- * Nutzbarkeit hat der Main-Prozess bei der Aktivierung autoritativ geprüft.
- * API-Key-Backends brauchen einen Key — Schlüsselbund ODER Umgebungsvariable,
- * beides steckt bereits in `hasApiKey` (main/settingsStore.ts).
+ * Why the chat is currently NOT ready to send (or `null` if ready) — the single
+ * shared source for unlocking the composer (previously inline logic in
+ * Workbench.tsx). As the active backend, subscription backends are always ready,
+ * since the main process authoritatively checked their usability at activation
+ * time. API-key backends need a key — keychain OR environment variable, both
+ * already captured in `hasApiKey` (main/settingsStore.ts).
  */
 export function chatBlockReason(
   settings: { backendId: BackendId; hasApiKey: boolean } | null,
@@ -566,17 +564,17 @@ export function chatBlockReason(
   return settings.hasApiKey ? null : 'missing-key';
 }
 
-/** Empfehlung des Chat-Empty-States, wie der Nutzer den Chat freischaltet. */
+/** The chat empty-state's recommendation for how the user unlocks the chat. */
 export type ChatSetupCta =
   | { kind: 'use-subscription'; backendId: SubscriptionBackendId; needsAck: boolean }
   | { kind: 'enter-key' };
 
 /**
- * Reine Empfehlung für den Chat-Empty-State: das erste installierte, aktive,
- * nicht-experimentelle Abo-Backend, das nicht ausdrücklich ausgeloggt ist —
- * sonst der API-Key-Pfad. `needsAck` sagt der UI, dass vor der Aktivierung der
- * einmalige Hinweis bestätigt werden muss (Compliance, PLAN §3 — der Hinweis
- * wird geführt angezeigt, nie übersprungen).
+ * Pure recommendation for the chat empty-state: the first installed, active,
+ * non-experimental subscription backend that is not explicitly logged out —
+ * otherwise the API-key path. `needsAck` tells the UI that the one-time notice
+ * must be acknowledged before activation (compliance, PLAN §3 — the notice is
+ * shown in a guided way, never skipped).
  */
 export function recommendChatSetup(views: readonly BackendAvailabilityView[]): ChatSetupCta {
   for (const id of SUBSCRIPTION_BACKEND_IDS) {

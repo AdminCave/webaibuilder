@@ -1,9 +1,9 @@
 /**
- * Sync-Engine: der gemeinsame Delta-Deploy (PLAN §4). Reihenfolge für
- * Fast-Atomarität auf dummen Hosts:
- *   Verzeichnisse anlegen → Uploads → Deletes → Manifest ZULETZT.
- * Sowohl `deploy` als auch `rollback` laufen hierüber (rollback nur mit einem
- * anderen, aus git materialisierten Quellverzeichnis).
+ * Sync engine: the shared delta deploy (PLAN §4). Order for
+ * fast atomicity on dumb hosts:
+ *   create directories → uploads → deletes → manifest LAST.
+ * Both `deploy` and `rollback` run through this (rollback only with a
+ * different source directory materialized from git).
  */
 
 import { readFile } from 'node:fs/promises';
@@ -29,7 +29,7 @@ import {
   type DeployResult,
 } from './types';
 
-/** Wählt den Transport anhand des Protokolls (PLAN §4). */
+/** Selects the transport based on the protocol (PLAN §4). */
 export function createTransport(target: DeployTarget, credentials: DeployCredentials): Transport {
   switch (target.protocol) {
     case 'sftp':
@@ -40,7 +40,7 @@ export function createTransport(target: DeployTarget, credentials: DeployCredent
   }
 }
 
-/** Liest das Remote-Manifest aus dem Zielverzeichnis (null, wenn keins da ist). */
+/** Reads the remote manifest from the target directory (null if none exists). */
 export async function readRemoteManifest(
   transport: Transport,
   root: string,
@@ -50,18 +50,18 @@ export async function readRemoteManifest(
   return parseManifest(buf.toString('utf8'));
 }
 
-/** Verbindet und mappt Verbindungsfehler auf eine klare deutsche Meldung. */
+/** Connects and maps connection errors to a clear message. */
 export async function connectOrThrow(transport: Transport): Promise<void> {
   try {
     await transport.connect();
   } catch (err) {
-    throw new Error(describeError(err, 'Verbindung fehlgeschlagen'), { cause: err });
+    throw new Error(describeError(err, 'Connection failed'), { cause: err });
   }
 }
 
 /**
- * Führt den Delta-Deploy von `siteDir` (Stand `commitSha`) gegen ein bereits
- * verbundenes Ziel aus. Verbindung/Trennung managt der Aufrufer.
+ * Runs the delta deploy of `siteDir` (state `commitSha`) against an already
+ * connected target. Connection/disconnection is managed by the caller.
  */
 export async function syncDir(
   transport: Transport,
@@ -78,7 +78,7 @@ export async function syncDir(
   const remoteManifest = await readRemoteManifest(transport, root);
   const plan = diffManifest(local, remoteManifest?.files ?? {});
 
-  // 1) Verzeichnisse anlegen (Eltern vor Kind). Root nur, wenn nicht trivial.
+  // 1) Create directories (parents before children). Root only if non-trivial.
   const dirs = ancestorDirsOf(plan.uploads);
   emit({ type: 'ensuring-dirs', total: dirs.length });
   if (root !== '/' && root !== '.') {
@@ -88,7 +88,7 @@ export async function syncDir(
     await transport.ensureDir(remoteJoin(root, relDir));
   }
 
-  // 2) Uploads (neu/geändert).
+  // 2) Uploads (new/changed).
   let bytesUploaded = 0;
   const uploadTotal = plan.uploads.length;
   for (let i = 0; i < uploadTotal; i += 1) {
@@ -99,7 +99,7 @@ export async function syncDir(
     emit({ type: 'uploading', path: rel, index: i + 1, total: uploadTotal });
   }
 
-  // 3) Deletes (nur noch remote vorhanden).
+  // 3) Deletes (present only remotely now).
   const deleteTotal = plan.deletes.length;
   for (let i = 0; i < deleteTotal; i += 1) {
     const rel = plan.deletes[i] as string;
@@ -107,7 +107,7 @@ export async function syncDir(
     emit({ type: 'deleting', path: rel, index: i + 1, total: deleteTotal });
   }
 
-  // 4) Manifest ZULETZT (Fast-Atomarität: erst wenn alles oben stand).
+  // 4) Manifest LAST (fast atomicity: only once everything above is in place).
   const manifest = buildManifest(commitSha, local);
   const manifestBytes = Buffer.from(JSON.stringify(manifest, null, 2), 'utf8');
   await transport.writeFile(remoteJoin(root, MANIFEST_FILENAME), manifestBytes);
@@ -126,9 +126,9 @@ export async function syncDir(
 }
 
 /**
- * Voller Lebenszyklus: verbinden → syncDir → trennen. Fehler werden in klare
- * deutsche Meldungen übersetzt und als `error`-Progress-Event gemeldet, bevor
- * sie geworfen werden. Credentials landen NIE in Meldung oder Log.
+ * Full lifecycle: connect → syncDir → disconnect. Errors are translated into
+ * clear messages and reported as an `error` progress event before
+ * they are thrown. Credentials NEVER end up in a message or log.
  */
 export async function syncToTarget(
   target: DeployTarget,

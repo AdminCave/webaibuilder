@@ -1,19 +1,19 @@
 /**
- * Reiner Reducer: AgentEvent-Strom + Nutzeraktionen → Chat-UI-Zustand.
+ * Pure reducer: AgentEvent stream + user actions → chat UI state.
  *
- * Bewusst frei von React/DOM/node, damit die Kern-Logik (Streaming-Text,
- * Tool-Chips, Permission-Prompt, Turn-Abschluss) headless mit vitest getestet
- * werden kann. Die React-Komponente hält diesen Zustand nur noch.
+ * Deliberately free of React/DOM/node so the core logic (streaming text, tool
+ * chips, permission prompt, turn completion) can be tested headlessly with
+ * vitest. The React component only holds this state now.
  */
 
 import type { AgentEvent, PermissionScope } from '@webaibuilder/core';
 
-/** Eine Tool-Aktivität des Backends — nur Anzeige (PLAN §4). */
+/** A tool activity of the backend — display only (PLAN §4). */
 export interface ToolActivity {
   toolCallId: string;
-  /** Anzeigename, z. B. „Datei schreiben". */
+  /** Display name, e.g. "Write file". */
   tool: string;
-  /** Detail, z. B. Pfad relativ zu site/. */
+  /** Detail, e.g. path relative to site/. */
   detail?: string;
   done: boolean;
 }
@@ -29,25 +29,25 @@ export interface UserMessage {
 export interface AssistantMessage {
   id: string;
   role: 'assistant';
-  /** Zusammengesetzter Text aus den text-delta-Events. */
+  /** Text assembled from the text-delta events. */
   text: string;
   tools: ToolActivity[];
   status: AssistantStatus;
-  /** Fehlermeldung bei status === 'error'. */
+  /** Error message when status === 'error'. */
   errorText?: string;
-  /** Technische Ursache (z. B. 401-Antwort) — aufklappbar in der UI. */
+  /** Technical cause (e.g. a 401 response) — expandable in the UI. */
   errorCause?: string;
-  /** Kosten in USD, falls das Backend sie meldet. */
+  /** Cost in USD, if the backend reports it. */
   costUsd?: number;
 }
 
 export type ChatMessage = UserMessage | AssistantMessage;
 
-/** Offene Permission-Anfrage, die der Nutzer beantworten muss. */
+/** Open permission request that the user must answer. */
 export interface PendingPermission {
   requestId: string;
   scope: PermissionScope;
-  /** Deutscher, menschenlesbarer Text (Du-Form). */
+  /** Human-readable description. */
   description: string;
 }
 
@@ -55,7 +55,7 @@ export interface ChatState {
   messages: ChatMessage[];
   status: 'idle' | 'running';
   pendingPermission: PendingPermission | null;
-  /** Lauf-ID des aktiven Turns (korreliert Push-Events). */
+  /** Run ID of the active turn (correlates push events). */
   runId: string | null;
 }
 
@@ -139,7 +139,7 @@ function applyEvent(state: ChatState, event: AgentEvent): ChatState {
         pendingPermission: null,
         messages: mapAssistant(state.messages, runId, (m) => ({
           ...m,
-          // Ein schon gesetzter Fehler (error-Event) bleibt erhalten.
+          // An already-set error (error event) is preserved.
           status: m.status === 'error' ? 'error' : status,
           ...(event.costUsd !== undefined ? { costUsd: event.costUsd } : {}),
         })),
@@ -149,16 +149,16 @@ function applyEvent(state: ChatState, event: AgentEvent): ChatState {
     case 'error':
       return {
         ...state,
-        // Bei recoverable bleibt der Turn technisch offen, bis turn-complete
-        // kommt; sonst gilt er als beendet.
+        // For recoverable errors the turn stays technically open until
+        // turn-complete arrives; otherwise it counts as finished.
         status: event.recoverable ? state.status : 'idle',
         pendingPermission: null,
         messages: mapAssistant(state.messages, runId, (m) => ({
           ...m,
           status: 'error',
           errorText: event.message,
-          // Die echte Ursache (401, ungültiges Modell, …) nicht mehr wegwerfen —
-          // die UI zeigt sie aufklappbar an.
+          // Don't throw away the real cause (401, invalid model, …) anymore —
+          // the UI shows it in an expandable section.
           ...(event.cause !== undefined ? { errorCause: event.cause } : {}),
         })),
       };
@@ -189,7 +189,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     }
 
     case 'agent-event':
-      // Veraltete Events eines abgeschlossenen Turns ignorieren.
+      // Ignore stale events from a completed turn.
       if (action.runId !== state.runId) return state;
       return applyEvent(state, action.event);
 

@@ -1,11 +1,11 @@
 /**
- * Headless-Tests der reinen Backend-Logik (PLAN §3/§4, M4): Kill-Switch-
- * Auflösung, Availability+Kill-Switch-Merge, Grouping/Label-Logik, der
- * Hinweis-Bestätigungs-Automat und die Onboarding-Link-Allowlist.
+ * Headless tests of the pure backend logic (PLAN §3/§4, M4): kill-switch
+ * resolution, availability + kill-switch merge, grouping/label logic, the
+ * notice acknowledgment state machine, and the onboarding link allowlist.
  *
- * Nur runtime-testbar (nicht hier): echtes CLI-Probing (detectBackends),
- * das tatsächliche Öffnen externer Links (shell.openExternal) und echte
- * Electron-IPC — dafür gibt es die Service-/Store-Tests mit injizierten Fakes.
+ * Only runtime-testable (not here): real CLI probing (detectBackends), the
+ * actual opening of external links (shell.openExternal), and real Electron
+ * IPC — those are covered by the service/store tests with injected fakes.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -55,26 +55,26 @@ function viewOf(
 }
 
 /* ------------------------------------------------------------------ */
-/* Kill-Switch: Default, Validierung, Auflösung                        */
+/* Kill switch: default, validation, resolution                        */
 /* ------------------------------------------------------------------ */
 
-describe('Kill-Switch — gebündelter Default', () => {
-  it('hat alle vier Abo-Backends aktiv', () => {
+describe('Kill switch — bundled default', () => {
+  it('has all four subscription backends active', () => {
     const effective = resolveKillSwitch(null);
     for (const id of ['claude-cli', 'codex', 'gemini-cli', 'grok-cli'] as const) {
       expect(killSwitchFor(effective, id).enabled).toBe(true);
     }
   });
 
-  it('meldet API-Key-Backends immer als aktiv', () => {
+  it('always reports API-key backends as active', () => {
     const effective = resolveKillSwitch(null);
     expect(killSwitchFor(effective, 'byok').enabled).toBe(true);
     expect(killSwitchFor(effective, 'claude-sdk').enabled).toBe(true);
   });
 });
 
-describe('coerceKillSwitchConfig — defensive Validierung', () => {
-  it('liest eine gültige Remote-Config ein', () => {
+describe('coerceKillSwitchConfig — defensive validation', () => {
+  it('reads a valid remote config', () => {
     const config = coerceKillSwitchConfig({
       version: 7,
       backends: {
@@ -91,7 +91,7 @@ describe('coerceKillSwitchConfig — defensive Validierung', () => {
     });
   });
 
-  it('ignoriert unbekannte Backend-Schlüssel und Einträge ohne enabled', () => {
+  it('ignores unknown backend keys and entries without enabled', () => {
     const config = coerceKillSwitchConfig({
       backends: {
         codex: { reason: 'kein enabled' },
@@ -103,17 +103,17 @@ describe('coerceKillSwitchConfig — defensive Validierung', () => {
     expect(Object.keys(config?.backends ?? {})).toHaveLength(0);
   });
 
-  it('gibt null zurück, wenn die Struktur kaputt ist (malformed → ignorieren)', () => {
+  it('returns null when the structure is broken (malformed → ignore)', () => {
     expect(coerceKillSwitchConfig(null)).toBeNull();
     expect(coerceKillSwitchConfig('kaputt')).toBeNull();
     expect(coerceKillSwitchConfig(42)).toBeNull();
-    expect(coerceKillSwitchConfig({})).toBeNull(); // kein backends-Objekt
+    expect(coerceKillSwitchConfig({})).toBeNull(); // no backends object
     expect(coerceKillSwitchConfig({ backends: null })).toBeNull();
   });
 });
 
-describe('resolveKillSwitch — Default vs. Remote-Override', () => {
-  it('überschreibt ein Backend per Remote, andere bleiben Default', () => {
+describe('resolveKillSwitch — default vs. remote override', () => {
+  it('overrides one backend via remote, others stay default', () => {
     const remote = coerceKillSwitchConfig({
       backends: { 'claude-cli': { enabled: false, reason: 'Über Nacht deaktiviert.' } },
     });
@@ -122,21 +122,21 @@ describe('resolveKillSwitch — Default vs. Remote-Override', () => {
       enabled: false,
       reason: 'Über Nacht deaktiviert.',
     });
-    // Nicht überschriebene bleiben aktiv (Default).
+    // Non-overridden ones stay active (default).
     expect(killSwitchFor(effective, 'codex').enabled).toBe(true);
   });
 
-  it('fällt bei null-Remote auf den reinen Default zurück', () => {
+  it('falls back to the pure default on a null remote', () => {
     expect(resolveKillSwitch(null).backends).toEqual(BUNDLED_KILLSWITCH.backends);
   });
 });
 
 /* ------------------------------------------------------------------ */
-/* Availability + Kill-Switch-Merge                                    */
+/* Availability + kill-switch merge                                    */
 /* ------------------------------------------------------------------ */
 
-describe('coerceRawAvailability — defensiv gegen Formänderungen', () => {
-  it('liest die neue Form (backendId, loggedIn)', () => {
+describe('coerceRawAvailability — defensive against shape changes', () => {
+  it('reads the new shape (backendId, loggedIn)', () => {
     expect(
       coerceRawAvailability({
         backendId: 'codex',
@@ -154,21 +154,21 @@ describe('coerceRawAvailability — defensiv gegen Formänderungen', () => {
     });
   });
 
-  it('akzeptiert auch die bestehende M2-Form (id)', () => {
+  it('also accepts the existing M2 shape (id)', () => {
     const parsed = coerceRawAvailability({ id: 'byok', installed: true, killSwitched: false });
     expect(parsed?.backendId).toBe('byok');
-    expect(parsed?.loggedIn).toBe('unknown'); // kein loggedIn geliefert
+    expect(parsed?.loggedIn).toBe('unknown'); // no loggedIn provided
   });
 
-  it('gibt null für Unbekanntes/Fehlendes', () => {
+  it('returns null for unknown/missing input', () => {
     expect(coerceRawAvailability(null)).toBeNull();
     expect(coerceRawAvailability({ id: 'gibts-nicht' })).toBeNull();
     expect(coerceRawAvailability({})).toBeNull();
   });
 });
 
-describe('mergeAvailability — Kill-Switch + Metadaten', () => {
-  it('meldet ein per Kill-Switch deaktiviertes Backend mit Grund', () => {
+describe('mergeAvailability — kill switch + metadata', () => {
+  it('reports a kill-switch-disabled backend with a reason', () => {
     const remote = coerceKillSwitchConfig({
       backends: { codex: { enabled: false, reason: 'Codex pausiert.' } },
     });
@@ -180,22 +180,22 @@ describe('mergeAvailability — Kill-Switch + Metadaten', () => {
     expect(subscriptionStatusLabel(view)).toBe('Codex pausiert.');
   });
 
-  it('markiert grok als experimentell — auch ohne Detection-Flag', () => {
+  it('marks grok as experimental — even without a detection flag', () => {
     expect(viewOf('grok-cli').experimental).toBe(true);
     expect(viewOf('codex').experimental).toBe(false);
   });
 
-  it('bevorzugt einen erlaubten Detection-Link, sonst den Fallback', () => {
-    // Erlaubte Detection-URL wird übernommen.
+  it('prefers an allowed detection link, otherwise the fallback', () => {
+    // An allowed detection URL is adopted.
     expect(viewOf('codex', { installHintUrl: 'https://openai.com/codex' }).installHintUrl).toBe(
       'https://openai.com/codex',
     );
-    // Nicht erlaubte Detection-URL → Fallback (offizielle Vendor-Domain).
+    // Disallowed detection URL → fallback (official vendor domain).
     const view = viewOf('codex', { installHintUrl: 'https://evil.example.com/x' });
     expect(view.installHintUrl).toBe('https://developers.openai.com/codex/cli/');
   });
 
-  it('reicht den Kill-Switch-noticeMarkdown durch (auch bei aktivem Backend)', () => {
+  it('passes the kill-switch noticeMarkdown through (even for an active backend)', () => {
     const remote = coerceKillSwitchConfig({
       backends: { 'gemini-cli': { enabled: true, noticeMarkdown: 'Bitte CLI aktualisieren.' } },
     });
@@ -204,7 +204,7 @@ describe('mergeAvailability — Kill-Switch + Metadaten', () => {
     );
   });
 
-  it('spiegelt den Bestätigungs-Zustand für claude-cli', () => {
+  it('mirrors the acknowledgment state for claude-cli', () => {
     expect(viewOf('claude-cli').acknowledged).toBe(false);
     expect(viewOf('claude-cli', {}, resolveKillSwitch(null), new Set(['claude-cli'])).acknowledged).toBe(
       true,
@@ -212,8 +212,8 @@ describe('mergeAvailability — Kill-Switch + Metadaten', () => {
   });
 });
 
-describe('buildAvailabilityViews — immer alle sechs, geordnet', () => {
-  it('ergänzt fehlende Backends defensiv als „nicht installiert"', () => {
+describe('buildAvailabilityViews — always all six, ordered', () => {
+  it('defensively adds missing backends as not installed', () => {
     const views = buildAvailabilityViews([raw('byok', { installed: true })], resolveKillSwitch(null), NONE);
     expect(views.map((v) => v.backendId)).toEqual([
       'byok',
@@ -228,11 +228,11 @@ describe('buildAvailabilityViews — immer alle sechs, geordnet', () => {
 });
 
 /* ------------------------------------------------------------------ */
-/* Grouping + Status-Label + Auswählbarkeit                            */
+/* Grouping + status label + selectability                             */
 /* ------------------------------------------------------------------ */
 
 describe('Grouping', () => {
-  it('teilt Abo- vs. API-Key-Backends korrekt', () => {
+  it('splits subscription vs. API-key backends correctly', () => {
     expect(backendGroup('claude-cli')).toBe('subscription');
     expect(backendGroup('grok-cli')).toBe('subscription');
     expect(backendGroup('byok')).toBe('apikey');
@@ -241,43 +241,43 @@ describe('Grouping', () => {
 });
 
 describe('subscriptionStatusLabel', () => {
-  it('liefert das richtige deutsche Label je Zustand', () => {
-    expect(subscriptionStatusLabel(viewOf('codex', { installed: false }))).toBe('nicht installiert');
+  it('returns the correct label per state', () => {
+    expect(subscriptionStatusLabel(viewOf('codex', { installed: false }))).toBe('not installed');
     expect(subscriptionStatusLabel(viewOf('codex', { installed: true, loggedIn: false }))).toBe(
-      'gefunden · nicht eingeloggt',
+      'found · not logged in',
     );
     expect(
       subscriptionStatusLabel(viewOf('codex', { installed: true, loggedIn: true, account: 'a@b.de' })),
-    ).toBe('eingeloggt als a@b.de');
+    ).toBe('logged in as a@b.de');
     expect(subscriptionStatusLabel(viewOf('codex', { installed: true, loggedIn: true }))).toBe(
-      'gefunden · eingeloggt',
+      'found · logged in',
     );
     expect(subscriptionStatusLabel(viewOf('codex', { installed: true, loggedIn: 'unknown' }))).toBe(
-      'gefunden',
+      'found',
     );
   });
 });
 
 describe('isBackendSelectable / backendBlockReason', () => {
-  it('API-Key-Backends sind nie hier blockiert', () => {
+  it('API-key backends are never blocked here', () => {
     expect(isBackendSelectable(viewOf('byok', { installed: false }))).toBe(true);
     expect(backendBlockReason(viewOf('claude-sdk', { installed: false }))).toBeNull();
   });
 
-  it('blockiert nicht installierte / nicht eingeloggte Abo-Backends', () => {
+  it('blocks not-installed / not-logged-in subscription backends', () => {
     expect(backendBlockReason(viewOf('codex', { installed: false }))).toBe('not-installed');
     expect(backendBlockReason(viewOf('codex', { installed: true, loggedIn: false }))).toBe(
       'not-logged-in',
     );
   });
 
-  it('lässt ein bereites Abo-Backend ohne Hinweis zu (codex)', () => {
+  it('allows a ready subscription backend without a notice (codex)', () => {
     expect(isBackendSelectable(viewOf('codex', { installed: true, loggedIn: true }))).toBe(true);
-    // loggedIn 'unknown' blockiert nicht.
+    // loggedIn 'unknown' does not block.
     expect(isBackendSelectable(viewOf('codex', { installed: true, loggedIn: 'unknown' }))).toBe(true);
   });
 
-  it('verlangt für claude-cli erst die Bestätigung', () => {
+  it('requires acknowledgment first for claude-cli', () => {
     const notAcked = viewOf('claude-cli', { installed: true, loggedIn: true });
     expect(backendBlockReason(notAcked)).toBe('needs-ack');
     expect(isBackendSelectable(notAcked)).toBe(false);
@@ -288,27 +288,27 @@ describe('isBackendSelectable / backendBlockReason', () => {
 });
 
 /* ------------------------------------------------------------------ */
-/* Aktivierung eines Abo-Backends als aktives Backend (Main-Gate-Logik) */
+/* Activating a subscription backend as the active backend (main gate) */
 /* ------------------------------------------------------------------ */
 
-describe('subscriptionActivationError — deutsche, handlungsleitende Meldung', () => {
-  it('lässt ein bereites Abo-Backend zu (null)', () => {
+describe('subscriptionActivationError — actionable message', () => {
+  it('allows a ready subscription backend (null)', () => {
     expect(subscriptionActivationError(viewOf('codex', { installed: true, loggedIn: true }))).toBeNull();
   });
 
-  it('meldet „nicht installiert" mit Installationshinweis', () => {
+  it('reports "not installed" with an install hint', () => {
     const msg = subscriptionActivationError(viewOf('codex', { installed: false }));
-    expect(msg).toContain('nicht installiert');
+    expect(msg).toContain('not installed');
     expect(msg).toContain('Codex CLI (OpenAI)');
   });
 
-  it('meldet „nicht eingeloggt" mit Login-Hinweis', () => {
+  it('reports "not signed in" with a sign-in hint', () => {
     const msg = subscriptionActivationError(viewOf('gemini-cli', { installed: true, loggedIn: false }));
-    expect(msg).toContain('nicht eingeloggt');
-    expect(msg).toContain('Melde dich');
+    expect(msg).toContain('not signed in');
+    expect(msg).toContain('Sign in');
   });
 
-  it('meldet den Kill-Switch-Grund', () => {
+  it('reports the kill-switch reason', () => {
     const remote = coerceKillSwitchConfig({
       backends: { 'grok-cli': { enabled: false, reason: 'xAI-Pfad pausiert.' } },
     });
@@ -317,53 +317,53 @@ describe('subscriptionActivationError — deutsche, handlungsleitende Meldung', 
     ).toBe('xAI-Pfad pausiert.');
   });
 
-  it('verlangt für claude-cli erst die Bestätigung', () => {
+  it('requires acknowledgment first for claude-cli', () => {
     const msg = subscriptionActivationError(viewOf('claude-cli', { installed: true, loggedIn: true }));
-    expect(msg).toContain('Bestätige zuerst den Hinweis');
+    expect(msg).toContain('Acknowledge the notice');
   });
 });
 
-describe('backendSelectAction — reine Picker-Klick-Entscheidung', () => {
-  it('bereit → activate', () => {
+describe('backendSelectAction — pure picker-click decision', () => {
+  it('ready → activate', () => {
     expect(backendSelectAction(viewOf('codex', { installed: true, loggedIn: true }))).toEqual({
       kind: 'activate',
     });
   });
 
-  it('claude-cli ohne Bestätigung → acknowledge', () => {
+  it('claude-cli without acknowledgment → acknowledge', () => {
     expect(backendSelectAction(viewOf('claude-cli', { installed: true, loggedIn: true }))).toEqual({
       kind: 'acknowledge',
     });
   });
 
-  it('nicht installiert → blocked mit Hinweis + Onboarding-Link', () => {
+  it('not installed → blocked with a hint + onboarding link', () => {
     const action = backendSelectAction(viewOf('codex', { installed: false }));
     expect(action.kind).toBe('blocked');
     if (action.kind === 'blocked') {
-      expect(action.message).toContain('installieren');
+      expect(action.message).toContain('Install');
       expect(action.hintUrl).toBe('https://developers.openai.com/codex/cli/');
     }
   });
 });
 
-describe('activeBackendStatusLabel — Statusleisten-Label', () => {
-  it('API-Key-Backend: Name plus „(kein Key)", wenn kein Key hinterlegt ist', () => {
-    expect(activeBackendStatusLabel('byok', true)).toBe('Eigener API-Key');
-    expect(activeBackendStatusLabel('byok', false)).toBe('Eigener API-Key (kein Key)');
-    expect(activeBackendStatusLabel('claude-sdk', false)).toBe('Claude (Agent-SDK, API-Key) (kein Key)');
+describe('activeBackendStatusLabel — status-bar label', () => {
+  it('API-key backend: name plus (no key) when no key is stored', () => {
+    expect(activeBackendStatusLabel('byok', true)).toBe('Your own API key');
+    expect(activeBackendStatusLabel('byok', false)).toBe('Your own API key (no key)');
+    expect(activeBackendStatusLabel('claude-sdk', false)).toBe('Claude (Agent SDK, API key) (no key)');
   });
 
-  it('Abo-Backend: nur der Name, nie „(kein Key)" (Login liegt bei der CLI)', () => {
-    expect(activeBackendStatusLabel('claude-cli', false)).toBe('Claude (Abo)');
+  it('subscription backend: only the name, never (no key) (login is handled by the CLI)', () => {
+    expect(activeBackendStatusLabel('claude-cli', false)).toBe('Claude (subscription)');
     expect(activeBackendStatusLabel('codex', false)).toBe('Codex CLI (OpenAI)');
   });
 });
 
 /* ------------------------------------------------------------------ */
-/* Hinweis-Bestätigungs-Automat                                        */
+/* Notice acknowledgment state machine                                 */
 /* ------------------------------------------------------------------ */
 
-describe('Notice-Ack-Automat', () => {
+describe('Notice acknowledgment state machine', () => {
   it('noticeGate: no-notice / needs-ack / ready', () => {
     expect(noticeGate('codex', NONE)).toBe('no-notice');
     expect(noticeGate('byok', NONE)).toBe('no-notice');
@@ -371,31 +371,31 @@ describe('Notice-Ack-Automat', () => {
     expect(noticeGate('claude-cli', new Set(['claude-cli']))).toBe('ready');
   });
 
-  it('applyAck ist rein (mutiert die Eingabe nicht)', () => {
+  it('applyAck is pure (does not mutate the input)', () => {
     const before: ReadonlySet<BackendId> = new Set();
     const after = applyAck(before, 'claude-cli');
     expect(before.has('claude-cli')).toBe(false);
     expect(after.has('claude-cli')).toBe(true);
   });
 
-  it('ackFlowReducer: idle → showing → acknowledged; dismiss zurück nach idle', () => {
+  it('ackFlowReducer: idle → showing → acknowledged; dismiss back to idle', () => {
     expect(ackFlowReducer('idle', { type: 'open' })).toBe('showing');
     expect(ackFlowReducer('showing', { type: 'acknowledge' })).toBe('acknowledged');
     expect(ackFlowReducer('showing', { type: 'dismiss' })).toBe('idle');
-    // acknowledged ist terminal.
+    // acknowledged is terminal.
     expect(ackFlowReducer('acknowledged', { type: 'open' })).toBe('acknowledged');
     expect(ackFlowReducer('acknowledged', { type: 'dismiss' })).toBe('acknowledged');
-    // acknowledge nur aus showing.
+    // acknowledge only from showing.
     expect(ackFlowReducer('idle', { type: 'acknowledge' })).toBe('idle');
   });
 });
 
 /* ------------------------------------------------------------------ */
-/* Onboarding-Link-Allowlist                                           */
+/* Onboarding link allowlist                                           */
 /* ------------------------------------------------------------------ */
 
-describe('isAllowedExternalUrl — nur offizielle Vendor-Domains (https)', () => {
-  it('lässt offizielle Vendor-Domains zu', () => {
+describe('isAllowedExternalUrl — official vendor domains only (https)', () => {
+  it('allows official vendor domains', () => {
     expect(isAllowedExternalUrl('https://docs.claude.com/en/docs/claude-code/setup')).toBe(true);
     expect(isAllowedExternalUrl('https://www.anthropic.com/legal/consumer-terms')).toBe(true);
     expect(isAllowedExternalUrl('https://developers.openai.com/codex/cli/')).toBe(true);
@@ -403,40 +403,40 @@ describe('isAllowedExternalUrl — nur offizielle Vendor-Domains (https)', () =>
     expect(isAllowedExternalUrl('https://docs.x.ai/docs/overview')).toBe(true);
   });
 
-  it('lehnt http, fremde Domains und Look-alikes ab', () => {
-    expect(isAllowedExternalUrl('http://docs.claude.com/x')).toBe(false); // kein https
+  it('rejects http, foreign domains, and look-alikes', () => {
+    expect(isAllowedExternalUrl('http://docs.claude.com/x')).toBe(false); // not https
     expect(isAllowedExternalUrl('https://evil.example.com')).toBe(false);
-    expect(isAllowedExternalUrl('https://claude.com.evil.com')).toBe(false); // Suffix-Trick
+    expect(isAllowedExternalUrl('https://claude.com.evil.com')).toBe(false); // suffix trick
     expect(isAllowedExternalUrl('https://notclaude.com')).toBe(false);
     expect(isAllowedExternalUrl('nicht-mal-eine-url')).toBe(false);
   });
 
-  it('pickInstallHint fällt bei nicht erlaubter Detection-URL auf den Fallback zurück', () => {
+  it('pickInstallHint falls back to the fallback for a disallowed detection URL', () => {
     expect(pickInstallHint('codex', 'https://openai.com/x')).toBe('https://openai.com/x');
     expect(pickInstallHint('codex', 'javascript:alert(1)')).toBe(
       'https://developers.openai.com/codex/cli/',
     );
-    expect(pickInstallHint('byok')).toBeUndefined(); // API-Key-Backend hat keinen Hint
+    expect(pickInstallHint('byok')).toBeUndefined(); // API-key backend has no hint
   });
 });
 
 /* ------------------------------------------------------------------ */
-/* Chat-Readiness (chatBlockReason)                                    */
+/* Chat readiness (chatBlockReason)                                    */
 /* ------------------------------------------------------------------ */
 
-describe('chatBlockReason — Composer-Freischaltung', () => {
-  it('null-Settings blockieren mit no-settings', () => {
+describe('chatBlockReason — unlocking the composer', () => {
+  it('null settings block with no-settings', () => {
     expect(chatBlockReason(null)).toBe('no-settings');
   });
 
-  it('API-Key-Backends brauchen einen Key (Schlüsselbund oder Umgebung = hasApiKey)', () => {
+  it('API-key backends need a key (keychain or environment = hasApiKey)', () => {
     expect(chatBlockReason({ backendId: 'byok', hasApiKey: false })).toBe('missing-key');
     expect(chatBlockReason({ backendId: 'byok', hasApiKey: true })).toBeNull();
     expect(chatBlockReason({ backendId: 'claude-sdk', hasApiKey: false })).toBe('missing-key');
     expect(chatBlockReason({ backendId: 'claude-sdk', hasApiKey: true })).toBeNull();
   });
 
-  it('Abo-Backends sind als aktives Backend immer bereit (Main hat die Aktivierung geprüft)', () => {
+  it('subscription backends are always ready as the active backend (main checked activation)', () => {
     expect(chatBlockReason({ backendId: 'claude-cli', hasApiKey: false })).toBeNull();
     expect(chatBlockReason({ backendId: 'codex', hasApiKey: false })).toBeNull();
     expect(chatBlockReason({ backendId: 'gemini-cli', hasApiKey: false })).toBeNull();
@@ -444,10 +444,10 @@ describe('chatBlockReason — Composer-Freischaltung', () => {
   });
 });
 
-describe('recommendChatSetup — Empfehlung für den Chat-Empty-State', () => {
+describe('recommendChatSetup — recommendation for the chat empty-state', () => {
   const KS = resolveKillSwitch(null);
 
-  it('empfiehlt das erste installierte Abo-Backend (claude-cli vor codex)', () => {
+  it('recommends the first installed subscription backend (claude-cli before codex)', () => {
     const views = buildAvailabilityViews(
       [raw('claude-cli', { loggedIn: 'unknown' }), raw('codex')],
       KS,
@@ -456,11 +456,11 @@ describe('recommendChatSetup — Empfehlung für den Chat-Empty-State', () => {
     expect(recommendChatSetup(views)).toEqual({
       kind: 'use-subscription',
       backendId: 'claude-cli',
-      needsAck: true, // Hinweis noch nicht bestätigt
+      needsAck: true, // notice not acknowledged yet
     });
   });
 
-  it('needsAck ist false, wenn der Hinweis schon bestätigt wurde', () => {
+  it('needsAck is false when the notice was already acknowledged', () => {
     const views = buildAvailabilityViews([raw('claude-cli')], KS, new Set(['claude-cli']));
     expect(recommendChatSetup(views)).toEqual({
       kind: 'use-subscription',
@@ -469,7 +469,7 @@ describe('recommendChatSetup — Empfehlung für den Chat-Empty-State', () => {
     });
   });
 
-  it('überspringt nicht installierte, ausgeloggte, kill-switched und experimentelle Backends', () => {
+  it('skips not-installed, logged-out, kill-switched, and experimental backends', () => {
     const remote = coerceKillSwitchConfig({
       backends: { codex: { enabled: false, reason: 'pausiert' } },
     });
@@ -477,8 +477,8 @@ describe('recommendChatSetup — Empfehlung für den Chat-Empty-State', () => {
       [
         raw('claude-cli', { installed: false }),
         raw('codex'), // kill-switched
-        raw('gemini-cli', { loggedIn: false }), // ausgeloggt
-        raw('grok-cli'), // experimentell
+        raw('gemini-cli', { loggedIn: false }), // logged out
+        raw('grok-cli'), // experimental
       ],
       resolveKillSwitch(remote),
       NONE,
@@ -486,7 +486,7 @@ describe('recommendChatSetup — Empfehlung für den Chat-Empty-State', () => {
     expect(recommendChatSetup(views)).toEqual({ kind: 'enter-key' });
   });
 
-  it('leere Erkennung → API-Key-Pfad', () => {
+  it('empty detection → API-key path', () => {
     expect(recommendChatSetup([])).toEqual({ kind: 'enter-key' });
     expect(recommendChatSetup(buildAvailabilityViews([], KS, NONE))).toEqual({
       kind: 'enter-key',

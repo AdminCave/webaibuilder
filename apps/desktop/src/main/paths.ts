@@ -1,7 +1,7 @@
 /**
- * Electron-abhängige Pfad-Auflösung für die Registry — bewusst getrennt von
- * registry.ts, damit die Registry-Logik headless (vitest, ohne Electron)
- * testbar bleibt. Dieser Teil wird nur zur App-Laufzeit ausgeführt.
+ * Electron-dependent path resolution for the registry — deliberately separated
+ * from registry.ts so the registry logic stays headless (vitest, without
+ * Electron) testable. This part runs only at app runtime.
  */
 
 import { homedir } from 'node:os';
@@ -13,8 +13,8 @@ import { WORKSPACE_ROOT_DIRNAME } from '@webaibuilder/core';
 
 import type { ProjectRegistryOptions } from './registry';
 
-/** Vorlagen: im Dev-Modus `apps/desktop/resources/templates`, im gepackten
- *  Build `<resources>/templates` (electron-builder: extraResources, M5). */
+/** Templates: in dev mode `apps/desktop/resources/templates`, in the packaged
+ *  build `<resources>/templates` (electron-builder: extraResources, M5). */
 function templatesRoot(): string {
   return app.isPackaged
     ? join(process.resourcesPath, 'templates')
@@ -29,41 +29,41 @@ export function defaultRegistryOptions(): ProjectRegistryOptions {
   };
 }
 
-/** Pfad der secret-freien Backend-Einstellungen (M2). */
+/** Path of the secret-free backend settings (M2). */
 export function settingsFilePath(): string {
   return join(app.getPath('userData'), 'agent-settings.json');
 }
 
-/** Pfad der Deploy-Historie (append-only JSON-Log, M3). */
+/** Path of the deploy history (append-only JSON log, M3). */
 export function deployHistoryFilePath(): string {
   return join(app.getPath('userData'), 'deploy-history.json');
 }
 
-/** Cache der zuletzt geladenen Remote-Kill-Switch-Config (M4, PLAN §3). */
+/** Cache of the last loaded remote kill-switch config (M4, PLAN §3). */
 export function killSwitchCacheFilePath(): string {
   return join(app.getPath('userData'), 'backends-cache.json');
 }
 
-/** Persistierte Bestätigungen der Backend-Hinweise (M4, Claude-Abo-Ack). */
+/** Persisted acknowledgments of the backend notices (M4, Claude subscription ack). */
 export function backendAcksFilePath(): string {
   return join(app.getPath('userData'), 'backend-acks.json');
 }
 
-/** Zustand des Erst-Start-Onboardings (M5, `hasOnboarded`-Flag). */
+/** State of the first-run onboarding (M5, `hasOnboarded` flag). */
 export function onboardingStateFilePath(): string {
   return join(app.getPath('userData'), 'onboarding-state.json');
 }
 
-/** Verzeichnis der rotierenden Log-Dateien (M5, Fehlerberichte — lokal). */
+/** Directory of the rotating log files (M5, error reports — local). */
 export function logsDir(): string {
   return join(app.getPath('userData'), 'logs');
 }
 
 /**
- * URL der AdminCave-gehosteten `backends.json` für den Remote-Kill-Switch
- * (PLAN §3 Regel 3). Über `WAB_BACKENDS_CONFIG_URL` überschreibbar. Der Abruf ist
- * fail-safe (Netzfehler → Cache → gebündelter Default) und blockiert nie den
- * Start. Platzhalter-Default, final in M5 zu setzen.
+ * URL of the AdminCave-hosted `backends.json` for the remote kill switch
+ * (PLAN §3 rule 3). Overridable via `WAB_BACKENDS_CONFIG_URL`. The fetch is
+ * fail-safe (network error → cache → bundled default) and never blocks startup.
+ * Placeholder default, to be finalized in M5.
  */
 export function backendsConfigUrl(): string {
   return process.env['WAB_BACKENDS_CONFIG_URL'] ?? 'https://updates.admincave.dev/webaibuilder/backends.json';

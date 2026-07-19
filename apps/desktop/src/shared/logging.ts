@@ -1,57 +1,58 @@
 /**
- * Fehlerberichte & Logs (M5, PLAN §1/§6) — reine, umgebungsneutrale Bausteine.
+ * Error reports & logs (M5, PLAN §1/§6) — pure, environment-neutral building
+ * blocks.
  *
- * Haltung (PLAN §1, DSGVO/Local-first): **lokal, kein Remote.** Es gibt hier
- * keinerlei Netz-Code und keinen Endpunkt. Logs bleiben auf dem Rechner des
- * Nutzers (rotierende Datei unter `<userData>/logs/`, siehe main/logger.ts).
+ * Stance (PLAN §1, GDPR/local-first): **local, no remote.** There is no network
+ * code and no endpoint here whatsoever. Logs stay on the user's machine (a
+ * rotating file under `<userData>/logs/`, see main/logger.ts).
  *
- * Diese Datei hält nur reine Logik (kein node/electron/DOM) und ist damit
- * headless testbar:
- *  - {@link scrubSecrets}: entfernt secret-förmige Felder VOR dem Schreiben, damit
- *    nie ein API-Key/Passwort/Token in einem Log landet.
- *  - {@link selectLastLines}: „letzte N Zeilen" für die „Logs kopieren"-Aktion.
- *  - {@link formatLogLine}/{@link shouldRotate}: Zeilen-Format + Rotations-Kriterium.
+ * This file holds only pure logic (no node/electron/DOM) and is therefore
+ * headless-testable:
+ *  - {@link scrubSecrets}: removes secret-shaped fields BEFORE writing, so an API
+ *    key/password/token never ends up in a log.
+ *  - {@link selectLastLines}: "last N lines" for the "Copy logs" action.
+ *  - {@link formatLogLine}/{@link shouldRotate}: line format + rotation criterion.
  *
- * Der fs-gebundene Schreiber/Rotierer liegt in main/logger.ts.
+ * The fs-bound writer/rotator lives in main/logger.ts.
  */
 
 export type LogLevel = 'info' | 'warn' | 'error';
 
-/** Ein strukturierter Log-Eintrag (eine JSON-Zeile in der Datei). */
+/** A structured log entry (one JSON line in the file). */
 export interface LogEntry {
-  /** ISO-Zeitstempel. */
+  /** ISO timestamp. */
   time: string;
   level: LogLevel;
-  /** Herkunft: 'main' | 'renderer' | 'uncaughtException' | … (frei, kurz). */
+  /** Origin: 'main' | 'renderer' | 'uncaughtException' | … (free-form, short). */
   source: string;
   message: string;
-  /** Optionaler, bereits gescrubbter Kontext. */
+  /** Optional, already-scrubbed context. */
   context?: Record<string, unknown>;
 }
 
 /**
- * Von der Sandbox gemeldeter Renderer-Fehler (window.onerror /
- * unhandledrejection). Umgebungsneutral, damit der typisierte IPC-Kanal ihn
- * transportieren kann.
+ * Renderer error reported by the sandbox (window.onerror /
+ * unhandledrejection). Environment-neutral so the typed IPC channel can transport
+ * it.
  */
 export interface RendererErrorReport {
   kind: 'error' | 'unhandledrejection';
   message: string;
   stack?: string;
-  /** URL/Quelle, aus der der Fehler stammt. */
+  /** URL/source the error originates from. */
   source?: string;
   line?: number;
   column?: number;
 }
 
-/** Der Ersetzungstext für ein redigiertes (secret-förmiges) Feld. */
-export const REDACTED = '[redaktiert]';
+/** The replacement text for a redacted (secret-shaped) field. */
+export const REDACTED = '[redacted]';
 
 /**
- * Feldnamen-Muster, die auf ein Secret hindeuten (Teilstring, case-insensitiv).
- * Konservativ in Richtung Über-Redaktion: ein zu viel geschwärztes Log-Feld ist
- * harmlos, ein durchgesickerter Key nicht. Deckt die im Code real vorkommenden
- * Secret-Felder ab (apiKey, password/passwort, passphrase, token, …).
+ * Field-name patterns that indicate a secret (substring, case-insensitive).
+ * Conservatively biased toward over-redaction: an over-redacted log field is
+ * harmless, a leaked key is not. Covers the secret fields that actually occur in
+ * the code (apiKey, password/passwort, passphrase, token, …).
  */
 export const SECRET_KEY_PATTERNS: readonly string[] = [
   'apikey',
@@ -69,18 +70,17 @@ export const SECRET_KEY_PATTERNS: readonly string[] = [
   'sessionid',
 ];
 
-/** Heißt dieses Feld verdächtig nach einem Secret? */
+/** Does this field name look suspiciously like a secret? */
 export function isSecretKey(key: string): boolean {
   const k = key.toLowerCase();
   return SECRET_KEY_PATTERNS.some((pattern) => k.includes(pattern));
 }
 
 /**
- * Kopiert einen beliebigen Wert und schwärzt dabei jedes secret-förmige Feld.
- * Rekursiv über Objekte/Arrays, robust gegen Zyklen und übermäßige Tiefe.
- * Primitive werden unverändert durchgereicht — geschwärzt wird ausschließlich
- * anhand des Feldnamens (nicht des Werts), damit legitime Log-Werte erhalten
- * bleiben.
+ * Copies an arbitrary value while redacting every secret-shaped field. Recursive
+ * over objects/arrays, robust against cycles and excessive depth. Primitives are
+ * passed through unchanged — redaction is based solely on the field name (not the
+ * value), so legitimate log values are preserved.
  */
 export function scrubSecrets(value: unknown): unknown {
   return scrub(value, 0, new WeakSet());
@@ -89,18 +89,18 @@ export function scrubSecrets(value: unknown): unknown {
 const MAX_SCRUB_DEPTH = 6;
 
 function scrub(value: unknown, depth: number, seen: WeakSet<object>): unknown {
-  if (depth > MAX_SCRUB_DEPTH) return '[zu tief]';
+  if (depth > MAX_SCRUB_DEPTH) return '[too deep]';
   if (typeof value !== 'object' || value === null) return value;
 
   const obj = value as object;
-  if (seen.has(obj)) return '[zirkulär]';
+  if (seen.has(obj)) return '[circular]';
   seen.add(obj);
 
   if (Array.isArray(value)) {
     return value.map((item) => scrub(item, depth + 1, seen));
   }
 
-  // Error sauber, aber ohne womöglich secret-tragende Zusatzfelder serialisieren.
+  // Serialize Error cleanly, but without possibly secret-bearing extra fields.
   if (value instanceof Error) {
     return { name: value.name, message: value.message, stack: value.stack };
   }
@@ -113,8 +113,8 @@ function scrub(value: unknown, depth: number, seen: WeakSet<object>): unknown {
 }
 
 /**
- * Wendet {@link scrubSecrets} auf einen Kontext an und garantiert ein Objekt
- * (nie ein Array/Primitive) — passend zu {@link LogEntry.context}.
+ * Applies {@link scrubSecrets} to a context and guarantees an object (never an
+ * array/primitive) — matching {@link LogEntry.context}.
  */
 export function scrubContext(context: unknown): Record<string, unknown> {
   const scrubbed = scrubSecrets(context);
@@ -124,14 +124,14 @@ export function scrubContext(context: unknown): Record<string, unknown> {
   return { value: scrubbed };
 }
 
-/** Serialisiert einen Eintrag als genau eine Zeile (mit abschließendem \n). */
+/** Serializes an entry as exactly one line (with a trailing \n). */
 export function formatLogLine(entry: LogEntry): string {
   return `${JSON.stringify(entry)}\n`;
 }
 
 /**
- * Wählt die letzten `n` Zeilen aus `text`. Ein einzelnes abschließendes
- * Zeilenende zählt nicht als leere Zeile. `n <= 0` oder leerer Text → "".
+ * Selects the last `n` lines from `text`. A single trailing line break does not
+ * count as an empty line. `n <= 0` or empty text → "".
  */
 export function selectLastLines(text: string, n: number): string {
   if (n <= 0 || text === '') return '';
@@ -141,8 +141,8 @@ export function selectLastLines(text: string, n: number): string {
 }
 
 /**
- * Rotations-Kriterium: eine Datei ist voll, sobald sie (nach dem geplanten
- * Schreiben) die Obergrenze erreicht. `maxBytes <= 0` schaltet Rotation aus.
+ * Rotation criterion: a file is full once it reaches the limit (after the planned
+ * write). `maxBytes <= 0` disables rotation.
  */
 export function shouldRotate(sizeBytes: number, maxBytes: number): boolean {
   return maxBytes > 0 && sizeBytes >= maxBytes;

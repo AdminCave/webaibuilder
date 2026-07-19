@@ -1,17 +1,16 @@
 /**
- * Deploy-Orchestrierung im Main-Prozess (M3, PLAN §4): Verbindungstest,
- * Veröffentlichen (Preflight → Deploy) und Rollback-Deploy einer älteren
- * Version. Streamt den Fortschritt file-by-file an den Renderer, schreibt nach
- * Erfolg die deployte Commit-SHA pro Ziel in die Registry und führt eine
- * Deploy-Historie.
+ * Deploy orchestration in the main process (M3, PLAN §4): connection test,
+ * publishing (preflight → deploy), and rollback-deploy of an older version.
+ * Streams progress file-by-file to the renderer, writes the deployed commit SHA
+ * per target into the registry after success, and maintains a deploy history.
  *
- * Die eigentliche Sync-/Transport-Arbeit macht `@webaibuilder/deploy`. Diese
- * Funktionen sind über die {@link DeployEngine}-Schnittstelle injiziert →
- * headless testbar mit einem Fake (kein echter Server nötig; das Deploy-Paket
- * round-trip-testet den Transport bereits selbst).
+ * The actual sync/transport work is done by `@webaibuilder/deploy`. These
+ * functions are injected via the {@link DeployEngine} interface → headless
+ * testable with a fake (no real server needed; the deploy package already
+ * round-trip-tests the transport itself).
  *
- * Secrets (Passwort/Passphrase) kommen nur hier aus dem Schlüsselbund und gehen
- * ausschließlich an die Engine — nie an den Renderer, nie ins Log.
+ * Secrets (password/passphrase) come from the keychain only here and go
+ * exclusively to the engine — never to the renderer, never into the log.
  */
 
 import type { DeployTarget, Project, ProjectRegistry } from '@webaibuilder/core';
@@ -38,7 +37,7 @@ import {
 import type { DeployHistoryStore } from './deployHistory';
 import type { DeployTargetService } from './deployTargets';
 
-/** Die von der Deploy-Engine benötigte Funktions-Teilmenge (injizierbar). */
+/** The subset of functions the deploy engine requires (injectable). */
 export interface DeployEngine {
   preflight(target: DeployTarget, credentials: DeployCredentials): Promise<PreflightResult>;
   deploy(
@@ -63,19 +62,19 @@ export interface DeployServiceOptions {
   targets: DeployTargetService;
   history: DeployHistoryStore;
   engine: DeployEngine;
-  /** git-HEAD-SHA des Workspace (i. d. R. versioning.currentSha). */
+  /** git HEAD SHA of the workspace (usually versioning.currentSha). */
   currentSha: (workspaceDir: string) => Promise<string>;
-  /** Zeitquelle für last_deployed_at (Default: new Date()). */
+  /** Time source for last_deployed_at (default: new Date()). */
   now?: () => Date;
-  /** Push eines Fortschritts-Events an den Renderer. */
+  /** Push a progress event to the renderer. */
   emitProgress: (message: DeployProgressMessage) => void;
-  /** Push der frischen Ziel-Liste (nach geänderter last_deployed-SHA). */
+  /** Push the fresh target list (after a changed last_deployed SHA). */
   emitTargets: (message: DeployTargetsMessage) => void;
 }
 
-/** Deutsche Meldung, wenn ein Ziel keine hinterlegten Zugangsdaten hat. */
+/** Message shown when a target has no stored credentials. */
 const NO_CREDENTIALS =
-  'Für dieses Ziel sind keine Zugangsdaten hinterlegt. Trag zuerst das Passwort ein.';
+  'No credentials are stored for this target. Enter the password first.';
 
 export class DeployService {
   private readonly registry: ProjectRegistry;
@@ -99,8 +98,8 @@ export class DeployService {
   }
 
   /**
-   * Verbindungstest = Preflight allein (kein Deploy). Wirft nicht bei
-   * Verbindungs-/Auth-Fehlern, sondern liefert sie strukturiert (deutsch).
+   * Connection test = preflight alone (no deploy). Does not throw on
+   * connection/auth errors, but returns them structured.
    */
   async testConnection(projectId: string, targetId: string): Promise<WabPreflightResult> {
     const { target, credentials } = await this.loadContext(projectId, targetId);
@@ -112,9 +111,9 @@ export class DeployService {
   }
 
   /**
-   * Veröffentlicht den aktuellen Stand: (b) Preflight, (c) bei Erfolg Deploy mit
-   * der git-HEAD-SHA als commitSha und `<workspace>/site` als siteDir. Nach dem
-   * `done` wird die deployte SHA pro Ziel gespeichert und die Historie ergänzt.
+   * Publishes the current state: (b) preflight, (c) on success deploy with the
+   * git HEAD SHA as commitSha and `<workspace>/site` as siteDir. After `done`,
+   * the deployed SHA is stored per target and the history is appended.
    */
   async run(projectId: string, targetId: string, runId: string): Promise<DeployRunOutcome> {
     const { project, target, credentials } = await this.loadContext(projectId, targetId);
@@ -125,7 +124,7 @@ export class DeployService {
       return { status: 'preflight-failed', preflight: this.noCredentialsPreflight() };
     }
 
-    // (b) Preflight zuerst.
+    // (b) Preflight first.
     let preflight: PreflightResult;
     try {
       preflight = await this.engine.preflight(target, credentials);
@@ -137,7 +136,7 @@ export class DeployService {
       return { status: 'preflight-failed', preflight: toWirePreflight(preflight) };
     }
 
-    // (c) Deploy mit git-HEAD-SHA + site/-Docroot.
+    // (c) Deploy with git HEAD SHA + site/ docroot.
     let commitSha = '';
     try {
       commitSha = await this.currentSha(project.workspaceDir);
@@ -154,8 +153,8 @@ export class DeployService {
   }
 
   /**
-   * Rollback-Deploy (PLAN §4): materialisiert `toCommitSha` aus git und fährt
-   * denselben Delta-Sync. Distinkt vom M2-Workspace-Restore.
+   * Rollback deploy (PLAN §4): materializes `toCommitSha` from git and runs the
+   * same delta sync. Distinct from the M2 workspace restore.
    */
   async rollback(
     projectId: string,
@@ -185,8 +184,8 @@ export class DeployService {
   }
 
   /**
-   * Drift-Erkennung mit Verbindung: Remote-Manifest-SHA vs. die von der Registry
-   * für deployt gehaltene SHA. Ohne Zugangsdaten kein Netzzugriff → kein Drift.
+   * Drift detection with a connection: remote manifest SHA vs. the SHA the
+   * registry considers deployed. Without credentials, no network access → no drift.
    */
   async drift(projectId: string, targetId: string): Promise<WabDriftResult> {
     const { target, credentials } = await this.loadContext(projectId, targetId);
@@ -198,17 +197,17 @@ export class DeployService {
     return { drift: result.drift, expectedSha: result.expectedSha, remoteSha: result.remoteSha };
   }
 
-  /** Deploy-Historie des Projekts (neueste zuerst). */
+  /** Deploy history of the project (newest first). */
   listHistory(projectId: string): ReturnType<DeployHistoryStore['list']> {
     return this.history.list(projectId);
   }
 
-  /* ---------------- intern ---------------- */
+  /* ---------------- internal ---------------- */
 
   /**
-   * Baut den Emitter für einen Lauf. Merkt sich, ob die Engine bereits ein
-   * terminales `done`/`error` gepusht hat — dann meldet `fail` keinen zweiten
-   * Fehler (Fehler VOR dem Engine-Aufruf werden dagegen selbst emittiert).
+   * Builds the emitter for a run. Remembers whether the engine already pushed a
+   * terminal `done`/`error` — in that case `fail` does not report a second
+   * error (errors BEFORE the engine call are emitted here instead).
    */
   private emitter(
     projectId: string,
@@ -255,7 +254,7 @@ export class DeployService {
     err: unknown,
   ): Promise<DeployRunOutcome> {
     const message = describeError(err);
-    // Nur emittieren, wenn die Engine nicht schon ein terminales Event schickte.
+    // Only emit if the engine did not already send a terminal event.
     if (!wasTerminal()) emit({ type: 'error', message });
     this.history.append({
       projectId,
@@ -273,7 +272,7 @@ export class DeployService {
     return { status: 'error', message };
   }
 
-  /** Schreibt die deployte SHA für EIN Ziel; andere Ziele behalten ihre SHA. */
+  /** Writes the deployed SHA for ONE target; other targets keep their SHA. */
   private async markDeployed(project: Project, targetId: string, commit: string): Promise<void> {
     const at = this.now().toISOString();
     const nextTargets = project.deployTargets.map((t) =>
@@ -302,19 +301,19 @@ export class DeployService {
     targetId: string,
   ): Promise<{ project: Project; target: DeployTarget; credentials: DeployCredentials | null }> {
     const project = await this.registry.get(projectId);
-    if (project === null) throw new Error('Projekt nicht gefunden.');
+    if (project === null) throw new Error('Project not found.');
     const target = project.deployTargets.find((t) => t.id === targetId);
-    if (target === undefined) throw new Error('Deploy-Ziel nicht gefunden.');
+    if (target === undefined) throw new Error('Deploy target not found.');
     const credentials = this.targets.getCredentials(targetId);
     return { project, target, credentials };
   }
 }
 
 /* ------------------------------------------------------------------ */
-/* Hilfsfunktionen                                                     */
+/* Helper functions                                                    */
 /* ------------------------------------------------------------------ */
 
-/** Engine-Preflight → Renderer-Sicht (ohne den Hash-Baum des Manifests). */
+/** Engine preflight → renderer view (without the manifest's hash tree). */
 function toWirePreflight(result: PreflightResult): WabPreflightResult {
   return {
     ok: result.ok,
@@ -328,7 +327,7 @@ function toWirePreflight(result: PreflightResult): WabPreflightResult {
 function preflightFailureMessage(result: PreflightResult): string {
   return result.failures.length > 0
     ? result.failures.join(' ')
-    : 'Der Verbindungstest ist fehlgeschlagen.';
+    : 'The connection test failed.';
 }
 
 function describeError(err: unknown): string {

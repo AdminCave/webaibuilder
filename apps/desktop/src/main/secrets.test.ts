@@ -1,12 +1,12 @@
 /**
- * Headless-Tests des Secrets-Dienstes (Node, ohne Electron). @napi-rs/keyring
- * läuft unter Node — der Selbsttest-/Roundtrip-Pfad wird nur ausgeführt, wenn
- * dieses System einen Schlüsselbund hat; die Fallback-Pfade sind über injizierte
- * Eintrags-Fabriken deterministisch, unabhängig von der CI-Umgebung.
+ * Headless tests of the secrets service (Node, without Electron). @napi-rs/keyring
+ * runs under Node — the self-test/roundtrip path only runs if this system has a
+ * keychain; the fallback paths are deterministic via injected entry factories,
+ * independent of the CI environment.
  *
- * Getestet werden BEIDE Pfade:
- *  - echter OS-Schlüsselbund (falls vorhanden; sonst degradiert der Dienst)
- *  - erzwungener/erkannter In-Memory-Fallback
+ * BOTH paths are tested:
+ *  - real OS keychain (if present; otherwise the service degrades)
+ *  - forced/detected in-memory fallback
  */
 
 import { randomUUID } from 'node:crypto';
@@ -20,7 +20,7 @@ import {
   type KeyringEntryFactory,
 } from './secrets';
 
-/** Fake-Schlüsselbund: verhält sich wie ein vorhandenes, funktionierendes Backend. */
+/** Keychain fake: behaves like a present, working backend. */
 function fakeKeyring(): { factory: KeyringEntryFactory; store: Map<string, string> } {
   const store = new Map<string, string>();
   const factory: KeyringEntryFactory = (_service, account): KeyringEntry => ({
@@ -33,7 +33,7 @@ function fakeKeyring(): { factory: KeyringEntryFactory; store: Map<string, strin
   return { factory, store };
 }
 
-/** Fake-Backend, das jede Operation wirft — wie ein fehlender Secret Service. */
+/** Fake backend that throws on every operation — like a missing Secret Service. */
 const throwingFactory: KeyringEntryFactory = (): KeyringEntry => ({
   setPassword: () => {
     throw new Error('no Secret Service available');
@@ -46,22 +46,22 @@ const throwingFactory: KeyringEntryFactory = (): KeyringEntry => ({
   },
 });
 
-describe('secretAccount — Key-Naming-Schema', () => {
-  it('kodiert Art und Id als `<kind>:<id>`', () => {
+describe('secretAccount — key naming scheme', () => {
+  it('encodes kind and id as `<kind>:<id>`', () => {
     expect(secretAccount('apikey', 'anthropic')).toBe('apikey:anthropic');
     expect(secretAccount('deploy', 'ziel-ionos')).toBe('deploy:ziel-ionos');
   });
 });
 
-describe('SecretsService — In-Memory-Fallback (erzwungen)', () => {
-  it('meldet keychainAvailable=false mit Grund', () => {
+describe('SecretsService — in-memory fallback (forced)', () => {
+  it('reports keychainAvailable=false with a reason', () => {
     const svc = new SecretsService({ forceFallback: true });
     const status = svc.keychainAvailable();
     expect(status.available).toBe(false);
     expect(status.reason).toBeTruthy();
   });
 
-  it('set → get → delete Roundtrip (generisch)', () => {
+  it('set → get → delete roundtrip (generic)', () => {
     const svc = new SecretsService({ forceFallback: true });
     expect(svc.getSecret('deploy', 'z1')).toBeNull();
     svc.setSecret('deploy', 'z1', 'geheim');
@@ -72,14 +72,14 @@ describe('SecretsService — In-Memory-Fallback (erzwungen)', () => {
     expect(svc.hasSecret('deploy', 'z1')).toBe(false);
   });
 
-  it('leerer Wert löscht statt zu speichern', () => {
+  it('an empty value deletes instead of storing', () => {
     const svc = new SecretsService({ forceFallback: true });
     svc.setSecret('apikey', 'openai', 'x');
     svc.setSecret('apikey', 'openai', '');
     expect(svc.hasSecret('apikey', 'openai')).toBe(false);
   });
 
-  it('hasApiKey spiegelt den Zustand', () => {
+  it('hasApiKey reflects the state', () => {
     const svc = new SecretsService({ forceFallback: true });
     expect(svc.hasApiKey('byok', 'openai')).toBe(false);
     svc.setApiKey('byok', 'openai', 'sk-openai');
@@ -89,25 +89,25 @@ describe('SecretsService — In-Memory-Fallback (erzwungen)', () => {
     expect(svc.hasApiKey('byok', 'openai')).toBe(false);
   });
 
-  it('teilt den Anthropic-Key zwischen claude-sdk und byok/anthropic', () => {
+  it('shares the Anthropic key between claude-sdk and byok/anthropic', () => {
     const svc = new SecretsService({ forceFallback: true });
-    // claude-sdk ignoriert den Provider-Parameter → immer anthropic.
+    // claude-sdk ignores the provider parameter → always anthropic.
     svc.setApiKey('claude-sdk', 'openai', 'sk-ant');
     expect(svc.getApiKey('byok', 'anthropic')).toBe('sk-ant');
     expect(svc.hasApiKey('claude-sdk', 'anthropic')).toBe(true);
-    // Andere Provider bleiben unberührt.
+    // Other providers remain untouched.
     expect(svc.getApiKey('byok', 'openai')).toBeNull();
   });
 });
 
-describe('SecretsService — Fallback aktiviert sich, wenn der Keyring wirft', () => {
-  it('erkennt den Ausfall beim Selbsttest und arbeitet danach im Speicher', () => {
+describe('SecretsService — fallback activates when the keyring throws', () => {
+  it('detects the failure during the self-test and then works in memory', () => {
     const svc = new SecretsService({ entryFactory: throwingFactory });
     const status = svc.keychainAvailable();
     expect(status.available).toBe(false);
     expect(status.reason).toContain('Secret Service');
 
-    // Trotz geworfenem Backend kein Crash — Ops laufen über den Speicher.
+    // Despite the throwing backend no crash — ops run through memory.
     svc.setApiKey('byok', 'openai', 'sk-mem');
     expect(svc.getApiKey('byok', 'openai')).toBe('sk-mem');
     expect(svc.deleteApiKey('byok', 'openai')).toBe(true);
@@ -115,16 +115,16 @@ describe('SecretsService — Fallback aktiviert sich, wenn der Keyring wirft', (
   });
 });
 
-describe('SecretsService — funktionierendes Backend (Fake-Keyring)', () => {
-  it('meldet keychainAvailable=true und hinterlässt keinen Selbsttest-Rest', () => {
+describe('SecretsService — working backend (fake keyring)', () => {
+  it('reports keychainAvailable=true and leaves no self-test residue', () => {
     const { factory, store } = fakeKeyring();
     const svc = new SecretsService({ entryFactory: factory });
     expect(svc.keychainAvailable().available).toBe(true);
-    // Der Selbsttest hat seinen Sentinel wieder gelöscht.
+    // The self-test deleted its sentinel again.
     expect(store.size).toBe(0);
   });
 
-  it('schreibt/liest/löscht durch das Backend (nicht durch den Speicher)', () => {
+  it('writes/reads/deletes through the backend (not through memory)', () => {
     const { factory, store } = fakeKeyring();
     const svc = new SecretsService({ entryFactory: factory });
     svc.setApiKey('byok', 'openai', 'sk-backend');
@@ -136,32 +136,32 @@ describe('SecretsService — funktionierendes Backend (Fake-Keyring)', () => {
 });
 
 /*
- * Echter OS-Schlüsselbund: nur ausgeführt, wenn vorhanden. Nutzt einen
- * isolierten Dienstnamen + zufällige Id, damit keine echten Nutzer-Credentials
- * berührt werden. Der Roundtrip funktioniert deterministisch — auch ohne
- * Schlüsselbund, weil der Dienst dann sauber in den Speicher degradiert.
+ * Real OS keychain: only run if present. Uses an isolated service name + random
+ * id so that no real user credentials are touched. The roundtrip works
+ * deterministically — even without a keychain, because the service then cleanly
+ * degrades to memory.
  */
-describe('SecretsService — echter OS-Schlüsselbund (falls vorhanden)', () => {
+describe('SecretsService — real OS keychain (if present)', () => {
   const service = `WebAIBuilder-Test-${randomUUID()}`;
   const id = randomUUID();
   let svc: SecretsService;
 
   afterEach(() => {
-    // Aufräumen, falls der echte Schlüsselbund genutzt wurde.
+    // Clean up in case the real keychain was used.
     try {
       svc?.deleteSecret('deploy', id);
     } catch {
-      /* egal */
+      /* ignore */
     }
   });
 
-  it('set → get → delete Roundtrip über den aktiven Pfad', () => {
+  it('set → get → delete roundtrip through the active path', () => {
     svc = new SecretsService({ service });
     const status = svc.keychainAvailable();
-    // Sichtbar machen, welchen Pfad die CI tatsächlich ausgeübt hat.
+    // Make visible which path the CI actually exercised.
     console.info(
-      `[secrets.test] Realer Schlüsselbund verfügbar: ${status.available}` +
-        (status.reason !== undefined ? ` (Grund: ${status.reason})` : ''),
+      `[secrets.test] Real keychain available: ${status.available}` +
+        (status.reason !== undefined ? ` (reason: ${status.reason})` : ''),
     );
 
     expect(svc.getSecret('deploy', id)).toBeNull();
@@ -169,7 +169,7 @@ describe('SecretsService — echter OS-Schlüsselbund (falls vorhanden)', () => 
     expect(svc.getSecret('deploy', id)).toBe('roundtrip-secret');
     expect(svc.deleteSecret('deploy', id)).toBe(true);
     expect(svc.getSecret('deploy', id)).toBeNull();
-    // Status ist über den Lauf stabil.
+    // Status is stable across the run.
     expect(typeof status.available).toBe('boolean');
   });
 });

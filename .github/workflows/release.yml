@@ -1,15 +1,15 @@
-# Release-Build — baut Installer für alle drei Plattformen und lädt sie samt
-# Auto-Update-Metadaten (latest.yml / latest-linux.yml / latest-mac.yml) zu
-# GitHub Releases hoch. Läuft ausschließlich auf einem Versions-Tag `v*`.
+# Release build — builds installers for all three platforms and uploads them
+# together with the auto-update metadata (latest.yml / latest-linux.yml /
+# latest-mac.yml) to GitHub Releases. Runs only on a version tag `v*`.
 #
-# Der reguläre CI-Job (Lint/Typecheck/Build/Test) bleibt in ci.yml und ist von
-# diesem Workflow unberührt.
+# The regular CI job (lint/typecheck/build/test) stays in ci.yml and is
+# untouched by this workflow.
 #
-# ABI-Hinweis: `pnpm install` baut die nativen Module (better-sqlite3,
-# @napi-rs/keyring) für System-Node. electron-builder rebuildet sie beim Packen
-# über `npmRebuild` für Electrons ABI (electron-builder.yml). Das node-linker=
-# hoisted-Layout (.npmrc) sorgt dafür, dass electron-builder sie im Monorepo
-# findet.
+# ABI note: `pnpm install` builds the native modules (better-sqlite3,
+# @napi-rs/keyring) for system Node. electron-builder rebuilds them at packaging
+# time via `npmRebuild` for Electron's ABI (electron-builder.yml). The
+# node-linker=hoisted layout (.npmrc) ensures electron-builder finds them in the
+# monorepo.
 
 name: Release
 
@@ -18,8 +18,8 @@ on:
     tags:
       - 'v*'
 
-# electron-builder legt für den Tag ein (Draft-)GitHub-Release an und lädt die
-# Artefakte hoch — dafür braucht der GITHUB_TOKEN Schreibrechte auf contents.
+# electron-builder creates a (draft) GitHub release for the tag and uploads the
+# artifacts — for that the GITHUB_TOKEN needs write access to contents.
 permissions:
   contents: write
 
@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4 # nutzt packageManager (pnpm@11) aus package.json
+      - uses: pnpm/action-setup@v4 # uses packageManager (pnpm@11) from package.json
 
       - uses: actions/setup-node@v4
         with:
@@ -42,27 +42,27 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # Alle Pakete + Renderer/Main/Preload bauen (topologische Reihenfolge).
+      # Build all packages + renderer/main/preload (topological order).
       - run: pnpm build
 
-      # Für die aktuelle OS konfigurierte Targets bauen (Linux: AppImage+deb,
-      # Windows: nsis, macOS: dmg) und zu GitHub Releases veröffentlichen.
-      # `--publish always` lädt Artefakte + Update-Metadaten hoch.
+      # Build the targets configured for the current OS (Linux: AppImage+deb,
+      # Windows: nsis, macOS: dmg) and publish them to GitHub Releases.
+      # `--publish always` uploads artifacts + update metadata.
       - name: Package + publish
         run: pnpm --filter @webaibuilder/desktop exec electron-builder --publish always
         env:
-          # electron-builder liest GH_TOKEN für den GitHub-Provider.
+          # electron-builder reads GH_TOKEN for the GitHub provider.
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # --- TODO(user): Code-Signing-Secrets ergänzen ---------------------
+          # --- TODO(user): add code-signing secrets --------------------------
           # Windows (Authenticode / Azure Trusted Signing):
           #   CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           #   CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-          # macOS (Signierung + Notarisierung):
+          # macOS (signing + notarization):
           #   CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
           #   CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
           #   APPLE_ID: ${{ secrets.APPLE_ID }}
           #   APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           #   APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # Ohne diese Secrets entstehen unsignierte Builds (Linux ist ok;
-          # Windows/macOS zeigen Sicherheitswarnungen bzw. Gatekeeper blockt).
+          # Without these secrets the builds are unsigned (Linux is fine;
+          # Windows/macOS show security warnings or Gatekeeper blocks them).
           # ------------------------------------------------------------------

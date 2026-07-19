@@ -1,17 +1,17 @@
 /**
- * React Error Boundary (AP4): Ein Render-Fehler in einer Komponente führte
- * bisher zur weißen App — window.onerror fängt Render-Throws nicht. Die
- * Boundary zeigt stattdessen eine DS-konforme Fehleransicht, meldet den Fehler
- * ins lokale Log (Bridge, best effort) und bietet Neu-Laden + Logs-Zugriff.
+ * React Error Boundary (AP4): a render error in a component previously led to a
+ * blank white app — window.onerror doesn't catch render throws. The boundary
+ * instead shows a DS-compliant error view, reports the error to the local log
+ * (bridge, best effort), and offers reload + log access.
  *
- * Einsatz: app-weit um <App/> (main.tsx) und pro Panel in der Workbench —
- * ein Panel-Crash reißt so nicht die ganze Oberfläche mit.
+ * Usage: app-wide around <App/> (main.tsx) and per panel in the Workbench —
+ * a single panel crash then doesn't take the whole UI down with it.
  */
 
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
 interface ErrorBoundaryProps {
-  /** Name des geschützten Bereichs (für Log + Anzeige), z. B. „Chat". */
+  /** Name of the protected area (for log + display), e.g. "Chat". */
   label: string;
   children: ReactNode;
 }
@@ -53,14 +53,14 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     if (this.state.error === null) return this.props.children;
     return (
       <div className="error-boundary" role="alert">
-        <p className="error-boundary__title">Hier ist etwas schiefgelaufen.</p>
+        <p className="error-boundary__title">Something went wrong.</p>
         <p className="error-boundary__message">{this.state.error.message}</p>
         <div className="error-boundary__actions">
           <button type="button" className="btn" onClick={this.#openLogs}>
-            Logs-Ordner öffnen
+            Open logs folder
           </button>
           <button type="button" className="btn btn--primary" onClick={this.#reset}>
-            Neu laden
+            Reload
           </button>
         </div>
       </div>

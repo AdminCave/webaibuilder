@@ -1,12 +1,12 @@
 /**
- * In-Process-SFTP-Server (ssh2) für die Tests — bildet "den Remote-Host" auf
- * ein Temp-Verzeichnis ab. Implementiert genug vom SFTP-Protokoll, damit
- * ssh2-sftp-client echte Round-Trips fahren kann (OPEN/READ/WRITE/CLOSE,
+ * In-process SFTP server (ssh2) for the tests — maps "the remote host" onto
+ * a temp directory. Implements enough of the SFTP protocol for
+ * ssh2-sftp-client to run real round-trips (OPEN/READ/WRITE/CLOSE,
  * OPENDIR/READDIR, LSTAT/STAT/FSTAT, REALPATH, MKDIR/RMDIR/REMOVE/RENAME).
  *
- * Zusätzlich zählt der Server jede zum Schreiben geöffnete Datei (`writes`),
- * damit die Delta-Upload-Asserts prüfen können, dass nur geänderte Dateien
- * wirklich hochgeladen wurden.
+ * Additionally, the server counts every file opened for writing (`writes`)
+ * so the delta-upload asserts can check that only changed files were
+ * actually uploaded.
  */
 
 import {
@@ -34,7 +34,7 @@ export const SFTP_PASS = 'geheim-123';
 
 export interface TestSftpServer {
   port: number;
-  /** SFTP-Pfade, die während des aktuellen Fensters zum Schreiben geöffnet wurden. */
+  /** SFTP paths that were opened for writing during the current window. */
   writes: string[];
   resetWrites(): void;
   close(): Promise<void>;
@@ -57,7 +57,7 @@ function statToAttrs(st: Stats): Attributes {
 
 function longname(name: string, st: Stats): string {
   const type = st.isDirectory() ? 'd' : '-';
-  // Der Client liest Typ aus longname[0] und Rechte aus [1..10).
+  // The client reads the type from longname[0] and permissions from [1..10).
   return `${type}rwxr-xr-x 1 0 0 ${st.size} Jan 01 00:00 ${name}`;
 }
 
@@ -230,7 +230,7 @@ function installHandlers(sftp: SFTPWrapper, rootDir: string, onWrite: (p: string
   sftp.on('FSETSTAT', (reqid) => sftp.status(reqid, STATUS_CODE.OK));
 }
 
-/** Startet den Test-SFTP-Server auf einem zufälligen Loopback-Port. */
+/** Starts the test SFTP server on a random loopback port. */
 export async function startSftpServer(rootDir: string): Promise<TestSftpServer> {
   const hostKey = utils.generateKeyPairSync('ed25519').private;
   const writes: string[] = [];
@@ -255,7 +255,7 @@ export async function startSftpServer(rootDir: string): Promise<TestSftpServer> 
       });
     });
     client.on('error', () => {
-      // Verbindungsabbrüche beim Aufräumen sind kein Testfehler.
+      // Connection drops during cleanup are not a test failure.
     });
   });
 

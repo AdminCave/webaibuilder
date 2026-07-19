@@ -9,7 +9,7 @@ import {
 } from './settings';
 
 describe('mergeAgentSettings', () => {
-  it('übernimmt gültige Felder und trimmt das Modell', () => {
+  it('adopts valid fields and trims the model', () => {
     const next = mergeAgentSettings(DEFAULT_AGENT_SETTINGS, {
       backendId: 'claude-sdk',
       model: '  claude-opus-4-8  ',
@@ -17,7 +17,7 @@ describe('mergeAgentSettings', () => {
     expect(next).toEqual({ backendId: 'claude-sdk', provider: 'anthropic', model: 'claude-opus-4-8' });
   });
 
-  it('fällt bei ungültigen Werten auf den Bestand zurück', () => {
+  it('falls back to the existing values for invalid values', () => {
     const next = mergeAgentSettings(DEFAULT_AGENT_SETTINGS, {
       backendId: 'gibts-nicht' as never,
       provider: 'quatsch' as never,
@@ -26,12 +26,12 @@ describe('mergeAgentSettings', () => {
     expect(next.provider).toBe(DEFAULT_AGENT_SETTINGS.provider);
   });
 
-  it('ignoriert apiKey (kein secret-freies Feld)', () => {
+  it('ignores apiKey (not a secret-free field)', () => {
     const next = mergeAgentSettings(DEFAULT_AGENT_SETTINGS, { apiKey: 'geheim' });
     expect(next).not.toHaveProperty('apiKey');
   });
 
-  it('akzeptiert Abo-/CLI-Backends als aktives Backend (M4)', () => {
+  it('accepts subscription/CLI backends as the active backend (M4)', () => {
     for (const id of ['claude-cli', 'codex', 'gemini-cli', 'grok-cli'] as const) {
       expect(mergeAgentSettings(DEFAULT_AGENT_SETTINGS, { backendId: id }).backendId).toBe(id);
     }
@@ -39,12 +39,12 @@ describe('mergeAgentSettings', () => {
 });
 
 describe('coerceAgentSettings', () => {
-  it('liefert Defaults für Nicht-Objekte', () => {
+  it('returns defaults for non-objects', () => {
     expect(coerceAgentSettings(undefined)).toEqual(DEFAULT_AGENT_SETTINGS);
     expect(coerceAgentSettings('kaputt')).toEqual(DEFAULT_AGENT_SETTINGS);
   });
 
-  it('liest bekannte Felder ein', () => {
+  it('reads known fields', () => {
     expect(coerceAgentSettings({ backendId: 'byok', provider: 'openai', model: 'x' })).toEqual({
       backendId: 'byok',
       provider: 'openai',
@@ -52,7 +52,7 @@ describe('coerceAgentSettings', () => {
     });
   });
 
-  it('liest ein Abo-/CLI-Backend als aktives Backend ein (M4)', () => {
+  it('reads a subscription/CLI backend as the active backend (M4)', () => {
     expect(coerceAgentSettings({ backendId: 'claude-cli', provider: 'anthropic', model: '' })).toEqual(
       { backendId: 'claude-cli', provider: 'anthropic', model: '' },
     );
@@ -60,28 +60,28 @@ describe('coerceAgentSettings', () => {
 });
 
 describe('effectiveModel', () => {
-  it('nutzt das Override-Modell, wenn gesetzt', () => {
+  it('uses the override model when set', () => {
     expect(effectiveModel({ backendId: 'byok', provider: 'openai', model: 'gpt-x' })).toBe('gpt-x');
   });
 
-  it('nimmt für claude-sdk das Claude-Standardmodell', () => {
+  it('uses the Claude default model for claude-sdk', () => {
     expect(effectiveModel({ backendId: 'claude-sdk', provider: 'anthropic', model: '' })).toBe(
       DEFAULT_CLAUDE_MODEL,
     );
   });
 
-  it('nimmt für byok/anthropic das Claude-Standardmodell', () => {
+  it('uses the Claude default model for byok/anthropic', () => {
     expect(effectiveModel({ backendId: 'byok', provider: 'anthropic', model: '' })).toBe(
       DEFAULT_CLAUDE_MODEL,
     );
   });
 
-  it('lässt das Modell für andere byok-Provider leer (Backend-Default)', () => {
+  it('leaves the model empty for other byok providers (backend default)', () => {
     expect(effectiveModel({ backendId: 'byok', provider: 'openai', model: '' })).toBe('');
   });
 
-  it('liefert für Abo-/CLI-Backends immer ein leeres Modell (die CLI bestimmt es)', () => {
-    // Auch ein gesetzter Override wird ignoriert — CLI-Backends haben kein Modell-Konzept.
+  it('always returns an empty model for subscription/CLI backends (the CLI decides it)', () => {
+    // A set override is also ignored — CLI backends have no model concept.
     expect(effectiveModel({ backendId: 'claude-cli', provider: 'anthropic', model: 'egal' })).toBe('');
     expect(effectiveModel({ backendId: 'codex', provider: 'openai', model: '' })).toBe('');
   });

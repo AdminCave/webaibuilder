@@ -5,30 +5,30 @@ import { Icon } from './Icon';
 
 interface PreviewPanelProps {
   theme: Theme;
-  /** Vollständige Preview-URL inkl. Token, oder null (startet noch / Fehler). */
+  /** Full preview URL including token, or null (still starting / error). */
   previewUrl: string | null;
   port: number | null;
   status: 'opening' | 'ready' | 'error';
   openError: string | null;
-  /** Öffnet die Projekt-Session neu — Wiederanlauf nach Preview-Fehler. */
+  /** Reopens the project session — restart after a preview error. */
   onRetry: () => void;
 }
 
-/** Platzhalter-Inhalt, solange keine Preview-URL vorliegt. */
+/** Placeholder content while no preview URL is available. */
 function placeholderDoc(theme: Theme, message: string): string {
   const bg = theme === 'dark' ? '#000000' : '#ffffff';
   const text = theme === 'dark' ? '#ededee' : '#16181c';
   const muted = theme === 'dark' ? '#9aa1a8' : '#565c64';
   const border = theme === 'dark' ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)';
   return `<!doctype html>
-<html lang="de"><head><meta charset="utf-8"><style>
+<html lang="en"><head><meta charset="utf-8"><style>
   html,body{height:100%;margin:0}
   body{display:grid;place-items:center;background:${bg};color:${muted};
     font-family:system-ui,sans-serif;font-size:14px;line-height:1.5;text-align:center;padding:24px}
   .card{border:1px solid ${border};border-radius:16px;padding:24px 28px;max-width:340px}
   strong{display:block;color:${text};font-weight:600;margin-bottom:6px}
 </style></head><body>
-  <div class="card"><strong>Vorschau</strong>${message}</div>
+  <div class="card"><strong>Preview</strong>${message}</div>
 </body></html>`;
 }
 
@@ -44,51 +44,51 @@ export function PreviewPanel({
 
   const placeholderMessage =
     status === 'error'
-      ? (openError ?? 'Die Vorschau konnte nicht starten.')
-      : 'Die Live-Vorschau startet …';
+      ? (openError ?? 'The preview could not start.')
+      : 'The live preview is starting …';
   const doc = useMemo(() => placeholderDoc(theme, placeholderMessage), [theme, placeholderMessage]);
 
   const portLabel = port === null ? '127.0.0.1:—' : `127.0.0.1:${port}`;
 
   return (
-    <section className="panel panel--preview" aria-label="Vorschau">
+    <section className="panel panel--preview" aria-label="Preview">
       <header className="panel__header">
-        <h1 className="panel__title">Vorschau</h1>
+        <h1 className="panel__title">Preview</h1>
         <span className="chip">{portLabel}</span>
         <div className="panel__header-actions">
           {status === 'error' ? (
-            // Wiederanlauf-Pfad: „Neu laden" wäre hier genau dann tot, wenn man
-            // es braucht (previewUrl === null) — stattdessen die Session neu öffnen.
-            <button type="button" className="btn" title="Vorschau neu starten" onClick={onRetry}>
+            // Restart path: "Reload" would be dead exactly when you need it
+            // (previewUrl === null) — instead reopen the session.
+            <button type="button" className="btn" title="Restart preview" onClick={onRetry}>
               <Icon name="refresh" size={14} />
-              Erneut versuchen
+              Try again
             </button>
           ) : (
             <button
               type="button"
               className="btn"
               disabled={previewUrl === null}
-              title="Vorschau neu laden"
+              title="Reload preview"
               onClick={() => setReloadNonce((n) => n + 1)}
             >
               <Icon name="refresh" size={14} />
-              Neu laden
+              Reload
             </button>
           )}
         </div>
       </header>
       {previewUrl === null ? (
-        <iframe className="preview__frame" title="Live-Vorschau" sandbox="" srcDoc={doc} />
+        <iframe className="preview__frame" title="Live preview" sandbox="" srcDoc={doc} />
       ) : (
         <iframe
-          // Remount erzwingt einen harten Reload; die Auto-Reload-Verbindung
-          // (WebSocket-Shim aus packages/preview) läuft unabhängig weiter.
+          // Remounting forces a hard reload; the auto-reload connection
+          // (WebSocket shim from packages/preview) keeps running independently.
           key={reloadNonce}
           className="preview__frame"
-          title="Live-Vorschau"
-          // allow-scripts: die KI-Seite enthält JS + den Reload-/Fehler-Shim.
-          // allow-same-origin: der loopback-Origin ist token-geschützt; ohne ihn
-          // funktionieren Subressourcen/Storage der Seite nicht zuverlässig.
+          title="Live preview"
+          // allow-scripts: the AI page contains JS + the reload/error shim.
+          // allow-same-origin: the loopback origin is token-protected; without it
+          // the page's subresources/storage don't work reliably.
           sandbox="allow-scripts allow-same-origin"
           src={previewUrl}
         />

@@ -1,28 +1,29 @@
 /**
- * KI-Backend-Einstellungen (PLAN §4/§6, M2 + M4).
+ * AI backend settings (PLAN §4/§6, M2 + M4).
  *
- * Turn-treibendes Backend kann jedes der sechs Backends sein:
- *  - API-Key-Backends: `byok` (Vercel AI SDK, eigener API-Key + Provider +
- *    Modell) und `claude-sdk` (@anthropic-ai/claude-agent-sdk, API-Key + Modell).
- *  - Abo-/CLI-Backends (M4): `claude-cli`, `codex`, `gemini-cli`, `grok-cli` —
- *    sie spawnen die vom Nutzer selbst installierte, selbst eingeloggte offizielle
- *    Vendor-CLI (PLAN §3). Sie brauchen KEINEN app-verwalteten API-Key und haben
- *    kein Provider-/Modell-Konzept; Modell/Provider bleiben für sie bewusst leer.
+ * The turn-driving backend can be any of the six backends:
+ *  - API-key backends: `byok` (Vercel AI SDK, your own API key + provider +
+ *    model) and `claude-sdk` (@anthropic-ai/claude-agent-sdk, API key + model).
+ *  - Subscription/CLI backends (M4): `claude-cli`, `codex`, `gemini-cli`,
+ *    `grok-cli` — they spawn the official vendor CLI that the user installed and
+ *    signed into themselves (PLAN §3). They need NO app-managed API key and have
+ *    no provider/model concept; model/provider are deliberately left empty.
  *
- * Ob ein Abo-Backend überhaupt als aktives Backend gesetzt werden darf, prüft der
- * Main-Prozess autoritativ gegen die Erkennung + Kill-Switch + Bestätigung
- * (siehe main/settingsStore.ts `applySettingsUpdate` und shared/backends.ts).
+ * Whether a subscription backend may even be set as the active backend is checked
+ * authoritatively by the main process against detection + kill switch +
+ * acknowledgment (see main/settingsStore.ts `applySettingsUpdate` and
+ * shared/backends.ts).
  *
- * Secret-Handling (PLAN §4, Sicherheit): Der API-Key wird NICHT im Klartext auf
- * die Platte geschrieben (Linux-Plaintext-Falle). Seit M3 liegt er im
- * OS-Schlüsselbund (@napi-rs/keyring, siehe main/secrets.ts) — genau wie die
- * Deploy-Credentials. Fehlt ein Systemschlüsselbund (headless Linux, Sway/
- * Hyprland ohne Secret Service), fällt der Main-Prozess bewusst auf einen
- * reinen In-Memory-Speicher für die laufende Sitzung zurück und meldet das über
- * `keychainAvailable` an die UI (kein stiller Klartext).
+ * Secret handling (PLAN §4, security): the API key is NOT written to disk in
+ * plaintext (the Linux plaintext trap). Since M3 it lives in the OS keychain
+ * (@napi-rs/keyring, see main/secrets.ts) — just like the deploy credentials. If
+ * no system keychain exists (headless Linux, Sway/Hyprland without a Secret
+ * Service), the main process deliberately falls back to a pure in-memory store
+ * for the running session and reports this to the UI via `keychainAvailable` (no
+ * silent plaintext).
  *
- * Umgebungsneutral (kein node/electron/DOM) — von main, preload und renderer
- * gemeinsam genutzt und headless testbar.
+ * Environment-neutral (no node/electron/DOM) — shared by main, preload, and
+ * renderer, and headless-testable.
  */
 
 import type { BackendId } from '@webaibuilder/core';
@@ -30,13 +31,13 @@ import type { BackendId } from '@webaibuilder/core';
 import { isSubscriptionBackend } from './backends';
 
 /**
- * Als aktives (turn-treibendes) Backend nutzbare IDs — seit M4 alle sechs.
- * Ob ein Abo-Backend tatsächlich gesetzt werden darf, entscheidet zusätzlich der
- * Main-Prozess anhand der Erkennung (installiert/eingeloggt/Kill-Switch/Hinweis).
+ * IDs usable as the active (turn-driving) backend — since M4, all six. Whether a
+ * subscription backend may actually be set is additionally decided by the main
+ * process based on detection (installed/logged in/kill switch/notice).
  */
 export type ActiveBackendId = BackendId;
 
-/** Provider für den `byok`-Adapter (Vercel AI SDK v6). */
+/** Provider for the `byok` adapter (Vercel AI SDK v6). */
 export type ByokProvider = 'anthropic' | 'openai' | 'google' | 'xai';
 
 export const ACTIVE_BACKEND_IDS: readonly ActiveBackendId[] = [
@@ -49,23 +50,23 @@ export const ACTIVE_BACKEND_IDS: readonly ActiveBackendId[] = [
 ];
 export const BYOK_PROVIDERS: readonly ByokProvider[] = ['anthropic', 'openai', 'google', 'xai'];
 
-/** Persistierbarer, secret-freier Teil der Einstellungen. */
+/** The persistable, secret-free part of the settings. */
 export interface AgentSettingsData {
   backendId: ActiveBackendId;
-  /** Nur für `byok` relevant. */
+  /** Only relevant for `byok`. */
   provider: ByokProvider;
-  /** Modell-Override; leer = Backend-Default. */
+  /** Model override; empty = backend default. */
   model: string;
 }
 
 /**
- * Was der Renderer sieht: die secret-freien Daten plus abgeleitete Flags.
- * Der Key selbst wird nie an den Renderer gegeben.
- *  - `hasApiKey`: liegt für das aktuelle Backend/Provider ein Key vor
- *    (Schlüsselbund ODER Umgebungsvariable, siehe {@link PROVIDER_ENV_KEYS})?
- *  - `apiKeySource`: woher der Key stammt (nur gesetzt, wenn `hasApiKey`).
- *  - `keychainAvailable`: gibt es einen OS-Schlüsselbund? Ist er false, hält der
- *    Main-Prozess Secrets nur sitzungsweise im Speicher (siehe Warnung unten).
+ * What the renderer sees: the secret-free data plus derived flags. The key itself
+ * is never handed to the renderer.
+ *  - `hasApiKey`: is a key available for the current backend/provider (keychain OR
+ *    environment variable, see {@link PROVIDER_ENV_KEYS})?
+ *  - `apiKeySource`: where the key comes from (only set when `hasApiKey`).
+ *  - `keychainAvailable`: is there an OS keychain? If false, the main process
+ *    holds secrets only in memory for the session (see the warning below).
  */
 export interface AgentSettings extends AgentSettingsData {
   hasApiKey: boolean;
@@ -74,11 +75,11 @@ export interface AgentSettings extends AgentSettingsData {
 }
 
 /**
- * Umgebungsvariablen, aus denen ein API-Key pro Provider gelesen wird, wenn
- * keiner im Schlüsselbund liegt. Hält die Freischaltung konsistent zur
- * Erkennung in @webaibuilder/agents (die `claude-sdk` bei gesetztem
- * ANTHROPIC_API_KEY als verfügbar meldet) — vorher galt: „erkannt", aber der
- * Chat blieb gesperrt.
+ * Environment variables from which an API key is read per provider when none is
+ * in the keychain. Keeps the unlock consistent with the detection in
+ * @webaibuilder/agents (which reports `claude-sdk` as available when
+ * ANTHROPIC_API_KEY is set) — previously it read as "detected" but the chat
+ * stayed locked.
  */
 export const PROVIDER_ENV_KEYS: Record<ByokProvider, string> = {
   anthropic: 'ANTHROPIC_API_KEY',
@@ -88,14 +89,14 @@ export const PROVIDER_ENV_KEYS: Record<ByokProvider, string> = {
 };
 
 /**
- * Deutsche Warnung für die UI, wenn kein Systemschlüsselbund gefunden wurde
- * (PLAN §4, Sicherheit). Kein stiller Klartext — der Nutzer erfährt, dass
- * Zugangsdaten nur diese Sitzung überleben.
+ * Warning shown in the UI when no system keychain was found (PLAN §4, security).
+ * No silent plaintext — the user learns that credentials only survive this
+ * session.
  */
 export const KEYCHAIN_UNAVAILABLE_WARNING =
-  'Kein Systemschlüsselbund gefunden — Zugangsdaten werden nur für diese Sitzung im Speicher gehalten.';
+  'No system keychain found — credentials are kept in memory for this session only.';
 
-/** Was der Renderer setzen darf. `apiKey`: string setzt, null löscht, undefined lässt unverändert. */
+/** What the renderer may set. `apiKey`: a string sets it, null clears it, undefined leaves it unchanged. */
 export interface AgentSettingsInput {
   backendId?: ActiveBackendId;
   provider?: ByokProvider;
@@ -104,10 +105,10 @@ export interface AgentSettingsInput {
 }
 
 /**
- * Sinnvolle Default-Modelle. Anthropic-Pfade nutzen Claude Opus 4.8
- * (`claude-opus-4-8`, aktuelles Opus-Modell). Für die übrigen byok-Provider
- * bleibt das Modell leer — der Nutzer trägt die Modell-ID ein, damit hier keine
- * womöglich veraltete Fremd-ID hartkodiert wird.
+ * Sensible default models. Anthropic paths use Claude Opus 4.8
+ * (`claude-opus-4-8`, the current Opus model). For the remaining byok providers
+ * the model stays empty — the user enters the model ID, so no possibly outdated
+ * third-party ID is hardcoded here.
  */
 export const DEFAULT_CLAUDE_MODEL = 'claude-opus-4-8';
 
@@ -133,9 +134,9 @@ function isProvider(value: unknown): value is ByokProvider {
 }
 
 /**
- * Führt ein (Teil-)Update auf einen gültigen, vollständigen Datensatz zusammen.
- * Ungültige Werte fallen auf den bestehenden Wert zurück. Der `model`-Wert wird
- * nur getrimmt; ein leerer Wert bedeutet „Backend-Default".
+ * Merges a (partial) update into a valid, complete record. Invalid values fall
+ * back to the existing value. The `model` value is only trimmed; an empty value
+ * means "backend default".
  */
 export function mergeAgentSettings(
   current: AgentSettingsData,
@@ -147,7 +148,7 @@ export function mergeAgentSettings(
   return { backendId, provider, model };
 }
 
-/** Liest einen unbekannten (z. B. von der Platte gelesenen) Wert defensiv ein. */
+/** Defensively parses an unknown (e.g. disk-read) value. */
 export function coerceAgentSettings(value: unknown): AgentSettingsData {
   if (typeof value !== 'object' || value === null) {
     return { ...DEFAULT_AGENT_SETTINGS };
@@ -156,9 +157,10 @@ export function coerceAgentSettings(value: unknown): AgentSettingsData {
 }
 
 /**
- * Modell, das effektiv an `createBackend` geht (Override oder Provider-Default).
- * Abo-/CLI-Backends haben kein Modell-Konzept — die Vendor-CLI bestimmt es
- * selbst; hier bleibt es leer (createBackend ignoriert es für CLI-Backends).
+ * The model that effectively goes to `createBackend` (override or provider
+ * default). Subscription/CLI backends have no model concept — the vendor CLI
+ * decides it itself; here it stays empty (createBackend ignores it for CLI
+ * backends).
  */
 export function effectiveModel(data: AgentSettingsData): string {
   if (isSubscriptionBackend(data.backendId)) return '';
@@ -168,10 +170,10 @@ export function effectiveModel(data: AgentSettingsData): string {
 }
 
 /**
- * Provider, unter dem der API-Key im Schlüsselbund abgelegt wird. `claude-sdk`
- * spricht immer Anthropic, nutzt also denselben Anthropic-Key wie `byok` mit
- * Provider `anthropic` — der Key wird pro Provider (nicht pro Backend)
- * gespeichert und geteilt. Für `byok` gilt der gewählte Provider.
+ * The provider under which the API key is stored in the keychain. `claude-sdk`
+ * always talks to Anthropic, so it uses the same Anthropic key as `byok` with
+ * provider `anthropic` — the key is stored and shared per provider (not per
+ * backend). For `byok`, the selected provider applies.
  */
 export function effectiveProvider(backendId: ActiveBackendId, provider: ByokProvider): ByokProvider {
   return backendId === 'claude-sdk' ? 'anthropic' : provider;

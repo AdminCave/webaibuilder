@@ -1,15 +1,15 @@
 /**
- * Kopiert Text möglichst robust in die Zwischenablage: erst die moderne Async-
- * Clipboard-API, sonst der execCommand-Fallback (funktioniert auch ohne
- * Clipboard-Permission im gehärteten Renderer). Rein renderer-seitig — kein
- * zusätzlicher Main-Prozess-Kanal.
+ * Copies text to the clipboard as robustly as possible: first the modern async
+ * Clipboard API, otherwise the execCommand fallback (works even without the
+ * clipboard permission in the hardened renderer). Renderer-side only — no extra
+ * main-process channel.
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
     await navigator.clipboard.writeText(text);
     return true;
   } catch {
-    /* Fällt auf execCommand zurück. */
+    /* Falls back to execCommand. */
   }
   try {
     const area = document.createElement('textarea');

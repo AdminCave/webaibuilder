@@ -1,17 +1,17 @@
 /**
- * Vertrag der Preload-Bridge (`window.wab`) — versioniert und minimal.
- * Preload implementiert dieses Interface, der Renderer konsumiert es.
+ * Preload bridge contract (`window.wab`) — versioned and minimal.
+ * Preload implements this interface, the renderer consumes it.
  */
 
 import type { PingResult } from './ipc';
 import type { Project, ProjectCreateInput, ProjectUpdateInput, StarterTemplate } from './project';
 
-/** Schlüssel, unter dem die Bridge im Renderer hängt: `window.wab`. */
+/** Key under which the bridge is exposed in the renderer: `window.wab`. */
 export const BRIDGE_KEY = 'wab';
 
-/** Bei inkompatiblen Änderungen an `WabBridge` hochzählen.
- *  v2: `projects.create` nimmt `ProjectCreateInput` (Name + Vorlage) statt
- *  nur einen Namen; neu: `projects.update/delete`, `templates.list`. */
+/** Increment on incompatible changes to `WabBridge`.
+ *  v2: `projects.create` takes `ProjectCreateInput` (name + template) instead
+ *  of just a name; new: `projects.update/delete`, `templates.list`. */
 export const BRIDGE_VERSION = 2;
 
 export interface WabBridge {

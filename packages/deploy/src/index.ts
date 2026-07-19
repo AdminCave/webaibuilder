@@ -1,12 +1,12 @@
 /**
- * Deploy-Engine (PLAN §4, das Herzstück): Hash-Manifest-Sync über
- * ssh2-sftp-client (SFTP) / basic-ftp (FTP/FTPS inkl. TLS-Session-Reuse),
- * Rollback, Preflight. Reihenfolge für Fast-Atomarität:
- * Verzeichnisse → Uploads → Deletes → Manifest zuletzt.
+ * Deploy engine (PLAN §4, the core): hash-manifest sync via
+ * ssh2-sftp-client (SFTP) / basic-ftp (FTP/FTPS incl. TLS session reuse),
+ * rollback, preflight. Order for fast atomicity:
+ * directories → uploads → deletes → manifest last.
  *
- * Credentials kommen aus dem OS-Schlüsselbund (@napi-rs/keyring) — dieses
- * Paket erhält Secrets nur zur Laufzeit, speichert oder loggt sie nie.
- * Electron-frei — dieses Paket darf niemals `electron` importieren.
+ * Credentials come from the OS keychain (@napi-rs/keyring) — this
+ * package receives secrets only at runtime and never stores or logs them.
+ * Electron-free — this package must never import `electron`.
  */
 
 import type { DeployTarget } from '@webaibuilder/core';
@@ -49,17 +49,17 @@ export {
   type RollbackOptions,
 } from './types';
 
-/** Eindeutiges Probe-Verzeichnis der Preflight-Capability-Probe. */
+/** Unique probe directory for the preflight capability probe. */
 const PREFLIGHT_PROBE_DIR = `.wab-preflight-${process.pid}`;
 
 /**
- * Verbindungstest + Capability-Probe gegen ein Deploy-Ziel (PLAN §4):
- * Auth prüfen, Zielverzeichnis auf Existenz/Schreibbarkeit testen, mkdir-
- * rekursiv & rename (RNTO) proben, vorhandenes Manifest + dessen SHA lesen.
- * Wirft NICHT bei Verbindungs-/Auth-Fehlern, sondern liefert sie strukturiert
- * (deutsch, Du-Form) zurück — die UI zeigt sie an.
+ * Connection test + capability probe against a deploy target (PLAN §4):
+ * check auth, test the target directory for existence/writability, probe
+ * recursive mkdir & rename (RNTO), read an existing manifest + its SHA.
+ * Does NOT throw on connection/auth errors, but returns them in a structured
+ * form — the UI displays them.
  *
- * TODO(M3-Betrieb): Test-Matrix Hetzner, IONOS, all-inkl, Strato, Netcup.
+ * TODO(M3-operations): test matrix Hetzner, IONOS, all-inkl, Strato, Netcup.
  */
 export async function preflight(
   target: DeployTarget,
@@ -75,27 +75,27 @@ export async function preflight(
     try {
       await transport.connect();
     } catch (err) {
-      failures.push(describeError(err, 'Verbindung fehlgeschlagen'));
+      failures.push(describeError(err, 'Connection failed'));
       return { ok: false, messages, failures, capabilities, remoteManifest: null, remoteSha: null };
     }
-    messages.push('Verbindung steht — die Anmeldung hat geklappt.');
+    messages.push('Connection established — authentication succeeded.');
 
     if (transport.tlsSessionReuse !== undefined) {
       capabilities.tlsSessionReuse = transport.tlsSessionReuse;
     }
 
-    // Zielverzeichnis erreichbar?
+    // Target directory reachable?
     try {
       await transport.list(root);
-      messages.push(`Das Zielverzeichnis „${root}" ist erreichbar.`);
+      messages.push(`The target directory "${root}" is reachable.`);
     } catch (err) {
-      failures.push(describeError(err, `Zielverzeichnis „${root}"`));
+      failures.push(describeError(err, `Target directory "${root}"`));
     }
 
-    // Schreibbarkeit + Capabilities proben (in ein eigenes Probe-Verzeichnis).
+    // Probe writability + capabilities (into a dedicated probe directory).
     await probeCapabilities(transport, root, capabilities, messages, failures);
 
-    // Vorhandenes Manifest + dessen SHA (Drift-/„Deployed"-Anzeige).
+    // Existing manifest + its SHA (drift / "deployed" display).
     let remoteManifest: DeployManifest | null = null;
     let remoteSha: string | null = null;
     try {
@@ -103,11 +103,11 @@ export async function preflight(
       remoteSha = remoteManifest?.commit ?? null;
       messages.push(
         remoteSha
-          ? `Aktuell deployt: ${remoteSha.slice(0, 7)}.`
-          : 'Auf dem Ziel liegt noch kein von uns deployter Stand.',
+          ? `Currently deployed: ${remoteSha.slice(0, 7)}.`
+          : 'No state deployed by us exists on the target yet.',
       );
     } catch {
-      messages.push('Ein vorhandenes Manifest ließ sich nicht lesen — es wird bei Bedarf neu erstellt.');
+      messages.push('An existing manifest could not be read — it will be recreated if needed.');
     }
 
     return {
@@ -123,7 +123,7 @@ export async function preflight(
   }
 }
 
-/** Schreibtest + mkdir-rekursiv- und rename-Probe; räumt hinterher auf. */
+/** Write test + recursive-mkdir and rename probe; cleans up afterwards. */
 async function probeCapabilities(
   transport: Transport,
   root: string,
@@ -139,9 +139,9 @@ async function probeCapabilities(
     capabilities.mkdirRecursive = true;
 
     await transport.uploadFile(probeFile, Buffer.from('wab-preflight'));
-    messages.push('Das Zielverzeichnis ist beschreibbar.');
+    messages.push('The target directory is writable.');
 
-    // rename/RNTO nur proben und erfassen — v1 verlässt sich nicht darauf.
+    // Only probe and record rename/RNTO — v1 does not rely on it.
     try {
       const renamed = remoteJoin(probeRoot, 'probe2.txt');
       await transport.rename(probeFile, renamed);
@@ -150,20 +150,20 @@ async function probeCapabilities(
       capabilities.rename = false;
     }
   } catch (err) {
-    failures.push(describeError(err, 'Schreibtest im Zielverzeichnis'));
+    failures.push(describeError(err, 'Write test in the target directory'));
   } finally {
     try {
       await transport.removeDir(probeRoot);
     } catch {
-      // Cleanup ist best-effort — ein zurückbleibendes Probe-Verzeichnis
-      // ist unschön, aber kein Fehlerfall für den Nutzer.
+      // Cleanup is best-effort — a leftover probe directory is
+      // unsightly, but not an error case for the user.
     }
   }
 }
 
 /**
- * Reiner Diff (kein Netz): lokaler Hash-Baum von `siteDir` vs. Remote-Manifest.
- * Nützlich für Vorschau/Tests; der eigentliche Deploy nutzt denselben Diff.
+ * Pure diff (no network): local hash tree of `siteDir` vs. remote manifest.
+ * Useful for preview/tests; the actual deploy uses the same diff.
  */
 export async function planDeploy(
   siteDir: string,
@@ -174,9 +174,9 @@ export async function planDeploy(
 }
 
 /**
- * Deployt `siteDir` (Stand `commitSha`) auf das Ziel: Hash-Manifest-Sync mit
- * Reihenfolge Verzeichnisse → Uploads → Deletes → Manifest zuletzt.
- * Fortschritt kommt file-by-file über `onProgress`.
+ * Deploys `siteDir` (state `commitSha`) to the target: hash-manifest sync with
+ * order directories → uploads → deletes → manifest last.
+ * Progress arrives file-by-file via `onProgress`.
  */
 export async function deploy(
   target: DeployTarget,
@@ -193,9 +193,9 @@ export async function deploy(
 }
 
 /**
- * Rollback (PLAN §4): den `site/`-Baum von `toCommitSha` aus git in ein Temp-
- * Verzeichnis materialisieren und denselben Delta-Sync fahren — es bewegt sich
- * nur das Delta. Funktioniert auf jedem Host, ohne serverseitige Historie.
+ * Rollback (PLAN §4): materialize the `site/` tree of `toCommitSha` from git
+ * into a temp directory and run the same delta sync — only the delta moves.
+ * Works on any host, without server-side history.
  */
 export async function rollback(
   target: DeployTarget,
@@ -221,8 +221,8 @@ export async function rollback(
 }
 
 /**
- * Drift-Erkennung ohne Netz: vergleicht die von der Registry erwartete SHA mit
- * der SHA aus einem (schon gelesenen) Remote-Manifest.
+ * Drift detection without network: compares the SHA expected by the registry
+ * with the SHA from an (already read) remote manifest.
  */
 export function compareDrift(
   expectedSha: string,
@@ -232,9 +232,9 @@ export function compareDrift(
 }
 
 /**
- * Drift-Erkennung mit Verbindung (PLAN §4, „Drift beim Verbinden"): liest das
- * Remote-Manifest und vergleicht dessen SHA mit dem, was die Registry für
- * deployt hält. Liefert Match/Drift + die tatsächliche Remote-SHA.
+ * Drift detection with connection (PLAN §4, "drift on connect"): reads the
+ * remote manifest and compares its SHA with what the registry considers
+ * deployed. Returns match/drift + the actual remote SHA.
  */
 export async function detectDrift(
   target: DeployTarget,

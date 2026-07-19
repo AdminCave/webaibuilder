@@ -1,16 +1,16 @@
 /**
- * Backend-Erkennung für die Abo-/CLI-Adapter (PLAN §4 + §6): „Claude Code
- * gefunden, eingeloggt als …". Zwei Stufen pro CLI:
- *   (a) liegt die Binary auf PATH?  — injizierbares {@link WhichFn}
- *   (b) ist der Nutzer eingeloggt?  — injizierbares {@link ProbeFn} (best-effort,
- *       nie blockierend; der Default-Probe liest nur `--version`)
+ * Backend detection for the subscription/CLI adapters (PLAN §4 + §6): "Claude
+ * Code found, logged in as …". Two stages per CLI:
+ *   (a) is the binary on PATH?  — injectable {@link WhichFn}
+ *   (b) is the user logged in?  — injectable {@link ProbeFn} (best-effort,
+ *       never blocking; the default probe only reads `--version`)
  *
- * Alles ist injizierbar, damit Detection ohne echte CLIs testbar bleibt und der
- * Desktop reichere Login-Checks (z. B. `codex login status`) nachrüsten kann.
+ * Everything is injectable so detection stays testable without real CLIs and the
+ * desktop can add richer login checks (e.g. `codex login status`) later.
  *
- * Compliance (PLAN §3): Der Default-Probe fasst KEINE Credentials an; er startet
- * höchstens `<binary> --version`. Login-Status bleibt „unbekannt", solange keine
- * seiteneffektfreie Prüfung injiziert wird.
+ * Compliance (PLAN §3): The default probe touches NO credentials; at most it runs
+ * `<binary> --version`. Login status stays "unknown" as long as no
+ * side-effect-free check is injected.
  */
 
 import { constants as fsConstants } from 'node:fs';
@@ -26,18 +26,18 @@ import { GEMINI_CLI_INSTALL_URL } from './geminiCli';
 import { GROK_CLI_INSTALL_URL } from './grokCli';
 import type { BackendAvailability } from './index';
 
-/** Statische Metadaten pro CLI-Backend. */
+/** Static metadata per CLI backend. */
 export interface CliMeta {
   id: BackendId;
-  /** Binaryname auf PATH. */
+  /** Binary name on PATH. */
   binary: string;
-  /** Onboarding-Deeplink (offizielle Vendor-Domain). */
+  /** Onboarding deep link (official vendor domain). */
   installHintUrl: string;
-  /** Als experimentell markiert (nur grok). */
+  /** Marked as experimental (grok only). */
   experimental?: boolean;
 }
 
-/** Registry der vier Abo-/CLI-Backends (Reihenfolge = Anzeigereihenfolge). */
+/** Registry of the four subscription/CLI backends (order = display order). */
 export const CLI_META: readonly CliMeta[] = [
   { id: 'claude-cli', binary: 'claude', installHintUrl: CLAUDE_CLI_INSTALL_URL },
   { id: 'codex', binary: 'codex', installHintUrl: CODEX_INSTALL_URL },
@@ -45,31 +45,31 @@ export const CLI_META: readonly CliMeta[] = [
   { id: 'grok-cli', binary: 'grok', installHintUrl: GROK_CLI_INSTALL_URL, experimental: true },
 ];
 
-/** Ergebnis eines Login-/Version-Probes (alle Felder best-effort). */
+/** Result of a login/version probe (all fields best-effort). */
 export interface ProbeResult {
-  /** Überschreibt „installiert" (Default: true, wenn which erfolgreich war). */
+  /** Overrides "installed" (default: true when which succeeded). */
   installed?: boolean;
-  /** true/false/undefined (=unbekannt). */
+  /** true/false/undefined (=unknown). */
   loggedIn?: boolean;
   version?: string;
   account?: string;
 }
 
-/** Löst einen Binaryname zu einem absoluten Pfad auf (oder null). */
+/** Resolves a binary name to an absolute path (or null). */
 export type WhichFn = (binary: string) => Promise<string | null>;
 
-/** Best-effort-Probe eines gefundenen Binaries (nie blockierend, wirft nie). */
+/** Best-effort probe of a found binary (never blocking, never throws). */
 export type ProbeFn = (id: BackendId, binaryPath: string) => Promise<ProbeResult>;
 
-/** Optionen für die CLI-Detection (alles injizierbar). */
+/** Options for CLI detection (everything injectable). */
 export interface DetectCliOptions {
   which?: WhichFn;
   probe?: ProbeFn;
-  /** spawn für den Default-Probe (`--version`). Default: echtes spawn. */
+  /** spawn for the default probe (`--version`). Default: real spawn. */
   spawn?: SpawnFn;
-  /** Env für die Default-PATH-Auflösung. Default: `process.env`. */
+  /** Env for the default PATH resolution. Default: `process.env`. */
   env?: NodeJS.ProcessEnv;
-  /** Remote-Kill-Switch (PLAN §3). Default: nie aktiv. */
+  /** Remote kill switch (PLAN §3). Default: never active. */
   killSwitched?: (id: BackendId) => boolean;
 }
 
@@ -84,7 +84,7 @@ async function isExecutable(path: string): Promise<boolean> {
   }
 }
 
-/** Default-`which`: durchsucht `PATH` (best-effort, wirft nie). */
+/** Default `which`: searches `PATH` (best-effort, never throws). */
 export function makeDefaultWhich(env: NodeJS.ProcessEnv = process.env): WhichFn {
   return async (binary) => {
     const pathVar = env.PATH ?? env.Path ?? '';
@@ -100,7 +100,7 @@ export function makeDefaultWhich(env: NodeJS.ProcessEnv = process.env): WhichFn 
   };
 }
 
-/** Ausgabe eines seiteneffektfreien Probe-Kommandos. */
+/** Output of a side-effect-free probe command. */
 export interface ProbeCommandResult {
   stdout: string;
   stderr: string;
@@ -108,9 +108,10 @@ export interface ProbeCommandResult {
 }
 
 /**
- * Startet `<binary> <args…>` und sammelt stdout/stderr + Exit-Code — best
- * effort, nie blockierend (Timeout → SIGKILL → undefined), wirft nie. Basis für
- * die Versions-Probe und die vendor-spezifischen Login-Proben (loginProbes.ts).
+ * Runs `<binary> <args…>` and collects stdout/stderr + exit code — best
+ * effort, never blocking (timeout → SIGKILL → undefined), never throws. The
+ * foundation for the version probe and the vendor-specific login probes
+ * (loginProbes.ts).
  */
 export function probeCommand(
   binaryPath: string,
@@ -138,7 +139,7 @@ export function probeCommand(
       try {
         child.kill('SIGKILL');
       } catch {
-        /* schon weg */
+        /* already gone */
       }
       finish(undefined);
     }, timeoutMs);
@@ -160,7 +161,7 @@ export function probeCommand(
   });
 }
 
-/** Startet `<binary> --version` und liefert die erste Ausgabezeile (best-effort). */
+/** Runs `<binary> --version` and returns the first output line (best-effort). */
 async function probeVersion(
   binaryPath: string,
   spawnFn: SpawnFn,
@@ -173,9 +174,9 @@ async function probeVersion(
 }
 
 /**
- * Default-Probe: liest nur `--version` (best-effort). Login-Status bleibt
- * „unbekannt" (undefined) — eine seiteneffektfreie Login-Prüfung ist
- * vendor-spezifisch und wird bei Bedarf injiziert (Desktop, PLAN §6).
+ * Default probe: reads only `--version` (best-effort). Login status stays
+ * "unknown" (undefined) — a side-effect-free login check is vendor-specific
+ * and is injected when needed (desktop, PLAN §6).
  */
 export function makeDefaultProbe(spawnFn: SpawnFn = defaultSpawn): ProbeFn {
   return async (_id, binaryPath) => {
@@ -184,7 +185,7 @@ export function makeDefaultProbe(spawnFn: SpawnFn = defaultSpawn): ProbeFn {
   };
 }
 
-/** Erkennt ein einzelnes CLI-Backend (Installations- + best-effort Login-Status). */
+/** Detects a single CLI backend (installation + best-effort login status). */
 export async function detectCliBackend(meta: CliMeta, options: DetectCliOptions = {}): Promise<BackendAvailability> {
   const which = options.which ?? makeDefaultWhich(options.env);
   const probe = options.probe ?? makeDefaultProbe(options.spawn);
@@ -219,7 +220,7 @@ export async function detectCliBackend(meta: CliMeta, options: DetectCliOptions 
   return availability;
 }
 
-/** Erkennt alle vier Abo-/CLI-Backends parallel. */
+/** Detects all four subscription/CLI backends in parallel. */
 export function detectCliBackends(options: DetectCliOptions = {}): Promise<BackendAvailability[]> {
   return Promise.all(CLI_META.map((meta) => detectCliBackend(meta, options)));
 }

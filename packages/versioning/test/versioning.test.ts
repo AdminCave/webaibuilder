@@ -1,7 +1,7 @@
 /**
- * Round-trip-Tests für die Versionierung: init → checkpoint → list → name →
- * restore, für BEIDE Backends (system-git via simple-git, isomorphic-git).
- * Backend wird pro Suite über WAB_GIT_BACKEND erzwungen.
+ * Round-trip tests for the versioning: init → checkpoint → list → name →
+ * restore, for BOTH backends (system-git via simple-git, isomorphic-git).
+ * The backend is forced per suite via WAB_GIT_BACKEND.
  */
 
 import nodeFs from 'node:fs';
@@ -24,13 +24,13 @@ import {
 
 const FULL_SHA = /^[0-9a-f]{40}$/;
 
-/** Backend-neutraler Clean-Check über isomorphic-git (liest jedes git-Repo). */
+/** Backend-neutral clean check via isomorphic-git (reads any git repo). */
 async function isClean(dir: string): Promise<boolean> {
   const matrix = await git.statusMatrix({ fs: nodeFs, dir });
   return matrix.every(([, head, workdir, stage]) => head === 1 && workdir === 1 && stage === 1);
 }
 
-/** Inhalt von .git/HEAD — "ref: refs/heads/main" = auf Branch, nicht detached. */
+/** Contents of .git/HEAD — "ref: refs/heads/main" = on branch, not detached. */
 async function headRef(dir: string): Promise<string> {
   return (await readFile(join(dir, '.git', 'HEAD'), 'utf8')).trim();
 }
@@ -52,7 +52,7 @@ describe.each([['system'], ['isomorphic']] as const)('Backend: %s', (backendKind
     await rm(ws, { recursive: true, force: true });
   });
 
-  it('initWorkspace legt Repo, .gitignore und Erst-Commit an (idempotent)', async () => {
+  it('initWorkspace creates repo, .gitignore and first commit (idempotent)', async () => {
     await initWorkspace(ws);
 
     expect(existsSync(join(ws, '.git'))).toBe(true);
@@ -61,16 +61,16 @@ describe.each([['system'], ['isomorphic']] as const)('Backend: %s', (backendKind
 
     const list = await listCheckpoints(ws);
     expect(list).toHaveLength(1);
-    expect(list[0]?.message).toBe('Projekt angelegt');
+    expect(list[0]?.message).toBe('Project created');
     expect(await headRef(ws)).toBe('ref: refs/heads/main');
     expect(await isClean(ws)).toBe(true);
 
-    // Zweiter Aufruf ändert nichts.
+    // A second call changes nothing.
     await initWorkspace(ws);
     expect(await listCheckpoints(ws)).toHaveLength(1);
   });
 
-  it('createCheckpoint committet alles und liest Trailer-Metadaten zurück', async () => {
+  it('createCheckpoint commits everything and reads back trailer metadata', async () => {
     await initWorkspace(ws);
     await mkdir(join(ws, 'site'), { recursive: true });
     await writeFile(join(ws, 'site', 'index.html'), '<h1>Hallo</h1>');
@@ -90,7 +90,7 @@ describe.each([['system'], ['isomorphic']] as const)('Backend: %s', (backendKind
     expect(cp.sessionId).toBe('sess-abc');
     expect(cp.costUsd).toBeCloseTo(0.0421, 6);
 
-    // Round-trip über git log (neueste zuerst).
+    // Round-trip via git log (newest first).
     const list = await listCheckpoints(ws);
     expect(list[0]?.id).toBe(cp.id);
     expect(list[0]?.message).toBe('Bau mir eine Vereinsseite');
@@ -98,13 +98,13 @@ describe.each([['system'], ['isomorphic']] as const)('Backend: %s', (backendKind
     expect(list[0]?.backend).toBe('claude-sdk');
     expect(list[0]?.sessionId).toBe('sess-abc');
     expect(list[0]?.costUsd).toBeCloseTo(0.0421, 6);
-    expect(list[1]?.message).toBe('Projekt angelegt');
+    expect(list[1]?.message).toBe('Project created');
 
     expect(await isClean(ws)).toBe(true);
     expect(await currentSha(ws)).toBe(cp.id);
   });
 
-  it('ignoriert project.json (App-Metadaten sind nicht Teil der Checkpoints)', async () => {
+  it('ignores project.json (app metadata is not part of the checkpoints)', async () => {
     await initWorkspace(ws);
     await writeFile(join(ws, 'project.json'), '{"id":"p1"}');
     await mkdir(join(ws, 'site'), { recursive: true });
@@ -116,7 +116,7 @@ describe.each([['system'], ['isomorphic']] as const)('Backend: %s', (backendKind
     expect(tracked).not.toContain('project.json');
   });
 
-  it('nameVersion erstellt annotated Tag; listCheckpoints liefert versionName', async () => {
+  it('nameVersion creates annotated tag; listCheckpoints returns versionName', async () => {
     await initWorkspace(ws);
     await mkdir(join(ws, 'site'), { recursive: true });
     await writeFile(join(ws, 'site', 'index.html'), '<h1>v1</h1>');
@@ -130,12 +130,12 @@ describe.each([['system'], ['isomorphic']] as const)('Backend: %s', (backendKind
     const list = await listCheckpoints(ws);
     expect(list.find((c) => c.id === cp.id)?.versionName).toBe('Schöne Startversion');
 
-    // Namenskollision → eindeutiger Tag-Name.
+    // Name collision → unique tag name.
     const named2 = await nameVersion(ws, cp.id, 'Schöne Startversion');
     expect(named2.tagName).toBe('wab/schoene-startversion-2');
   });
 
-  it('restore = neuer Commit: linear, verlustfrei, kein detached HEAD', async () => {
+  it('restore = new commit: linear, lossless, no detached HEAD', async () => {
     await initWorkspace(ws);
     await mkdir(join(ws, 'site'), { recursive: true });
     await writeFile(join(ws, 'site', 'index.html'), '<h1>v1</h1>');
@@ -145,35 +145,35 @@ describe.each([['system'], ['isomorphic']] as const)('Backend: %s', (backendKind
     await writeFile(join(ws, 'site', 'extra.html'), '<p>extra</p>');
     const cp2 = await createCheckpoint(ws, 'Zweite Seite');
 
-    // Dirty state, der beim Restore nicht verloren gehen darf.
+    // Dirty state that must not be lost during the restore.
     await writeFile(join(ws, 'site', 'index.html'), '<h1>ungespeichert</h1>');
 
     const restored = await restoreCheckpoint(ws, cp1.id);
 
-    // Alter Stand ist zurück — inkl. Löschen später hinzugekommener Dateien.
+    // Old state is back — including deleting files added later.
     expect(await readFile(join(ws, 'site', 'index.html'), 'utf8')).toBe('<h1>v1</h1>');
     expect(existsSync(join(ws, 'site', 'extra.html'))).toBe(false);
 
-    // HEAD ist vorgerückt (neuer Commit, keine History-Umschreibung).
+    // HEAD has advanced (new commit, no history rewrite).
     expect(restored.id).toMatch(FULL_SHA);
     expect(restored.id).not.toBe(cp1.id);
     expect(restored.id).not.toBe(cp2.id);
-    expect(restored.message).toBe(`Wiederhergestellt: ${cp1.id.slice(0, 7)}`);
+    expect(restored.message).toBe(`Restored: ${cp1.id.slice(0, 7)}`);
     expect(await currentSha(ws)).toBe(restored.id);
 
-    // Linear & verlustfrei: Auto-Checkpoint davor, alte Checkpoints erhalten.
+    // Linear & lossless: auto-checkpoint before it, old checkpoints preserved.
     const list = await listCheckpoints(ws);
     expect(list[0]?.id).toBe(restored.id);
-    expect(list[1]?.message).toBe('Automatischer Checkpoint vor Wiederherstellung');
+    expect(list[1]?.message).toBe('Automatic checkpoint before restore');
     expect(list.map((c) => c.id)).toContain(cp1.id);
     expect(list.map((c) => c.id)).toContain(cp2.id);
 
-    // Kein detached HEAD, Arbeitsverzeichnis sauber.
+    // No detached HEAD, working directory clean.
     expect(await headRef(ws)).toBe('ref: refs/heads/main');
     expect(await isClean(ws)).toBe(true);
 
-    // Vorwärts wiederherstellen holt v2 samt extra.html zurück — und ohne
-    // dirty state gibt es keinen weiteren Auto-Checkpoint.
+    // Restoring forward brings back v2 along with extra.html — and without
+    // dirty state there is no further auto-checkpoint.
     const restored2 = await restoreCheckpoint(ws, cp2.id);
     expect(await readFile(join(ws, 'site', 'index.html'), 'utf8')).toBe('<h1>v2</h1>');
     expect(existsSync(join(ws, 'site', 'extra.html'))).toBe(true);
@@ -182,7 +182,7 @@ describe.each([['system'], ['isomorphic']] as const)('Backend: %s', (backendKind
     expect(list2[1]?.id).toBe(restored.id);
   });
 
-  it('restore nutzt den Versionsnamen und akzeptiert Kurz-SHAs', async () => {
+  it('restore uses the version name and accepts short SHAs', async () => {
     await initWorkspace(ws);
     await mkdir(join(ws, 'site'), { recursive: true });
     await writeFile(join(ws, 'site', 'index.html'), '<h1>v1</h1>');
@@ -192,31 +192,31 @@ describe.each([['system'], ['isomorphic']] as const)('Backend: %s', (backendKind
     await writeFile(join(ws, 'site', 'index.html'), '<h1>v2</h1>');
     await createCheckpoint(ws, 'Zweite Seite');
 
-    // Restore per Kurz-SHA; Label kommt aus dem annotated Tag.
+    // Restore via short SHA; label comes from the annotated tag.
     const restored = await restoreCheckpoint(ws, cp1.id.slice(0, 7));
-    expect(restored.message).toBe('Wiederhergestellt: Startversion');
+    expect(restored.message).toBe('Restored: Startversion');
     expect(await readFile(join(ws, 'site', 'index.html'), 'utf8')).toBe('<h1>v1</h1>');
   });
 
-  it('wirft verständliche Fehler bei unbekanntem Checkpoint und fehlendem Repo', async () => {
+  it('throws clear errors for unknown checkpoint and missing repo', async () => {
     await initWorkspace(ws);
-    await expect(restoreCheckpoint(ws, 'deadbeef')).rejects.toThrow(/gibt es in diesem Projekt nicht/);
+    await expect(restoreCheckpoint(ws, 'deadbeef')).rejects.toThrow(/does not exist in this project/);
 
     const empty = await makeWorkspace('wab-versioning-kein-repo-');
     try {
-      await expect(listCheckpoints(empty)).rejects.toThrow(/keine Versionierung/);
+      await expect(listCheckpoints(empty)).rejects.toThrow(/Versioning is not set up/);
     } finally {
       await rm(empty, { recursive: true, force: true });
     }
   });
 });
 
-describe('Backend-Kompatibilität', () => {
+describe('Backend compatibility', () => {
   afterEach(() => {
     delete process.env['WAB_GIT_BACKEND'];
   });
 
-  it('isomorphic-git liest und erweitert ein mit System-git erstelltes Repo', async () => {
+  it('isomorphic-git reads and extends a repo created with system git', async () => {
     const ws = await makeWorkspace('wab-versioning-mixed-');
     try {
       process.env['WAB_GIT_BACKEND'] = 'system';
@@ -241,7 +241,7 @@ describe('Backend-Kompatibilität', () => {
       await writeFile(join(ws, 'site', 'index.html'), '<h1>v2</h1>');
       await createCheckpoint(ws, 'Zweite Seite');
       const restored = await restoreCheckpoint(ws, cp.id);
-      expect(restored.message).toBe('Wiederhergestellt: Startversion');
+      expect(restored.message).toBe('Restored: Startversion');
       expect(await readFile(join(ws, 'site', 'index.html'), 'utf8')).toBe('<h1>v1</h1>');
     } finally {
       await rm(ws, { recursive: true, force: true });

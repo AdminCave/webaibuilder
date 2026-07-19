@@ -1,10 +1,10 @@
 /**
- * Test-Doubles für die CLI-Engine: ein gefälschter Kindprozess + spawn-Funktion,
- * damit die Abo-/CLI-Adapter OHNE echte Vendor-CLIs getestet werden können.
+ * Test doubles for the CLI engine: a fake child process + spawn function, so the
+ * subscription/CLI adapters can be tested WITHOUT real vendor CLIs.
  *
- * Der Fake puffert Emissionen, die vor dem Anhängen der Listener passieren, und
- * spielt sie beim Anhängen nach — so ist das Timing gegenüber der async-Generator-
- * Iteration deterministisch.
+ * The fake buffers emissions that happen before listeners are attached and
+ * replays them on attach — this keeps the timing deterministic relative to the
+ * async-generator iteration.
  */
 
 import type { CliChild, CliReadable, CliStdin, SpawnFn } from '../../src/cliEngine';
@@ -14,7 +14,7 @@ type EndListener = () => void;
 type ErrorListener = (err: NodeJS.ErrnoException) => void;
 type CloseListener = (code: number | null, signal: NodeJS.Signals | null) => void;
 
-/** Gefälschter Kindprozess, den der Test von außen treibt. */
+/** Fake child process that the test drives from the outside. */
 export class FakeChild implements CliChild {
   readonly stdinChunks: string[] = [];
   readonly killSignals: Array<NodeJS.Signals | number> = [];
@@ -80,9 +80,9 @@ export class FakeChild implements CliChild {
     return true;
   }
 
-  // --- Steuerung durch den Test ---------------------------------------------
+  // --- Control by the test --------------------------------------------------
 
-  /** Eine rohe stdout-Zeile (inkl. Zeilenumbruch) emittieren. */
+  /** Emit a raw stdout line (including the newline). */
   emitStdoutRaw(raw: string): void {
     if (this.#dataListeners.length === 0) {
       this.#pendingData.push(raw);
@@ -91,19 +91,19 @@ export class FakeChild implements CliChild {
     for (const listener of this.#dataListeners) listener(raw);
   }
 
-  /** Eine JSONL-Zeile emittieren (Objekt oder fertiger String). */
+  /** Emit a JSONL line (object or ready-made string). */
   emitLine(line: unknown): void {
     const raw = typeof line === 'string' ? line : JSON.stringify(line);
     this.emitStdoutRaw(`${raw}\n`);
   }
 
-  /** stdout beenden (Rest-Puffer flushen). */
+  /** End stdout (flush the remaining buffer). */
   emitStdoutEnd(): void {
     this.#pendingEnd = true;
     for (const listener of this.#endListeners) listener();
   }
 
-  /** Den Prozess normal/mit Code beenden. */
+  /** End the process normally / with a code. */
   emitClose(code: number | null = 0, signal: NodeJS.Signals | null = null): void {
     this.emitStdoutEnd();
     if (this.#closeListeners.length === 0) {
@@ -113,7 +113,7 @@ export class FakeChild implements CliChild {
     for (const listener of this.#closeListeners) listener(code, signal);
   }
 
-  /** Einen spawn-Fehler emittieren (z. B. ENOENT). */
+  /** Emit a spawn error (e.g. ENOENT). */
   emitError(err: NodeJS.ErrnoException): void {
     if (this.#errorListeners.length === 0) {
       this.#pendingError = err;
@@ -123,15 +123,15 @@ export class FakeChild implements CliChild {
   }
 }
 
-/** Ergebnis von {@link controllableSpawn}: Kind + spawn-Funktion + letzte Args. */
+/** Result of {@link controllableSpawn}: child + spawn function + last args. */
 export interface Controllable {
   child: FakeChild;
   spawn: SpawnFn;
-  /** Nach dem Spawn gesetzt: Kommando, Argumente, cwd, env. */
+  /** Set after the spawn: command, arguments, cwd, env. */
   calls: Array<{ command: string; args: readonly string[]; cwd: string; env: NodeJS.ProcessEnv }>;
 }
 
-/** spawn-Fake, der einen bereits vorhandenen {@link FakeChild} liefert. */
+/** spawn fake that returns an already-existing {@link FakeChild}. */
 export function controllableSpawn(): Controllable {
   const child = new FakeChild();
   const calls: Controllable['calls'] = [];
@@ -143,8 +143,8 @@ export function controllableSpawn(): Controllable {
 }
 
 /**
- * spawn-Fake, der einen kompletten Transcript automatisch abspielt: alle Zeilen,
- * dann `close(exitCode)`. Für die einfachen Mapping-Tests.
+ * spawn fake that automatically plays back a complete transcript: all lines,
+ * then `close(exitCode)`. For the simple mapping tests.
  */
 export function scriptedSpawn(
   lines: readonly unknown[],
@@ -154,7 +154,7 @@ export function scriptedSpawn(
   const calls: Controllable['calls'] = [];
   const spawn: SpawnFn = (command, args, options) => {
     calls.push({ command, args, cwd: options.cwd, env: options.env });
-    // Nach dem aktuellen Tick emittieren, sobald die Engine ihre Listener hängt.
+    // Emit after the current tick, once the engine attaches its listeners.
     queueMicrotask(() => {
       for (const line of lines) child.emitLine(line);
       child.emitClose(opts.exitCode ?? 0, opts.signal ?? null);
@@ -164,7 +164,7 @@ export function scriptedSpawn(
   return { spawn, child, calls };
 }
 
-/** spawn-Fake, der einen ENOENT-Fehler wirft (Binary nicht gefunden). */
+/** spawn fake that throws an ENOENT error (binary not found). */
 export function enoentSpawn(): { spawn: SpawnFn; child: FakeChild } {
   const child = new FakeChild();
   const spawn: SpawnFn = () => {

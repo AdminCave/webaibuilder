@@ -4,7 +4,7 @@ import type { WabDesktopBridge } from '../../shared/bridge';
 
 declare global {
   interface Window {
-    /** Von preload/index.ts per contextBridge exponiert (core-Vertrag + M2-Erweiterung). */
+    /** Exposed by preload/index.ts via contextBridge (core contract + M2 extension). */
     readonly wab: WabBridge & WabDesktopBridge;
   }
 }

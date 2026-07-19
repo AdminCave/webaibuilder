@@ -1,14 +1,14 @@
 /**
- * GitRepo-Implementierung über das System-git-Binary (simple-git).
- * Wird bevorzugt, wenn ein git-Binary gefunden wird — schneller und
- * 1:1 kompatibel mit dem, was Nutzer mit normalem git sehen.
+ * GitRepo implementation via the system git binary (simple-git).
+ * Preferred when a git binary is found — faster and
+ * 1:1 compatible with what users see with normal git.
  */
 
 import { simpleGit, type SimpleGit } from 'simple-git';
 
 import { GIT_AUTHOR, type GitRepo, type RawAnnotatedTag, type RawCommit } from './repo';
 
-/** Feld-/Datensatztrenner für maschinenlesbares `git log`/`for-each-ref`. */
+/** Field/record separators for machine-readable `git log`/`for-each-ref`. */
 const FIELD_SEP = '\x1f';
 const RECORD_SEP = '\x1e';
 
@@ -20,9 +20,9 @@ export class SystemGitRepo implements GitRepo {
   constructor(workspaceDir: string) {
     this.git = simpleGit({
       baseDir: workspaceDir,
-      // Checkpoints werden von der App erstellt, nicht vom Nutzer — feste
-      // Identität, kein Signieren (globale gpgsign-Configs würden sonst
-      // Commits in Workspaces blockieren).
+      // Checkpoints are created by the app, not the user — fixed
+      // identity, no signing (global gpgsign configs would otherwise
+      // block commits in workspaces).
       config: [
         `user.name=${GIT_AUTHOR.name}`,
         `user.email=${GIT_AUTHOR.email}`,
@@ -34,16 +34,16 @@ export class SystemGitRepo implements GitRepo {
 
   async init(): Promise<void> {
     await this.git.raw(['init']);
-    // Branch-Name deterministisch auf `main`, unabhängig von init.defaultBranch
-    // des Nutzers — aber nur solange das Repo noch keinen Commit hat.
+    // Branch name deterministically set to `main`, independent of the user's
+    // init.defaultBranch — but only while the repo has no commit yet.
     if (!(await this.hasCommits())) {
       await this.git.raw(['symbolic-ref', 'HEAD', 'refs/heads/main']);
     }
   }
 
   async hasCommits(): Promise<boolean> {
-    // Kein --quiet: simple-git erkennt Fehler nur an stderr-Ausgabe —
-    // mit --quiet "gelingt" rev-parse auf einem Repo ohne Commits scheinbar.
+    // No --quiet: simple-git detects errors only from stderr output —
+    // with --quiet, rev-parse on a repo without commits appears to "succeed".
     try {
       const out = await this.git.raw(['rev-parse', '--verify', 'HEAD']);
       return FULL_SHA_RE.test(out.trim());
@@ -57,8 +57,8 @@ export class SystemGitRepo implements GitRepo {
   }
 
   async commit(message: string): Promise<string> {
-    // --allow-empty: ein Checkpoint pro Agent-Turn, auch wenn der Turn nichts
-    // geändert hat — die Timeline bleibt 1:1 zu den Turns.
+    // --allow-empty: one checkpoint per agent turn, even if the turn changed
+    // nothing — the timeline stays 1:1 with the turns.
     await this.git.raw(['commit', '--allow-empty', '--no-verify', '-m', message]);
     return this.headSha();
   }
@@ -72,7 +72,7 @@ export class SystemGitRepo implements GitRepo {
     try {
       out = await this.git.raw(args);
     } catch {
-      // Repo ohne Commits ("does not have any commits yet")
+      // Repo without commits ("does not have any commits yet")
       return [];
     }
     const commits: RawCommit[] = [];
@@ -92,8 +92,8 @@ export class SystemGitRepo implements GitRepo {
   }
 
   async listAnnotatedTags(): Promise<RawAnnotatedTag[]> {
-    // %(objectname) = Tag-Objekt, %(*objectname) = gepeelter Commit (nur bei
-    // annotated Tags gefüllt), %(contents:subject) = erste Zeile der Message.
+    // %(objectname) = tag object, %(*objectname) = peeled commit (only filled
+    // for annotated tags), %(contents:subject) = first line of the message.
     const out = await this.git.raw([
       'for-each-ref',
       'refs/tags',
@@ -125,18 +125,18 @@ export class SystemGitRepo implements GitRepo {
   }
 
   async restoreTree(sha: string): Promise<void> {
-    // read-tree --reset -u: Index := Ziel-Baum, Arbeitsverzeichnis wird
-    // angepasst (inkl. Löschen nicht mehr vorhandener Dateien). HEAD bleibt
-    // auf dem Branch — kein detached HEAD.
+    // read-tree --reset -u: index := target tree, working directory is
+    // adjusted (incl. deleting files that no longer exist). HEAD stays
+    // on the branch — no detached HEAD.
     await this.git.raw(['read-tree', '--reset', '-u', sha]);
   }
 
   async resolveCommit(ref: string): Promise<string> {
-    // Kein --quiet (siehe hasCommits); zusätzlich Ergebnis validieren.
+    // No --quiet (see hasCommits); additionally validate the result.
     const out = await this.git.raw(['rev-parse', '--verify', `${ref}^{commit}`]);
     const sha = out.trim();
     if (!FULL_SHA_RE.test(sha)) {
-      throw new Error(`Keine Commit-SHA für "${ref}".`);
+      throw new Error(`No commit SHA for "${ref}".`);
     }
     return sha;
   }

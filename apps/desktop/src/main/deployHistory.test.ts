@@ -1,6 +1,6 @@
 /**
- * Headless-Tests des append-only Deploy-Historien-Logs (temporäre JSON-Datei,
- * injizierte Id-/Zeitquelle für Determinismus).
+ * Headless tests of the append-only deploy history log (temporary JSON file,
+ * injected id/time source for determinism).
  */
 
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -50,7 +50,7 @@ function storeWith(clock: string[]): DeployHistoryStore {
 }
 
 describe('append / list', () => {
-  it('vergibt id + Zeitstempel und liefert den Eintrag zurück', () => {
+  it('assigns id + timestamp and returns the entry', () => {
     const store = storeWith(['2026-07-12T10:00:00.000Z']);
     const rec = store.append(record());
     expect(rec.id).toBe('rec-1');
@@ -58,7 +58,7 @@ describe('append / list', () => {
     expect(rec.sha).toBe('abc1234');
   });
 
-  it('listet neueste zuerst', () => {
+  it('lists newest first', () => {
     const store = storeWith([
       '2026-07-12T10:00:00.000Z',
       '2026-07-12T11:00:00.000Z',
@@ -70,7 +70,7 @@ describe('append / list', () => {
     expect(store.list().map((r) => r.sha)).toEqual(['c', 'b', 'a']);
   });
 
-  it('filtert nach Projekt', () => {
+  it('filters by project', () => {
     const store = storeWith(['t0', 't1', 't2'].map((_, k) => `2026-07-12T1${k}:00:00.000Z`));
     store.append(record({ projectId: 'p1', sha: 'x' }));
     store.append(record({ projectId: 'p2', sha: 'y' }));
@@ -80,8 +80,8 @@ describe('append / list', () => {
   });
 });
 
-describe('Persistenz', () => {
-  it('überlebt ein erneutes Öffnen (gleiche Datei)', () => {
+describe('persistence', () => {
+  it('survives reopening (same file)', () => {
     const first = storeWith(['2026-07-12T10:00:00.000Z']);
     first.append(record({ sha: 'persist', ok: false, error: 'kaputt' }));
 
@@ -94,7 +94,7 @@ describe('Persistenz', () => {
     expect(only.error).toBe('kaputt');
   });
 
-  it('startet leer bei fehlender Datei', () => {
+  it('starts empty when the file is missing', () => {
     const store = new DeployHistoryStore(join(tmp, 'gibts-nicht.json'));
     expect(store.list()).toEqual([]);
   });

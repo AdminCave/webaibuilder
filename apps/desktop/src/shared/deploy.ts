@@ -1,42 +1,42 @@
 /**
- * Renderer-taugliche Spiegelung der Deploy-Engine-Typen (@webaibuilder/deploy)
- * plus reine UI-Logik (Badge-Auflösung, Drift, Fortschritts-Reducer,
- * Formular-Validierung).
+ * Renderer-friendly mirror of the deploy-engine types (@webaibuilder/deploy)
+ * plus pure UI logic (badge resolution, drift, progress reducer, form
+ * validation).
  *
- * Warum spiegeln statt importieren: `@webaibuilder/deploy` re-exportiert neben
- * den Typen auch `deploy`/`preflight`/… (node:fs, ssh2, basic-ftp). Würde der
- * Renderer (tsconfig.web, ohne `node`-Typen) den Paket-Einstieg importieren,
- * zöge tsc dessen node-Module in die Typprüfung und scheiterte. Diese Datei ist
- * umgebungsneutral (kein node/electron/DOM) und wird von main, preload und
- * renderer geteilt; der Main-Prozess prüft die Strukturgleichheit zur
- * Compile-Zeit gegen die echten Engine-Typen (siehe deployService.ts).
+ * Why mirror instead of import: `@webaibuilder/deploy` re-exports, alongside the
+ * types, also `deploy`/`preflight`/… (node:fs, ssh2, basic-ftp). If the renderer
+ * (tsconfig.web, without `node` types) imported the package entry point, tsc
+ * would pull its node modules into type checking and fail. This file is
+ * environment-neutral (no node/electron/DOM) and shared by main, preload, and
+ * renderer; the main process verifies structural equality against the real
+ * engine types at compile time (see deployService.ts).
  *
- * Die Secrets (Passwort/Passphrase) verlassen NIE den Main-Prozess — der
- * Renderer sendet sie einmalig beim Anlegen/Ändern eines Ziels und sieht danach
- * nur noch das abgeleitete `hasCredentials`-Flag.
+ * The secrets (password/passphrase) NEVER leave the main process — the renderer
+ * sends them once when creating/updating a target and afterwards only sees the
+ * derived `hasCredentials` flag.
  */
 
 import type { Checkpoint, DeployProtocol, DeployTarget } from '@webaibuilder/core';
 
 /* ------------------------------------------------------------------ */
-/* Gespiegelte Engine-Ergebnistypen (strukturgleich zu packages/deploy) */
+/* Mirrored engine result types (structurally equal to packages/deploy) */
 /* ------------------------------------------------------------------ */
 
-/** Spiegel von `DeployCapabilities`. */
+/** Mirror of `DeployCapabilities`. */
 export interface WabDeployCapabilities {
   mkdirRecursive: boolean;
   rename: boolean;
   tlsSessionReuse?: boolean;
 }
 
-/** Spiegel von `DeployPlan`. */
+/** Mirror of `DeployPlan`. */
 export interface WabDeployPlan {
   uploads: string[];
   deletes: string[];
   unchangedCount: number;
 }
 
-/** Spiegel von `DeployResult`. */
+/** Mirror of `DeployResult`. */
 export interface WabDeployResult {
   commit: string;
   uploaded: number;
@@ -47,10 +47,10 @@ export interface WabDeployResult {
 }
 
 /**
- * Renderer-Sicht des Preflight-Ergebnisses. Bewusst OHNE `remoteManifest`
- * (Hash-Baum aller Dateien) — der Renderer braucht nur `remoteSha`. Ansonsten
- * strukturgleich zu `PreflightResult`, sodass der Main-Prozess das echte
- * Ergebnis zuweisen kann.
+ * Renderer view of the preflight result. Deliberately WITHOUT `remoteManifest`
+ * (hash tree of all files) — the renderer only needs `remoteSha`. Otherwise
+ * structurally equal to `PreflightResult`, so the main process can assign the
+ * real result.
  */
 export interface WabPreflightResult {
   ok: boolean;
@@ -60,14 +60,14 @@ export interface WabPreflightResult {
   remoteSha: string | null;
 }
 
-/** Spiegel von `DriftResult`. */
+/** Mirror of `DriftResult`. */
 export interface WabDriftResult {
   drift: boolean;
   expectedSha: string;
   remoteSha: string | null;
 }
 
-/** Spiegel von `DeployProgressEvent` (file-by-file). */
+/** Mirror of `DeployProgressEvent` (file-by-file). */
 export type WabDeployProgressEvent =
   | { type: 'connecting' }
   | { type: 'planning' }
@@ -79,24 +79,24 @@ export type WabDeployProgressEvent =
   | { type: 'error'; message: string };
 
 /* ------------------------------------------------------------------ */
-/* Deploy-Ziel-Verwaltung (Renderer ↔ Main)                            */
+/* Deploy-target management (renderer ↔ main)                          */
 /* ------------------------------------------------------------------ */
 
 /**
- * Renderer-Sicht eines Deploy-Ziels: das secret-freie {@link DeployTarget} plus
- * das abgeleitete Flag, ob im Schlüsselbund Zugangsdaten hinterlegt sind.
+ * Renderer view of a deploy target: the secret-free {@link DeployTarget} plus the
+ * derived flag indicating whether credentials are stored in the keychain.
  */
 export interface DeployTargetView extends DeployTarget {
-  /** true, wenn für dieses Ziel ein Passwort im Schlüsselbund liegt. */
+  /** true if a password for this target is in the keychain. */
   hasCredentials: boolean;
 }
 
 /**
- * Was der Renderer zum Anlegen/Ändern eines Ziels schickt. `id` gesetzt =
- * bestehendes Ziel ändern (secret-freie Felder), sonst neu anlegen. `password`/
- * `passphrase`: undefined lässt vorhandene Zugangsdaten unverändert, ein Wert
- * (auch leer für passphrase) setzt sie neu. Das Passwort geht NUR über diesen
- * Weg an den Main-Prozess und landet direkt im Schlüsselbund.
+ * What the renderer sends to create/update a target. `id` set = update an
+ * existing target (secret-free fields), otherwise create a new one.
+ * `password`/`passphrase`: undefined leaves existing credentials unchanged, a
+ * value (empty is also allowed for passphrase) sets them anew. The password goes
+ * to the main process ONLY via this path and lands directly in the keychain.
  */
 export interface DeployTargetInput {
   id?: string;
@@ -110,21 +110,21 @@ export interface DeployTargetInput {
   passphrase?: string;
 }
 
-/** Ergebnis eines Deploy-/Rollback-Laufs (invoke-Antwort). */
+/** Result of a deploy/rollback run (invoke response). */
 export type DeployRunOutcome =
   | { status: 'deployed'; result: WabDeployResult }
   | { status: 'preflight-failed'; preflight: WabPreflightResult }
   | { status: 'error'; message: string };
 
-/** Ein Eintrag der Deploy-Historie (append-only Log). */
+/** An entry in the deploy history (append-only log). */
 export interface DeployHistoryRecord {
   id: string;
   projectId: string;
   targetId: string;
   targetName: string;
-  /** 'deploy' = aktuellen Stand, 'rollback' = ältere Version deployt. */
+  /** 'deploy' = deployed the current state, 'rollback' = deployed an older version. */
   kind: 'deploy' | 'rollback';
-  /** Deployte Commit-SHA (voll). */
+  /** Deployed commit SHA (full). */
   sha: string;
   at: string;
   uploaded: number;
@@ -132,47 +132,47 @@ export interface DeployHistoryRecord {
   unchanged: number;
   bytesUploaded: number;
   ok: boolean;
-  /** Fehlermeldung bei ok === false. */
+  /** Error message when ok === false. */
   error?: string;
 }
 
 /* ------------------------------------------------------------------ */
-/* Ports & Protokolle                                                  */
+/* Ports & protocols                                                   */
 /* ------------------------------------------------------------------ */
 
 export const DEPLOY_PROTOCOLS: readonly DeployProtocol[] = ['sftp', 'ftp', 'ftps'];
 
-/** Standard-Port je Protokoll (SFTP=22, FTP/FTPS=21). */
+/** Default port per protocol (SFTP=22, FTP/FTPS=21). */
 export function defaultDeployPort(protocol: DeployProtocol): number {
   return protocol === 'sftp' ? 22 : 21;
 }
 
 /* ------------------------------------------------------------------ */
-/* Formular-Validierung (rein, deutsch, Du-Form)                       */
+/* Form validation (pure)                                              */
 /* ------------------------------------------------------------------ */
 
 /**
- * Validiert die secret-freien Ziel-Felder. Liefert eine deutsche Fehlermeldung
- * oder null, wenn alles passt. Wird sowohl im Renderer (Absenden sperren) als
- * auch im Main-Prozess (Schutz vor kaputten Payloads) genutzt.
+ * Validates the secret-free target fields. Returns an error message or null if
+ * everything is fine. Used both in the renderer (block submit) and in the main
+ * process (protection against broken payloads).
  */
 export function validateDeployTargetInput(input: DeployTargetInput): string | null {
-  if (input.name.trim() === '') return 'Gib dem Ziel einen Namen.';
-  if (!DEPLOY_PROTOCOLS.includes(input.protocol)) return 'Wähle ein gültiges Protokoll.';
-  if (input.host.trim() === '') return 'Trag den Host (Server-Adresse) ein.';
+  if (input.name.trim() === '') return 'Give the target a name.';
+  if (!DEPLOY_PROTOCOLS.includes(input.protocol)) return 'Choose a valid protocol.';
+  if (input.host.trim() === '') return 'Enter the host (server address).';
   if (!Number.isInteger(input.port) || input.port < 1 || input.port > 65535) {
-    return 'Der Port muss zwischen 1 und 65535 liegen.';
+    return 'The port must be between 1 and 65535.';
   }
-  if (input.username.trim() === '') return 'Trag den Benutzernamen ein.';
-  if (input.remotePath.trim() === '') return 'Trag das Zielverzeichnis auf dem Server ein.';
+  if (input.username.trim() === '') return 'Enter the username.';
+  if (input.remotePath.trim() === '') return 'Enter the target directory on the server.';
   return null;
 }
 
 /* ------------------------------------------------------------------ */
-/* "Deployed"-Badge & Drift (rein, im Renderer verwendbar)             */
+/* "Deployed" badge & drift (pure, usable in the renderer)             */
 /* ------------------------------------------------------------------ */
 
-/** SHA, die auf dem aktiven Ziel als deployt gilt (oder null). */
+/** The SHA that counts as deployed on the active target (or null). */
 export function resolveDeployedSha(
   targets: readonly DeployTargetView[],
   activeTargetId: string | null,
@@ -182,7 +182,7 @@ export function resolveDeployedSha(
   return target?.lastDeployedCommit ?? null;
 }
 
-/** ID des Checkpoints, dessen SHA dem deployten Stand entspricht (oder null). */
+/** ID of the checkpoint whose SHA matches the deployed state (or null). */
 export function deployedCheckpointId(
   checkpoints: readonly Checkpoint[],
   deployedSha: string | null,
@@ -193,9 +193,9 @@ export function deployedCheckpointId(
 }
 
 /**
- * Setzt das `deployed`-Flag auf genau dem Checkpoint, dessen SHA dem deployten
- * Stand des aktiven Ziels entspricht (löst den M1-Platzhalter auf). Andere
- * Checkpoints werden explizit auf `deployed: false` gesetzt.
+ * Sets the `deployed` flag on exactly the checkpoint whose SHA matches the
+ * deployed state of the active target (resolves the M1 placeholder). Other
+ * checkpoints are explicitly set to `deployed: false`.
  */
 export function markDeployedCheckpoints(
   checkpoints: readonly Checkpoint[],
@@ -206,9 +206,9 @@ export function markDeployedCheckpoints(
 }
 
 /**
- * Reine Drift-Berechnung (Spiegel von `compareDrift`): weicht der Remote-Stand
- * von dem ab, was die Registry für deployt hält? Ein leeres `expectedSha`
- * (noch nie deployt) plus `remoteSha === null` ist KEIN Drift.
+ * Pure drift computation (mirror of `compareDrift`): does the remote state differ
+ * from what the registry considers deployed? An empty `expectedSha` (never
+ * deployed) plus `remoteSha === null` is NOT drift.
  */
 export function computeDrift(expectedSha: string, remoteSha: string | null): WabDriftResult {
   const expected = expectedSha === '' ? null : expectedSha;
@@ -216,7 +216,7 @@ export function computeDrift(expectedSha: string, remoteSha: string | null): Wab
 }
 
 /* ------------------------------------------------------------------ */
-/* Fortschritts-Reducer (Engine-Events → UI-Zustand)                   */
+/* Progress reducer (engine events → UI state)                         */
 /* ------------------------------------------------------------------ */
 
 export type DeployPhase =
@@ -230,21 +230,21 @@ export type DeployPhase =
   | 'done'
   | 'error';
 
-/** UI-Zustand eines laufenden Deploys, abgeleitet aus dem Event-Strom. */
+/** UI state of a running deploy, derived from the event stream. */
 export interface DeployProgressState {
   phase: DeployPhase;
-  /** Zuletzt bearbeitete Datei (Upload/Delete). */
+  /** Most recently processed file (upload/delete). */
   currentFile: string | null;
   uploaded: number;
   uploadTotal: number;
   deleted: number;
   deleteTotal: number;
-  /** Verzeichnisse, die vorab angelegt werden. */
+  /** Directories that are created upfront. */
   dirTotal: number;
   bytesUploaded: number;
-  /** Status-/Fehlertext für die UI (deutsch). */
+  /** Status/error text for the UI. */
   message: string | null;
-  /** Endergebnis nach `done`. */
+  /** Final result after `done`. */
   result: WabDeployResult | null;
 }
 
@@ -262,8 +262,8 @@ export const initialDeployProgressState: DeployProgressState = {
 };
 
 /**
- * Reiner Reducer: ein Engine-Fortschritts-Event → neuer UI-Zustand. Headless
- * testbar; die React-Komponente hält diesen Zustand nur.
+ * Pure reducer: one engine progress event → new UI state. Headless-testable; the
+ * React component only holds this state.
  */
 export function deployProgressReducer(
   state: DeployProgressState,
@@ -271,17 +271,17 @@ export function deployProgressReducer(
 ): DeployProgressState {
   switch (event.type) {
     case 'connecting':
-      return { ...initialDeployProgressState, phase: 'connecting', message: 'Verbinde …' };
+      return { ...initialDeployProgressState, phase: 'connecting', message: 'Connecting …' };
     case 'planning':
-      return { ...state, phase: 'planning', message: 'Ermittle Änderungen …' };
+      return { ...state, phase: 'planning', message: 'Determining changes …' };
     case 'ensuring-dirs':
-      return { ...state, phase: 'ensuring', dirTotal: event.total, message: 'Lege Verzeichnisse an …' };
+      return { ...state, phase: 'ensuring', dirTotal: event.total, message: 'Creating directories …' };
     case 'uploading':
       return {
         ...state,
         phase: 'uploading',
         currentFile: event.path,
-        // index ist 1-basiert (der gerade laufende Upload).
+        // index is 1-based (the upload currently in progress).
         uploaded: event.index,
         uploadTotal: event.total,
         message: null,
@@ -296,7 +296,7 @@ export function deployProgressReducer(
         message: null,
       };
     case 'manifest-written':
-      return { ...state, phase: 'finalizing', currentFile: null, message: 'Schreibe Manifest …' };
+      return { ...state, phase: 'finalizing', currentFile: null, message: 'Writing manifest …' };
     case 'done':
       return {
         ...state,
@@ -315,7 +315,7 @@ export function deployProgressReducer(
   }
 }
 
-/** Menschliche Kurzbeschreibung eines Protokolls für die UI. */
+/** Short human-readable description of a protocol for the UI. */
 export function protocolLabel(protocol: DeployProtocol): string {
   switch (protocol) {
     case 'sftp':

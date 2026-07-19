@@ -1,68 +1,68 @@
 /**
- * Interner Backend-Vertrag: eine schmale git-Abstraktion, hinter der
- * simple-git (System-git) und isomorphic-git (Fallback ohne git-Binary)
- * austauschbar sind. Aufrufer (index.ts) kennen nur dieses Interface.
+ * Internal backend contract: a thin git abstraction behind which
+ * simple-git (system git) and isomorphic-git (fallback without a git binary)
+ * are interchangeable. Callers (index.ts) only know this interface.
  */
 
-/** Welche git-Implementierung benutzt wird. */
+/** Which git implementation is used. */
 export type GitBackendKind = 'system' | 'isomorphic';
 
-/** Identität, mit der die App Checkpoints/Tags erstellt (nicht der Nutzer). */
+/** Identity the app creates checkpoints/tags with (not the user). */
 export const GIT_AUTHOR = {
   name: 'Web AI Builder',
   email: 'checkpoints@webaibuilder.invalid',
 } as const;
 
-/** Roh-Commit aus `git log` (noch nicht als Checkpoint interpretiert). */
+/** Raw commit from `git log` (not yet interpreted as a checkpoint). */
 export interface RawCommit {
-  /** Volle Commit-SHA. */
+  /** Full commit SHA. */
   sha: string;
-  /** Autor-Datum (ISO 8601 oder Epoch-basiert; wird später normalisiert). */
+  /** Author date (ISO 8601 or epoch-based; normalized later). */
   date: string;
-  /** Vollständige Commit-Message (Subject + Trailer). */
+  /** Full commit message (subject + trailers). */
   body: string;
 }
 
-/** Annotated Tag inkl. gepeelter Ziel-SHA und Tag-Message (= Versionsname). */
+/** Annotated tag incl. peeled target SHA and tag message (= version name). */
 export interface RawAnnotatedTag {
   tagName: string;
-  /** SHA des Commits, auf den der Tag (gepeelt) zeigt. */
+  /** SHA of the commit the tag points to (peeled). */
   targetSha: string;
-  /** Tag-Message; erste Zeile = Anzeigename der Version. */
+  /** Tag message; first line = display name of the version. */
   message: string;
 }
 
 /**
- * Die flachen git-Operationen, die die Versionierung braucht (PLAN §4):
+ * The flat git operations that versioning needs (PLAN §4):
  * init, add -A, commit, annotated tag, log, tree-checkout, status, rev-parse.
  */
 export interface GitRepo {
-  /** `git init` mit Branch `main`; idempotent gedacht für frische Verzeichnisse. */
+  /** `git init` with branch `main`; intended to be idempotent for fresh directories. */
   init(): Promise<void>;
-  /** true, wenn HEAD auf einen Commit zeigt (Repo nicht "unborn"). */
+  /** true if HEAD points to a commit (repo not "unborn"). */
   hasCommits(): Promise<boolean>;
-  /** `git add -A` — staged Neues, Geändertes und Gelöschtes. */
+  /** `git add -A` — stages new, changed and deleted files. */
   addAll(): Promise<void>;
-  /** Committet den Index (auch leer) und liefert die volle SHA. */
+  /** Commits the index (even empty) and returns the full SHA. */
   commit(message: string): Promise<string>;
-  /** Commits, neueste zuerst; leeres Array bei Repo ohne Commits. */
+  /** Commits, newest first; empty array for a repo without commits. */
   log(maxCount?: number): Promise<RawCommit[]>;
-  /** Annotated Tag auf `targetSha`; `message` trägt den Versionsnamen. */
+  /** Annotated tag on `targetSha`; `message` carries the version name. */
   createAnnotatedTag(tagName: string, targetSha: string, message: string): Promise<void>;
-  /** Alle annotated Tags (lightweight Tags werden ignoriert). */
+  /** All annotated tags (lightweight tags are ignored). */
   listAnnotatedTags(): Promise<RawAnnotatedTag[]>;
-  /** Alle Tag-Namen (auch lightweight) — für Kollisionsprüfung. */
+  /** All tag names (incl. lightweight) — for collision checking. */
   listTagNames(): Promise<string[]>;
-  /** true, wenn Arbeitsverzeichnis/Index vom HEAD abweichen (inkl. Untracked). */
+  /** true if working directory/index differ from HEAD (incl. untracked). */
   isDirty(): Promise<boolean>;
   /**
-   * Setzt Arbeitsverzeichnis + Index auf den Baum von `sha` — inklusive
-   * Löschen von Dateien, die es im Ziel nicht gibt. HEAD bleibt unberührt
-   * (kein detached HEAD; der Restore-Commit passiert danach).
+   * Sets working directory + index to the tree of `sha` — including
+   * deleting files that don't exist in the target. HEAD stays untouched
+   * (no detached HEAD; the restore commit happens afterward).
    */
   restoreTree(sha: string): Promise<void>;
-  /** Löst eine Ref/Kurz-SHA zu einer vollen Commit-SHA auf (wirft sonst). */
+  /** Resolves a ref/short SHA to a full commit SHA (throws otherwise). */
   resolveCommit(ref: string): Promise<string>;
-  /** Volle SHA von HEAD (wirft bei Repo ohne Commits). */
+  /** Full SHA of HEAD (throws for a repo without commits). */
   headSha(): Promise<string>;
 }

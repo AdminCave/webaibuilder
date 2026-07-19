@@ -1,13 +1,13 @@
 /**
- * `byok`-Adapter (bring-your-own-key, Dyad-Muster) — PLAN §4.
+ * `byok` adapter (bring-your-own-key, Dyad pattern) — PLAN §4.
  *
- * Ein Vercel-AI-SDK-`streamText`-Tool-Loop mit workspace-scoped Datei-Tools.
- * Anbieter/Modell kommen aus der Config; der `fullStream` wird auf den
- * core-`AgentEvent`-Strom abgebildet:
+ * A Vercel AI SDK `streamText` tool loop with workspace-scoped file tools.
+ * Provider/model come from the config; the `fullStream` is mapped onto the
+ * core `AgentEvent` stream:
  *   text-delta → text-delta · tool-call/-result → tool-activity ·
  *   finish → turn-complete · error/abort → error/turn-complete(interrupted).
  *
- * Datei-Änderungen erzeugen KEINE Events (ground truth = chokidar-Watcher).
+ * File changes produce NO events (ground truth = chokidar watcher).
  */
 
 import { randomUUID } from 'node:crypto';
@@ -24,41 +24,41 @@ import { type LanguageModel, stepCountIs, streamText } from 'ai';
 import { resolveModel, type ByokProvider } from './providers';
 import { createSiteTools } from './tools';
 
-/** Konstruktionsdaten für den byok-Adapter. */
+/** Construction data for the byok adapter. */
 export interface ByokConfig {
   provider: ByokProvider;
   apiKey: string;
   model?: string;
   /**
-   * Fertiges Sprachmodell direkt injizieren (überspringt {@link resolveModel}).
-   * Für eigene Provider-Instanzen und Tests; wenn gesetzt, ist `apiKey` optional.
+   * Inject a ready-made language model directly (skips {@link resolveModel}).
+   * For custom provider instances and tests; when set, `apiKey` is optional.
    */
   languageModel?: LanguageModel;
 }
 
-/** Obergrenze für Tool-Schritte pro Turn (verhindert Endlosschleifen). */
+/** Upper bound on tool steps per turn (prevents infinite loops). */
 const MAX_STEPS = 24;
 
 const SYSTEM_PROMPT = [
-  'Du bist der KI-Baumeister von Web AI Builder und baust statische Webseiten',
-  '(reines HTML/CSS/JS, kein Build-Step).',
-  'Du arbeitest ausschließlich mit den bereitgestellten Datei-Tools im Ordner site/.',
-  'Alle Pfade sind relativ zu site/. Du darfst nichts außerhalb von site/ anfassen.',
-  'Schreibe sauberes, semantisches HTML und modernes CSS. Antworte knapp auf Deutsch (Du-Form).',
+  'You are the AI builder of Web AI Builder and you build static websites',
+  '(plain HTML/CSS/JS, no build step).',
+  'You work exclusively with the provided file tools in the site/ folder.',
+  'All paths are relative to site/. You must not touch anything outside of site/.',
+  'Write clean, semantic HTML and modern CSS. Respond concisely in English.',
 ].join(' ');
 
 function toolLabel(toolName: string): string {
   switch (toolName) {
     case 'read_file':
-      return 'Datei lesen';
+      return 'Read file';
     case 'write_file':
-      return 'Datei schreiben';
+      return 'Write file';
     case 'edit_file':
-      return 'Datei bearbeiten';
+      return 'Edit file';
     case 'list_dir':
-      return 'Ordner auflisten';
+      return 'List folder';
     case 'glob':
-      return 'Dateien suchen';
+      return 'Find files';
     default:
       return toolName;
   }
@@ -87,14 +87,14 @@ class ByokBackend implements AgentBackend {
       return;
     }
     if (!config.apiKey) {
-      throw new Error('Für "byok" brauchst du einen API-Key.');
+      throw new Error('"byok" requires an API key.');
     }
     this.#model = resolveModel(config.provider, config.apiKey, config.model);
   }
 
   capabilities(): AgentCapabilities {
-    // Kein Session-Resume (zustandslos), Text-Streaming ja, Kosten liefert das
-    // AI SDK nicht → cost false.
+    // No session resume (stateless), text streaming yes, the AI SDK does not
+    // report cost → cost false.
     return { resume: false, partialText: true, cost: false };
   }
 
@@ -154,7 +154,7 @@ class ByokBackend implements AgentBackend {
             };
             yield {
               type: 'error',
-              message: `Das Tool "${toolLabel(name)}" ist fehlgeschlagen.`,
+              message: `The tool "${toolLabel(name)}" failed.`,
               recoverable: true,
               cause: String(part.error),
             };
@@ -168,7 +168,7 @@ class ByokBackend implements AgentBackend {
             stopReason = 'error';
             yield {
               type: 'error',
-              message: 'Der KI-Anbieter hat einen Fehler gemeldet.',
+              message: 'The AI provider reported an error.',
               recoverable: true,
               cause: String(part.error),
             };
@@ -185,7 +185,7 @@ class ByokBackend implements AgentBackend {
         stopReason = 'error';
         yield {
           type: 'error',
-          message: 'Der Turn konnte nicht abgeschlossen werden.',
+          message: 'The turn could not be completed.',
           recoverable: true,
           cause: err instanceof Error ? err.message : String(err),
         };
@@ -202,7 +202,7 @@ class ByokBackend implements AgentBackend {
   }
 }
 
-/** Erzeugt den byok-Adapter. */
+/** Creates the byok adapter. */
 export function createByokBackend(config: ByokConfig): AgentBackend {
   return new ByokBackend(config);
 }

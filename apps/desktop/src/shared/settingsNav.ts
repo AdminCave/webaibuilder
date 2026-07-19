@@ -1,34 +1,33 @@
 /**
- * Navigation des Einstellungs-Dialogs (Sektionen + Deep-Links). Rein und
- * umgebungsneutral — von App/Settings-Komponenten genutzt und headless testbar.
+ * Navigation of the settings dialog (sections + deep links). Pure and
+ * environment-neutral — used by App/Settings components and headless-testable.
  *
- * Deep-Links erlauben es z. B. dem Chat-Empty-State, die Einstellungen direkt
- * auf der richtigen Backend-Karte zu öffnen (`{ section: 'backends',
- * backendId: 'byok' }`).
+ * Deep links let, for example, the chat empty-state open Settings directly on the
+ * correct backend card (`{ section: 'backends', backendId: 'byok' }`).
  */
 
 import type { BackendId } from '@webaibuilder/core';
 
 export type SettingsSection = 'backends' | 'appearance' | 'help';
 
-/** Ziel beim Öffnen der Einstellungen. */
+/** Target when opening Settings. */
 export interface SettingsRoute {
   section: SettingsSection;
-  /** Optional: diese Backend-Karte aufgeklappt anzeigen/hinscrollen. */
+  /** Optional: show this backend card expanded / scroll to it. */
   backendId?: BackendId;
 }
 
 export const SETTINGS_SECTIONS: readonly { id: SettingsSection; label: string }[] = [
-  { id: 'backends', label: 'KI & Backends' },
-  { id: 'appearance', label: 'Darstellung' },
-  { id: 'help', label: 'Hilfe & Logs' },
+  { id: 'backends', label: 'AI & Backends' },
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'help', label: 'Help & Logs' },
 ];
 
 export const DEFAULT_SETTINGS_ROUTE: SettingsRoute = { section: 'backends' };
 
 const SECTION_IDS: ReadonlySet<string> = new Set(SETTINGS_SECTIONS.map((s) => s.id));
 
-/** Liest einen unbekannten Wert defensiv als Route ein (Default: backends). */
+/** Defensively parses an unknown value as a route (default: backends). */
 export function coerceSettingsRoute(value: unknown): SettingsRoute {
   if (typeof value !== 'object' || value === null) return { ...DEFAULT_SETTINGS_ROUTE };
   const obj = value as Record<string, unknown>;

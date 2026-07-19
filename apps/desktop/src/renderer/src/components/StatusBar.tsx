@@ -8,7 +8,7 @@ interface StatusBarProps {
   ping: PingResult | null;
   settings: AgentSettings | null;
   costUsd: number | null;
-  /** Deploy-Kurzstatus (aktives Ziel + zuletzt deployte SHA) oder null. */
+  /** Short deploy status (active target + last deployed SHA) or null. */
   deployStatus: string | null;
 }
 
@@ -27,11 +27,11 @@ export function StatusBar({
         <Icon name="cpu" size={12} />
         Backend: {backendLabel}
       </span>
-      {/* Viele Abo-CLIs melden keine Kosten — statt dauerhaft „Kosten: —" den
-          Chip nur zeigen, wenn mindestens ein Turn echte Kosten geliefert hat. */}
+      {/* Many subscription CLIs report no cost — instead of a permanent "Cost: —",
+          only show the chip once at least one turn has provided real cost. */}
       {costUsd !== null && (
         <span className="statusbar__item">
-          Kosten: {`${costUsd.toFixed(costUsd < 0.01 ? 4 : 2)} $`}
+          Cost: {`${costUsd.toFixed(costUsd < 0.01 ? 4 : 2)} $`}
         </span>
       )}
       <span className="statusbar__item">
@@ -46,7 +46,7 @@ export function StatusBar({
           className={ping === null ? 'status-icon status-icon--warn' : 'status-icon status-icon--ok'}
         />
         {ping === null
-          ? 'Bridge: nicht verbunden'
+          ? 'Bridge: not connected'
           : `Electron ${ping.versions.electron} · Chrome ${ping.versions.chrome} · Node ${ping.versions.node}`}
       </span>
     </footer>

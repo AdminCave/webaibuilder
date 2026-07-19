@@ -1,59 +1,59 @@
 /**
- * Transport-Abstraktion: eine schmale Schnittstelle, hinter der SFTP
- * (ssh2-sftp-client) und FTP/FTPS (basic-ftp) austauschbar sind (PLAN §4).
- * Die Sync-Engine kennt nur dieses Interface. rsync ist in M3 NICHT dabei.
+ * Transport abstraction: a narrow interface behind which SFTP
+ * (ssh2-sftp-client) and FTP/FTPS (basic-ftp) are interchangeable (PLAN §4).
+ * The sync engine only knows this interface. rsync is NOT included in M3.
  */
 
-// TODO(v1.1): rsync-Transport als erkannter Opt-in (Windows-Problematik,
-// PLAN §8) — braucht ein rsync-Binary und ist bewusst nicht in M3.
+// TODO(v1.1): rsync transport as a detected opt-in (Windows issues,
+// PLAN §8) — requires an rsync binary and is deliberately not in M3.
 
 import { posix } from 'node:path';
 
-/** Ein Verzeichniseintrag auf dem Remote (für Preflight/Listing). */
+/** A directory entry on the remote (for preflight/listing). */
 export interface RemoteEntry {
   name: string;
   type: 'file' | 'dir' | 'other';
 }
 
 /**
- * Die flachen Remote-Operationen, die die Sync-Engine braucht. Alle Pfade sind
- * absolute POSIX-Pfade auf dem Server. Implementierungen loggen NIE Credentials.
+ * The flat remote operations the sync engine needs. All paths are
+ * absolute POSIX paths on the server. Implementations NEVER log credentials.
  */
 export interface Transport {
-  /** Protokoll dieser Instanz (für Capability-Reporting). */
+  /** Protocol of this instance (for capability reporting). */
   readonly kind: 'sftp' | 'ftp' | 'ftps';
-  /** true, wenn die Datenverbindung die TLS-Session der Steuerverbindung wiederverwendet. */
+  /** true if the data connection reuses the control connection's TLS session. */
   readonly tlsSessionReuse: boolean | undefined;
 
   connect(): Promise<void>;
   disconnect(): Promise<void>;
 
-  /** Inhalt eines Remote-Verzeichnisses (wirft, wenn es nicht existiert). */
+  /** Contents of a remote directory (throws if it does not exist). */
   list(remoteDir: string): Promise<RemoteEntry[]>;
-  /** Legt ein Verzeichnis rekursiv an (idempotent). */
+  /** Creates a directory recursively (idempotent). */
   ensureDir(remoteDir: string): Promise<void>;
-  /** Entfernt ein Verzeichnis samt Inhalt (nur für die Preflight-Probe/Cleanup). */
+  /** Removes a directory and its contents (only for the preflight probe/cleanup). */
   removeDir(remoteDir: string): Promise<void>;
-  /** Lädt einen Puffer hoch (überschreibt vorhandene Datei). */
+  /** Uploads a buffer (overwrites an existing file). */
   uploadFile(remotePath: string, data: Buffer): Promise<void>;
-  /** Löscht eine Datei (idempotent — kein Fehler, wenn schon weg). */
+  /** Deletes a file (idempotent — no error if already gone). */
   deleteFile(remotePath: string): Promise<void>;
-  /** Liest eine Datei; null, wenn sie nicht existiert. */
+  /** Reads a file; null if it does not exist. */
   readFile(remotePath: string): Promise<Buffer | null>;
-  /** Schreibt eine Datei möglichst atomar (temp + rename, mit Fallback). */
+  /** Writes a file as atomically as possible (temp + rename, with fallback). */
   writeFile(remotePath: string, data: Buffer): Promise<void>;
-  /** Typ eines Remote-Pfads oder false, wenn er nicht existiert. */
+  /** Type of a remote path or false if it does not exist. */
   exists(remotePath: string): Promise<'file' | 'dir' | false>;
-  /** Benennt/verschiebt um (für die Capability-Probe; v1 baut nicht darauf). */
+  /** Renames/moves (for the capability probe; v1 does not build on it). */
   rename(fromPath: string, toPath: string): Promise<void>;
 }
 
-/** Normalisiert das Remote-Root: führender Slash, kein abschließender Slash. */
+/** Normalizes the remote root: leading slash, no trailing slash. */
 export function normalizeRoot(remotePath: string): string {
   let p = remotePath.replace(/\\/g, '/').trim();
   if (p.length === 0) p = '.';
-  // Relative Roots (z. B. "htdocs", ".") bleiben relativ; absolute werden
-  // sauber kanonisiert. Kein Erzwingen von "/" — manche Hoster chrooten.
+  // Relative roots (e.g. "htdocs", ".") stay relative; absolute ones are
+  // cleanly canonicalized. No forcing of "/" — some hosters chroot.
   if (p.startsWith('/')) {
     p = posix.normalize(p);
     if (p.length > 1 && p.endsWith('/')) p = p.slice(0, -1);
@@ -63,21 +63,21 @@ export function normalizeRoot(remotePath: string): string {
   return p;
 }
 
-/** Fügt Remote-Root + relativen Pfad zu einem absoluten Remote-Pfad zusammen. */
+/** Joins remote root + relative path into an absolute remote path. */
 export function remoteJoin(root: string, rel: string): string {
   return posix.join(root, rel);
 }
 
 /**
- * Alle Verzeichnisse (relativ zum Root), die für die gegebenen Dateipfade
- * existieren müssen — dedupliziert und flach-zuerst sortiert (Eltern vor Kind,
- * damit auch Hoster ohne rekursives mkdir die Reihenfolge korrekt sehen).
+ * All directories (relative to the root) that must exist for the given file
+ * paths — deduplicated and sorted shallow-first (parents before children, so
+ * that even hosters without recursive mkdir see the correct order).
  */
 export function ancestorDirsOf(relFilePaths: readonly string[]): string[] {
   const dirs = new Set<string>();
   for (const rel of relFilePaths) {
     const parts = rel.split('/');
-    parts.pop(); // Dateinamen entfernen
+    parts.pop(); // remove file name
     let acc = '';
     for (const part of parts) {
       acc = acc ? `${acc}/${part}` : part;
@@ -96,9 +96,9 @@ interface ErrnoLike {
 }
 
 /**
- * Übersetzt Transport-Fehler in klare deutsche Meldungen (Du-Form) für die
- * häufigen Shared-Hosting-Fälle: Auth, falscher Pfad, Verbindung, TLS.
- * Enthält NIE Credentials — nur Host/Port/Pfad-Kontext des Aufrufers.
+ * Translates transport errors into clear messages for the
+ * common shared-hosting cases: auth, wrong path, connection, TLS.
+ * NEVER contains credentials — only the caller's host/port/path context.
  */
 export function describeError(err: unknown, context: string): string {
   const e = (err ?? {}) as ErrnoLike;
@@ -107,13 +107,13 @@ export function describeError(err: unknown, context: string): string {
   const numeric = typeof e.code === 'number' ? e.code : undefined;
 
   if (code === 'ECONNREFUSED' || msg.includes('econnrefused')) {
-    return `${context}: Die Verbindung wurde abgelehnt. Läuft der Dienst und stimmt der Port?`;
+    return `${context}: The connection was refused. Is the service running and the port correct?`;
   }
   if (code === 'ENOTFOUND' || code === 'EAI_AGAIN' || msg.includes('getaddrinfo')) {
-    return `${context}: Den Server-Namen konnte ich nicht auflösen. Stimmt der Host?`;
+    return `${context}: Could not resolve the server name. Is the host correct?`;
   }
   if (code === 'ETIMEDOUT' || msg.includes('timed out') || msg.includes('timeout')) {
-    return `${context}: Zeitüberschreitung beim Verbinden. Firewall, Port oder Host prüfen.`;
+    return `${context}: Timeout while connecting. Check firewall, port, or host.`;
   }
   if (
     msg.includes('authentication') ||
@@ -124,7 +124,7 @@ export function describeError(err: unknown, context: string): string {
     msg.includes('username') ||
     msg.includes('password')
   ) {
-    return `${context}: Anmeldung fehlgeschlagen. Prüf Benutzernamen, Passwort bzw. den Schlüssel.`;
+    return `${context}: Authentication failed. Check the username, password, or key.`;
   }
   if (
     msg.includes('ssl') ||
@@ -133,7 +133,7 @@ export function describeError(err: unknown, context: string): string {
     msg.includes('wrong version number') ||
     msg.includes('secure')
   ) {
-    return `${context}: TLS-Problem. Verlangt der Server explizites FTPS – oder gerade nicht?`;
+    return `${context}: TLS problem. Does the server require explicit FTPS — or not?`;
   }
   if (
     code === 'ENOENT' ||
@@ -142,10 +142,10 @@ export function describeError(err: unknown, context: string): string {
     msg.includes('not exist') ||
     msg.includes('not a directory')
   ) {
-    return `${context}: Der Zielpfad existiert nicht oder ist nicht beschreibbar. Stimmt das Verzeichnis?`;
+    return `${context}: The target path does not exist or is not writable. Is the directory correct?`;
   }
   if (numeric !== undefined) {
-    return `${context}: Der Server hat mit Code ${numeric} abgelehnt.`;
+    return `${context}: The server rejected with code ${numeric}.`;
   }
-  return `${context}: ${e.message ?? 'Unbekannter Fehler'}`;
+  return `${context}: ${e.message ?? 'Unknown error'}`;
 }

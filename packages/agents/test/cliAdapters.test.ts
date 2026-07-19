@@ -1,9 +1,9 @@
 /**
- * Tests für die vier Abo-/CLI-Adapter (M4): claude-cli · codex · gemini-cli ·
- * grok-cli. KEINE echten Vendor-CLIs — ein injizierter Fake-spawn spielt canned
- * JSONL-Transcripts ab. Geprüft: Event-Mapping inkl. turn-complete (Kosten/
- * Session), ENOENT → Fehler mit Install-Hinweis, interrupt() killt das Kind,
- * kaputte JSON-Zeilen werden übersprungen.
+ * Tests for the four subscription/CLI adapters (M4): claude-cli · codex ·
+ * gemini-cli · grok-cli. NO real vendor CLIs — an injected fake spawn plays back
+ * canned JSONL transcripts. Checked: event mapping incl. turn-complete (cost/
+ * session), ENOENT → error with an install hint, interrupt() kills the child,
+ * broken JSON lines are skipped.
  */
 
 import type { AgentEvent, AgentTurnRequest } from '@webaibuilder/core';
@@ -43,7 +43,7 @@ function textOf(events: AgentEvent[]): string {
 
 function lastComplete(events: AgentEvent[]): Extract<AgentEvent, { type: 'turn-complete' }> {
   const ev = events.at(-1);
-  if (!ev || ev.type !== 'turn-complete') throw new Error('kein turn-complete am Ende');
+  if (!ev || ev.type !== 'turn-complete') throw new Error('no turn-complete at the end');
   return ev;
 }
 
@@ -51,23 +51,23 @@ function lastComplete(events: AgentEvent[]): Extract<AgentEvent, { type: 'turn-c
 /* claude-cli                                                          */
 /* ------------------------------------------------------------------ */
 
-describe('claude-cli-Adapter', () => {
+describe('claude-cli adapter', () => {
   const transcript = [
     { type: 'system', subtype: 'init', session_id: 'sess-claude' },
     { type: 'stream_event', event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Hallo ' } } },
-    'das ist keine gültige json-zeile {{{', // muss übersprungen werden
+    'das ist keine gültige json-zeile {{{', // must be skipped
     { type: 'stream_event', event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Welt' } } },
     { type: 'assistant', message: { content: [{ type: 'tool_use', id: 'tu1', name: 'Write', input: { file_path: 'index.html' } }] } },
     { type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 'tu1' }] } },
     { type: 'result', subtype: 'success', total_cost_usd: 0.0021, session_id: 'sess-claude' },
   ];
 
-  it('mappt init/stream_event/assistant/user/result auf AgentEvents (skippt Müll)', async () => {
+  it('maps init/stream_event/assistant/user/result onto AgentEvents (skips junk)', async () => {
     const { spawn, child, calls } = scriptedSpawn(transcript);
     const backend = createClaudeCliBackend({ spawn });
     const events = await collect(backend.runTurn(request('Bau eine Seite')));
 
-    // Aufruf: cwd = siteDir, die verlangten stream-json-Flags.
+    // Call: cwd = siteDir, the required stream-json flags.
     expect(calls[0]?.command).toBe('claude');
     expect(calls[0]?.cwd).toBe(siteDir);
     expect(calls[0]?.args).toEqual(
@@ -83,7 +83,7 @@ describe('claude-cli-Adapter', () => {
         'acceptEdits',
       ]),
     );
-    // Prompt ging als stream-json-User-Nachricht auf stdin.
+    // The prompt went to stdin as a stream-json user message.
     const firstStdin = JSON.parse(child.stdinChunks[0] ?? '{}') as { type?: string; message?: { content?: string } };
     expect(firstStdin.type).toBe('user');
     expect(firstStdin.message?.content).toBe('Bau eine Seite');
@@ -91,7 +91,7 @@ describe('claude-cli-Adapter', () => {
     expect(textOf(events)).toBe('Hallo Welt');
 
     const activity = events.filter((e) => e.type === 'tool-activity');
-    expect(activity.some((e) => e.type === 'tool-activity' && e.phase === 'start' && e.tool === 'Datei schreiben' && e.detail === 'index.html')).toBe(true);
+    expect(activity.some((e) => e.type === 'tool-activity' && e.phase === 'start' && e.tool === 'Write file' && e.detail === 'index.html')).toBe(true);
     expect(activity.some((e) => e.type === 'tool-activity' && e.phase === 'end')).toBe(true);
 
     const complete = lastComplete(events);
@@ -100,7 +100,7 @@ describe('claude-cli-Adapter', () => {
     expect(complete.costUsd).toBeCloseTo(0.0021);
   });
 
-  it('setzt --resume bei vorhandener sessionId und meldet Capabilities', () => {
+  it('sets --resume when a sessionId is present and reports capabilities', () => {
     const { spawn, calls } = scriptedSpawn([]);
     const backend = createClaudeCliBackend({ spawn });
     expect(backend.capabilities()).toEqual({ resume: true, partialText: true, cost: true });
@@ -108,26 +108,26 @@ describe('claude-cli-Adapter', () => {
     expect(calls[0]?.args).toEqual(expect.arrayContaining(['--resume', 'sess-x']));
   });
 
-  it('ENOENT → Fehler-Event mit Install-Hinweis (nicht wiederherstellbar)', async () => {
+  it('ENOENT → error event with install hint (not recoverable)', async () => {
     const { spawn } = enoentSpawn();
     const backend = createClaudeCliBackend({ spawn });
     const events = await collect(backend.runTurn(request('Bau eine Seite')));
     const error = events.find((e) => e.type === 'error');
     expect(error?.type).toBe('error');
     if (error?.type === 'error') {
-      expect(error.message).toContain('Claude Code nicht gefunden');
+      expect(error.message).toContain('Claude Code not found');
       expect(error.message).toContain('https://docs.claude.com');
       expect(error.recoverable).toBe(false);
     }
     expect(lastComplete(events).stopReason).toBe('error');
   });
 
-  it('interrupt() killt den Kindprozess (SIGTERM) und meldet interrupted', async () => {
+  it('interrupt() kills the child process (SIGTERM) and reports interrupted', async () => {
     const { child, spawn } = controllableSpawn();
     const backend = createClaudeCliBackend({ spawn });
     const iterator = backend.runTurn(request('Erzähl viel'))[Symbol.asyncIterator]();
 
-    const first = iterator.next(); // Engine startet, hängt Listener
+    const first = iterator.next(); // engine starts, attaches listeners
     child.emitLine({ type: 'stream_event', event: { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Teil' } } });
     const firstEvent = await first;
     expect(firstEvent.value).toMatchObject({ type: 'text-delta' });
@@ -135,7 +135,7 @@ describe('claude-cli-Adapter', () => {
     await backend.interrupt();
     expect(child.killSignals).toContain('SIGTERM');
 
-    child.emitClose(null, 'SIGTERM'); // Prozess endet durch das Signal
+    child.emitClose(null, 'SIGTERM'); // process ends because of the signal
     const rest: AgentEvent[] = [];
     for (;;) {
       const { value, done } = await iterator.next();
@@ -145,7 +145,7 @@ describe('claude-cli-Adapter', () => {
     expect(lastComplete(rest).stopReason).toBe('interrupted');
   });
 
-  it('interrupt() eskaliert nach Grace auf SIGKILL', async () => {
+  it('interrupt() escalates to SIGKILL after the grace period', async () => {
     const { child, spawn } = controllableSpawn();
     const backend = createClaudeCliBackend({ spawn, killGraceMs: 5 });
     const iterator = backend.runTurn(request('Erzähl viel'))[Symbol.asyncIterator]();
@@ -154,11 +154,11 @@ describe('claude-cli-Adapter', () => {
     await first;
 
     await backend.interrupt();
-    await new Promise((r) => setTimeout(r, 40)); // Grace verstreichen lassen
+    await new Promise((r) => setTimeout(r, 40)); // let the grace period elapse
     expect(child.killSignals).toContain('SIGKILL');
 
     child.emitClose(null, 'SIGKILL');
-    await iterator.next(); // Generator sauber beenden
+    await iterator.next(); // finish the generator cleanly
   });
 });
 
@@ -166,7 +166,7 @@ describe('claude-cli-Adapter', () => {
 /* codex                                                              */
 /* ------------------------------------------------------------------ */
 
-describe('codex-Adapter', () => {
+describe('codex adapter', () => {
   const transcript = [
     { type: 'thread.started', thread_id: 'th-1' },
     { type: 'turn.started' },
@@ -177,7 +177,7 @@ describe('codex-Adapter', () => {
     { type: 'turn.completed', usage: { input_tokens: 10, output_tokens: 5 } },
   ];
 
-  it('mappt thread/item/turn-Events (agent_message → Text, command → tool-activity)', async () => {
+  it('maps thread/item/turn events (agent_message → text, command → tool-activity)', async () => {
     const { spawn, calls } = scriptedSpawn(transcript);
     const backend = createCodexBackend({ spawn });
     expect(backend.capabilities()).toEqual({ resume: true, partialText: false, cost: false });
@@ -189,8 +189,8 @@ describe('codex-Adapter', () => {
 
     expect(textOf(events)).toBe('Fertig gebaut.');
     const activity = events.filter((e) => e.type === 'tool-activity');
-    expect(activity.some((e) => e.type === 'tool-activity' && e.tool === 'Shell-Befehl' && e.phase === 'start' && e.detail === 'ls -la')).toBe(true);
-    expect(activity.some((e) => e.type === 'tool-activity' && e.tool === 'Shell-Befehl' && e.phase === 'end')).toBe(true);
+    expect(activity.some((e) => e.type === 'tool-activity' && e.tool === 'Shell command' && e.phase === 'start' && e.detail === 'ls -la')).toBe(true);
+    expect(activity.some((e) => e.type === 'tool-activity' && e.tool === 'Shell command' && e.phase === 'end')).toBe(true);
 
     const complete = lastComplete(events);
     expect(complete.stopReason).toBe('end');
@@ -198,14 +198,14 @@ describe('codex-Adapter', () => {
     expect(complete.costUsd).toBeUndefined();
   });
 
-  it('nutzt `exec resume <id>` bei vorhandener sessionId', () => {
+  it('uses `exec resume <id>` when a sessionId is present', () => {
     const { spawn, calls } = scriptedSpawn([]);
     const backend = createCodexBackend({ spawn });
     void collect(backend.runTurn(request('weiter', 'th-9')));
     expect(calls[0]?.args).toEqual(['exec', 'resume', 'th-9', '--json', 'weiter']);
   });
 
-  it('turn.failed → Fehler-Event + stopReason error', async () => {
+  it('turn.failed → error event + stopReason error', async () => {
     const { spawn } = scriptedSpawn([
       { type: 'thread.started', thread_id: 't' },
       { type: 'turn.failed', error: { message: 'Rate limit' } },
@@ -218,11 +218,11 @@ describe('codex-Adapter', () => {
     expect(lastComplete(events).stopReason).toBe('error');
   });
 
-  it('ENOENT → Fehler-Event mit Install-Hinweis', async () => {
+  it('ENOENT → error event with install hint', async () => {
     const { spawn } = enoentSpawn();
     const events = await collect(createCodexBackend({ spawn }).runTurn(request('x')));
     const error = events.find((e) => e.type === 'error');
-    expect(error?.type === 'error' && error.message).toContain('Codex CLI nicht gefunden');
+    expect(error?.type === 'error' && error.message).toContain('Codex CLI not found');
     expect(error?.type === 'error' && error.message).toContain('https://developers.openai.com');
   });
 });
@@ -231,7 +231,7 @@ describe('codex-Adapter', () => {
 /* gemini-cli                                                          */
 /* ------------------------------------------------------------------ */
 
-describe('gemini-cli-Adapter', () => {
+describe('gemini-cli adapter', () => {
   const transcript = [
     { type: 'init', session_id: 'g-sess', model: 'gemini-2.5-pro' },
     { type: 'message', role: 'assistant', content: 'Ich baue ', delta: true },
@@ -242,7 +242,7 @@ describe('gemini-cli-Adapter', () => {
     { type: 'result', status: 'success', stats: { input_tokens: 20, output_tokens: 8 } },
   ];
 
-  it('mappt init/message/tool_use/tool_result/result auf AgentEvents', async () => {
+  it('maps init/message/tool_use/tool_result/result onto AgentEvents', async () => {
     const { spawn, calls } = scriptedSpawn(transcript);
     const backend = createGeminiCliBackend({ spawn });
     expect(backend.capabilities()).toEqual({ resume: false, partialText: true, cost: false });
@@ -253,21 +253,21 @@ describe('gemini-cli-Adapter', () => {
 
     expect(textOf(events)).toBe('Ich baue die Seite.');
     const activity = events.filter((e) => e.type === 'tool-activity');
-    expect(activity.some((e) => e.type === 'tool-activity' && e.tool === 'Datei schreiben' && e.phase === 'start' && e.detail === 'index.html')).toBe(true);
+    expect(activity.some((e) => e.type === 'tool-activity' && e.tool === 'Write file' && e.phase === 'start' && e.detail === 'index.html')).toBe(true);
     expect(activity.some((e) => e.type === 'tool-activity' && e.phase === 'end')).toBe(true);
 
     expect(lastComplete(events).stopReason).toBe('end');
   });
 
-  it('ENOENT → Fehler-Event mit Install-Hinweis (google.dev)', async () => {
+  it('ENOENT → error event with install hint (google.dev)', async () => {
     const { spawn } = enoentSpawn();
     const events = await collect(createGeminiCliBackend({ spawn }).runTurn(request('x')));
     const error = events.find((e) => e.type === 'error');
-    expect(error?.type === 'error' && error.message).toContain('Gemini CLI nicht gefunden');
+    expect(error?.type === 'error' && error.message).toContain('Gemini CLI not found');
     expect(error?.type === 'error' && error.message).toContain('https://ai.google.dev');
   });
 
-  it('nicht-null Exit-Code → Fehler-Event', async () => {
+  it('non-null exit code → error event', async () => {
     const { spawn } = scriptedSpawn([{ type: 'init', session_id: 'g' }], { exitCode: 1 });
     const events = await collect(createGeminiCliBackend({ spawn }).runTurn(request('x')));
     expect(events.some((e) => e.type === 'error')).toBe(true);
@@ -276,10 +276,10 @@ describe('gemini-cli-Adapter', () => {
 });
 
 /* ------------------------------------------------------------------ */
-/* grok-cli (experimentell)                                            */
+/* grok-cli (experimental)                                            */
 /* ------------------------------------------------------------------ */
 
-describe('grok-cli-Adapter (experimentell)', () => {
+describe('grok-cli adapter (experimental)', () => {
   const transcript = [
     { method: 'session/update', params: { update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'Baue ' } } } },
     'kaputt {',
@@ -289,7 +289,7 @@ describe('grok-cli-Adapter (experimentell)', () => {
     { type: 'result' },
   ];
 
-  it('mappt ACP session/update-Chunks tolerant auf AgentEvents', async () => {
+  it('tolerantly maps ACP session/update chunks onto AgentEvents', async () => {
     const { spawn, calls } = scriptedSpawn(transcript);
     const backend = createGrokCliBackend({ spawn });
     expect(backend.capabilities()).toEqual({ resume: false, partialText: true, cost: false });
@@ -305,12 +305,12 @@ describe('grok-cli-Adapter (experimentell)', () => {
     expect(lastComplete(events).stopReason).toBe('end');
   });
 
-  it('ENOENT → Fehler-Event mit Install-Hinweis (experimentell, x.ai)', async () => {
+  it('ENOENT → error event with install hint (experimental, x.ai)', async () => {
     const { spawn } = enoentSpawn();
     const events = await collect(createGrokCliBackend({ spawn }).runTurn(request('x')));
     const error = events.find((e) => e.type === 'error');
-    expect(error?.type === 'error' && error.message).toContain('Grok Build CLI nicht gefunden');
+    expect(error?.type === 'error' && error.message).toContain('Grok Build CLI not found');
     expect(error?.type === 'error' && error.message).toContain('https://docs.x.ai');
-    expect(error?.type === 'error' && error.message).toContain('experimentell');
+    expect(error?.type === 'error' && error.message).toContain('experimental');
   });
 });

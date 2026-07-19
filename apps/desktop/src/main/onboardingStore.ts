@@ -1,12 +1,12 @@
 /**
- * Persistenz des Erst-Start-Onboarding-Zustands im Main-Prozess (M5, PLAN §6).
+ * Persistence of the first-run onboarding state in the main process (M5, PLAN §6).
  *
- * Schlichte JSON-Datei unter `<userData>/onboarding-state.json` (kein
- * DB-Schema), injizierbarer Pfad → headless mit vitest testbar. Enthält KEINE
- * Secrets, nur das `hasOnboarded`-Flag (+ optionalen Abschluss-Zeitstempel).
+ * A simple JSON file under `<userData>/onboarding-state.json` (no DB schema),
+ * with an injectable path → headless testable with vitest. Contains NO secrets,
+ * only the `hasOnboarded` flag (+ an optional completion timestamp).
  *
- * Die „soll das Onboarding gezeigt werden?"-Logik lebt bewusst in
- * shared/onboarding.ts (umgebungsneutral, geteilt & separat getestet).
+ * The "should onboarding be shown?" logic deliberately lives in
+ * shared/onboarding.ts (environment-neutral, shared & tested separately).
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -20,7 +20,7 @@ import {
 } from '../shared/onboarding';
 
 export interface OnboardingStoreOptions {
-  /** Zeitquelle für einen automatisch gesetzten Abschluss-Zeitstempel. */
+  /** Time source for an automatically set completion timestamp. */
   now?: () => Date;
 }
 
@@ -41,9 +41,9 @@ export class OnboardingStore {
   }
 
   /**
-   * Wendet ein (Teil-)Update an und persistiert. Wird `hasOnboarded` erstmals auf
-   * true gesetzt und ist noch kein Abschluss-Zeitstempel vorhanden, setzt der
-   * Store ihn automatisch (nur informativ).
+   * Applies a (partial) update and persists. When `hasOnboarded` is set to true
+   * for the first time and no completion timestamp exists yet, the store sets it
+   * automatically (informational only).
    */
   set(input: OnboardingStateInput): OnboardingState {
     const merged = mergeOnboardingState(this.state, input);
@@ -61,7 +61,7 @@ export class OnboardingStore {
         return coerceOnboardingState(JSON.parse(readFileSync(this.filePath, 'utf8')));
       }
     } catch {
-      /* Kaputte Datei → Default (Onboarding wird dann gezeigt), nicht crashen. */
+      /* Corrupt file → default (onboarding is then shown), don't crash. */
     }
     return coerceOnboardingState(undefined);
   }
@@ -71,7 +71,7 @@ export class OnboardingStore {
       mkdirSync(dirname(this.filePath), { recursive: true });
       writeFileSync(this.filePath, `${JSON.stringify(this.state, null, 2)}\n`);
     } catch {
-      /* Best effort — der In-Memory-Zustand bleibt führend. */
+      /* Best effort — the in-memory state remains authoritative. */
     }
   }
 }

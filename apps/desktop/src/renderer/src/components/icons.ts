@@ -1,8 +1,8 @@
 /**
- * Icon-Registry — die EINZIGE Austausch-Schicht zwischen App und Icon-Quelle
- * (aktuell lucide-react: MIT, monochrome Strich-Icons, passend zur Hairline-
- * Ästhetik des AdminCave-DS). Sollen später eigene DS-Icons kommen, ändert
- * sich nur diese Datei — alle Aufrufstellen (<Icon name="…">) bleiben gleich.
+ * Icon registry — the ONLY swap layer between the app and the icon source
+ * (currently lucide-react: MIT, monochrome line icons, matching the hairline
+ * aesthetic of the AdminCave DS). If custom DS icons arrive later, only this
+ * file changes — all call sites (<Icon name="…">) stay the same.
  */
 
 import {

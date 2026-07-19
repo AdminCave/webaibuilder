@@ -1,6 +1,6 @@
 /**
- * Headless-Tests des Onboarding-Stores (Node, ohne Electron). Pfad injiziert.
- * Prüft Persistenz + „soll gezeigt werden?"-Verhalten über einen Neustart.
+ * Headless tests of the onboarding store (Node, without Electron). Path injected.
+ * Verifies persistence + "should it be shown?" behavior across a restart.
  */
 
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -25,13 +25,13 @@ afterEach(() => {
 });
 
 describe('OnboardingStore', () => {
-  it('zeigt das Onboarding beim allerersten Start (keine Datei)', () => {
+  it('shows the onboarding on the very first start (no file)', () => {
     const store = new OnboardingStore(filePath);
     expect(store.get().hasOnboarded).toBe(false);
     expect(shouldShowOnboarding(store.get())).toBe(true);
   });
 
-  it('persistiert hasOnboarded und setzt einen Abschluss-Zeitstempel', () => {
+  it('persists hasOnboarded and sets a completion timestamp', () => {
     const store = new OnboardingStore(filePath, {
       now: () => new Date('2026-07-13T12:00:00.000Z'),
     });
@@ -44,7 +44,7 @@ describe('OnboardingStore', () => {
     expect(parsed['completedAt']).toBe('2026-07-13T12:00:00.000Z');
   });
 
-  it('überlebt einen Neustart (zweiter Store liest den Zustand)', () => {
+  it('survives a restart (a second store reads the state)', () => {
     const first = new OnboardingStore(filePath);
     first.set({ hasOnboarded: true });
 
@@ -53,19 +53,19 @@ describe('OnboardingStore', () => {
     expect(shouldShowOnboarding(second.get())).toBe(false);
   });
 
-  it('erlaubt das erneute Anzeigen (hasOnboarded zurück auf false)', () => {
+  it('allows showing it again (hasOnboarded back to false)', () => {
     const store = new OnboardingStore(filePath);
     store.set({ hasOnboarded: true });
     expect(shouldShowOnboarding(store.get())).toBe(false);
 
-    // „Einführung erneut zeigen" setzt das Flag zurück.
+    // "Show the intro again" resets the flag.
     store.set({ hasOnboarded: false });
     expect(store.get().hasOnboarded).toBe(false);
     expect(shouldShowOnboarding(store.get())).toBe(true);
   });
 
-  it('fällt bei kaputter Datei auf den Default zurück (zeigt das Onboarding)', () => {
-    // Absichtlich ungültiges JSON auf die Platte legen.
+  it('falls back to the default on a corrupt file (shows the onboarding)', () => {
+    // Deliberately write invalid JSON to disk.
     writeFileSync(filePath, '{ das ist kein json');
     const store = new OnboardingStore(filePath);
     expect(store.get().hasOnboarded).toBe(false);

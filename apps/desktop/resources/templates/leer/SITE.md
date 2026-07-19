@@ -1,28 +1,28 @@
-# SITE.md — Bauplan dieser Seite
+# SITE.md — Blueprint of this site
 
-Diese Datei ist die Karte der Webseite für KI-Änderungen. Halte sie aktuell,
-sobald Seiten oder gemeinsame Blöcke dazukommen.
+This file is the map of the website for AI changes. Keep it up to date
+as soon as pages or shared blocks are added.
 
-## Technik
+## Technology
 
-- Reines statisches HTML/CSS/JS — kein Build-Schritt, keine Abhängigkeiten.
-- Keine externen Ressourcen (Fonts, CDNs, Tracker) einbinden: die Seite bleibt
-  selbstständig und datenschutzfreundlich.
-- Farben und Schrift hängen an den CSS-Variablen in `styles.css` (`:root`).
+- Pure static HTML/CSS/JS — no build step, no dependencies.
+- Do not include external resources (fonts, CDNs, trackers): the site stays
+  self-contained and privacy-friendly.
+- Colors and typography live in the CSS variables in `styles.css` (`:root`).
 
-## Seiten
+## Pages
 
-| Datei        | Zweck                                     |
-| ------------ | ----------------------------------------- |
-| `index.html` | Startseite — bewusst leerer Ausgangspunkt |
+| File         | Purpose                                     |
+| ------------ | ------------------------------------------- |
+| `index.html` | Home page — an intentionally blank starting point |
 
-## Gemeinsame Blöcke
+## Shared blocks
 
-Noch keine. Sobald mehrere Seiten existieren: Header/Navigation und Footer als
-gemeinsame Blöcke hier dokumentieren und auf allen Seiten identisch halten;
-gemeinsames JS in eine `site.js` auslagern und auf jeder Seite einbinden.
+None yet. Once several pages exist: document the header/navigation and footer
+here as shared blocks and keep them identical across all pages; move shared JS
+into a `site.js` and include it on every page.
 
-## Konventionen
+## Conventions
 
-- Sprache: Deutsch, Besucher werden geduzt. Keine Emojis, keine Verläufe.
-- Dunkles Design auf Schwarz, Hairline-Rahmen, genau ein Akzentblau (#4f9dff).
+- Language: English, addressing the visitor directly. No emojis, no gradients.
+- Dark design on black, hairline borders, exactly one accent blue (#4f9dff).

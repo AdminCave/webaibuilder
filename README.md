@@ -11,7 +11,7 @@ An AdminCave project. Local-first and GDPR-conscious, built for the German-speak
 
 > Status: v1 (milestones M0–M5 complete). See [Status / Roadmap](#status--roadmap).
 
-> **Note on language:** the source, docs, and commit history of this project are in **English**. The shipped **app UI is German** on purpose — the target audience is the DACH region. See [Localization](#localization).
+> **Note on language:** the entire project — source, docs, commit history, and the app UI — is in **English**. See [Localization](#localization).
 
 <!-- TODO(screenshot): three-panel view — Chat ⟷ Live Preview ⟷ Timeline. -->
 <!-- ![Web AI Builder — screenshot](docs/screenshot.png) -->
@@ -73,7 +73,7 @@ Local-first, no telemetry. When something goes wrong, the details land in a **lo
 
 ## Localization
 
-The **app UI is German** — a deliberate product decision for the DACH target audience (informal "du", no emojis). Everything a developer touches — source code, comments, docs, commit messages, identifiers — is **English**. If broader UI localization becomes a goal, the user-facing strings are the layer to internationalize; the surrounding code already reads as English.
+The project is **English throughout** — source code, comments, docs, commit messages, and the app UI. The product targets the DACH region, so a future German (or other) localization is plausible; the user-facing strings are the layer to internationalize, and the surrounding code is already English.
 
 ## Install & development
 

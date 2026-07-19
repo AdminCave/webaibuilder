@@ -1,35 +1,35 @@
 /**
- * HTML-Injection (Dyad-`dyad-shim.js`-Muster, PLAN §4 Live-Preview):
- * In jede ausgelieferte HTML-Seite wird vor `</body>` ein Script injiziert mit
+ * HTML injection (Dyad `dyad-shim.js` pattern, PLAN §4 live preview):
+ * A script is injected before `</body>` into every served HTML page with
  *
- *  (a) wab-reload-client  — WebSocket-Client für Live-Reload; CSS-only-Änderungen
- *      tauschen `<link rel="stylesheet">` ohne Full-Reload.
- *  (b) wab-console-shim   — fängt `console.*`, Fehler (`error`-Event, deckt
- *      `window.onerror` ab) und `unhandledrejection`, serialisiert mit
- *      Größen-Caps, macht Stack-Pfade projekt-relativ und meldet alles per
- *      `postMessage` an den Parent-Frame UND über den WS an den Server.
+ *  (a) wab-reload-client  — WebSocket client for live reload; CSS-only changes
+ *      swap `<link rel="stylesheet">` without a full reload.
+ *  (b) wab-console-shim   — captures `console.*`, errors (`error` event, covers
+ *      `window.onerror`) and `unhandledrejection`, serializes with
+ *      size caps, makes stack paths project-relative and reports everything via
+ *      `postMessage` to the parent frame AND over the WS to the server.
  */
 
-/** Pfad des WebSocket-Endpunkts (teilt sich den HTTP-Server). */
+/** Path of the WebSocket endpoint (shares the HTTP server). */
 export const WS_PATH = '/__wab_ws';
 
-/** Marker im injizierten Script — auch von den Tests geprüft. */
+/** Marker in the injected script — also checked by the tests. */
 export const RELOAD_MARKER = 'wab-reload-client';
 export const SHIM_MARKER = 'wab-console-shim';
 
-/** Cap pro serialisiertem Console-Argument (~8 KB). */
+/** Cap per serialized console argument (~8 KB). */
 export const ARG_CAP = 8 * 1024;
-/** Cap pro Gesamt-Nachricht (~32 KB). */
+/** Cap per total message (~32 KB). */
 export const TOTAL_CAP = 32 * 1024;
 
-/** Baut das injizierte `<script>`-Element (Reload-Client + Console-Shim). */
+/** Builds the injected `<script>` element (reload client + console shim). */
 export function buildPreviewClientScript(token: string): string {
-  // Token/Konstanten werden als JSON-Literale eingebettet.
+  // Token/constants are embedded as JSON literals.
   const tokenLiteral = JSON.stringify(token);
   const wsPathLiteral = JSON.stringify(WS_PATH);
 
   return `<script data-wab-preview="1">
-/* ${RELOAD_MARKER} + ${SHIM_MARKER} — von Web AI Builder injiziert (nur Dev-Preview) */
+/* ${RELOAD_MARKER} + ${SHIM_MARKER} — injected by Web AI Builder (dev preview only) */
 (function () {
   'use strict';
   if (window.__WAB_PREVIEW__) return;
@@ -51,7 +51,7 @@ export function buildPreviewClientScript(token: string): string {
   var socket = null;
   var outbox = [];
 
-  /* Pfade projekt-relativ machen und das Token aus Texten tilgen. */
+  /* Make paths project-relative and strip the token from texts. */
   function relativize(text) {
     var out = String(text);
     out = out.split(window.location.origin + '/').join('');
@@ -62,7 +62,7 @@ export function buildPreviewClientScript(token: string): string {
 
   function cap(text, limit) {
     text = String(text);
-    return text.length > limit ? text.slice(0, limit) + ' … [gekürzt]' : text;
+    return text.length > limit ? text.slice(0, limit) + ' … [truncated]' : text;
   }
 
   function serializeArg(value) {
@@ -72,17 +72,17 @@ export function buildPreviewClientScript(token: string): string {
         var head = (value.name || 'Error') + ': ' + value.message;
         return cap(relativize(value.stack ? head + '\\n' + value.stack : head), ARG_CAP);
       }
-      if (typeof value === 'function') return '[function ' + (value.name || 'anonym') + ']';
+      if (typeof value === 'function') return '[function ' + (value.name || 'anonymous') + ']';
       if (typeof value === 'undefined') return 'undefined';
       if (typeof value === 'bigint') return String(value) + 'n';
       var json = JSON.stringify(value);
       return cap(typeof json === 'string' ? json : String(value), ARG_CAP);
     } catch (_ignored) {
-      try { return cap(String(value), ARG_CAP); } catch (_ignored2) { return '[nicht serialisierbar]'; }
+      try { return cap(String(value), ARG_CAP); } catch (_ignored2) { return '[not serializable]'; }
     }
   }
 
-  /* An Parent-Frame (postMessage) UND über den WS an den Server melden. */
+  /* Report to the parent frame (postMessage) AND over the WS to the server. */
   function send(payload) {
     var text;
     try { text = JSON.stringify(payload); } catch (_ignored) { return; }
@@ -95,7 +95,7 @@ export function buildPreviewClientScript(token: string): string {
       if (window.parent && window.parent !== window) {
         window.parent.postMessage(Object.assign({ source: 'wab-preview' }, payload), '*');
       }
-    } catch (_ignored) { /* Parent nicht erreichbar — egal. */ }
+    } catch (_ignored) { /* Parent not reachable — never mind. */ }
   }
 
   /* ---- ${SHIM_MARKER} ---- */
@@ -107,7 +107,7 @@ export function buildPreviewClientScript(token: string): string {
         var parts = [];
         for (var i = 0; i < arguments.length; i += 1) parts.push(serializeArg(arguments[i]));
         send({ kind: 'console', level: level, text: cap(relativize(parts.join(' ')), TOTAL_CAP) });
-      } catch (_ignored) { /* Shim darf die Seite nie brechen. */ }
+      } catch (_ignored) { /* The shim must never break the page. */ }
     };
   });
 
@@ -120,11 +120,11 @@ export function buildPreviewClientScript(token: string): string {
         : undefined;
       send({
         kind: 'error',
-        message: cap(relativize(event.message || 'Unbekannter Fehler'), ARG_CAP),
+        message: cap(relativize(event.message || 'Unknown error'), ARG_CAP),
         stack: stack,
         source: source
       });
-    } catch (_ignored) { /* nie werfen */ }
+    } catch (_ignored) { /* never throw */ }
   });
 
   window.addEventListener('unhandledrejection', function (event) {
@@ -134,10 +134,10 @@ export function buildPreviewClientScript(token: string): string {
       var stack = isError && reason.stack ? cap(relativize(String(reason.stack)), ARG_CAP) : undefined;
       send({
         kind: 'error',
-        message: cap('Unbehandelte Promise-Ablehnung: ' + relativize(isError ? reason.message : serializeArg(reason)), ARG_CAP),
+        message: cap('Unhandled promise rejection: ' + relativize(isError ? reason.message : serializeArg(reason)), ARG_CAP),
         stack: stack
       });
-    } catch (_ignored) { /* nie werfen */ }
+    } catch (_ignored) { /* never throw */ }
   });
 
   /* ---- ${RELOAD_MARKER} ---- */
@@ -149,7 +149,7 @@ export function buildPreviewClientScript(token: string): string {
       var link = links[i];
       var href = link.getAttribute('href');
       if (!href) continue;
-      /* Nur lokale Stylesheets anfassen — externe URLs unverändert lassen. */
+      /* Only touch local stylesheets — leave external URLs unchanged. */
       if (/^(https?:)?\\/\\//.test(href) && href.indexOf(window.location.origin) !== 0) continue;
       link.setAttribute('href', href.split('?')[0] + '?wab_t=' + stamp);
     }
@@ -181,7 +181,7 @@ export function buildPreviewClientScript(token: string): string {
       reconnectDelay = Math.min(reconnectDelay * 2, 5000);
       setTimeout(connect, reconnectDelay);
     });
-    ws.addEventListener('error', function () { /* close-Handler übernimmt */ });
+    ws.addEventListener('error', function () { /* close handler takes over */ });
   }
   connect();
 })();
@@ -189,8 +189,8 @@ export function buildPreviewClientScript(token: string): string {
 }
 
 /**
- * Injiziert das Preview-Script vor `</body>` (case-insensitiv, letzte Fundstelle);
- * ohne `</body>` wird es angehängt.
+ * Injects the preview script before `</body>` (case-insensitive, last occurrence);
+ * without a `</body>` it is appended.
  */
 export function injectIntoHtml(html: string, script: string): string {
   const index = html.toLowerCase().lastIndexOf('</body>');
@@ -207,14 +207,14 @@ function escapeHtml(text: string): string {
     .replaceAll("'", '&#39;');
 }
 
-/** Minimalistische 404-Seite (dunkel, monospace — lose am AdminCave-Look). */
+/** Minimalist 404 page (dark, monospace — loosely following the AdminCave look). */
 export function render404Page(pathname: string, injectedScript: string): string {
   return `<!doctype html>
-<html lang="de">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>404 — Nicht gefunden</title>
+<title>404 — Not found</title>
 <style>
   html, body { height: 100%; }
   body {
@@ -243,9 +243,9 @@ export function render404Page(pathname: string, injectedScript: string): string 
 <body>
 <main>
   <h1>404</h1>
-  <p>Diese Datei gibt es (noch) nicht.</p>
+  <p>This file does not exist (yet).</p>
   <code>${escapeHtml(pathname)}</code>
-  <p>Sobald du sie anlegst, lädt die Vorschau automatisch neu.</p>
+  <p>As soon as you create it, the preview reloads automatically.</p>
 </main>
 ${injectedScript}
 </body>

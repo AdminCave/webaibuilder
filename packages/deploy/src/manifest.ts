@@ -1,7 +1,7 @@
 /**
- * Hash-Manifest: lokaler SHA-256-Baum über `site/` und Diff gegen das
- * Remote-Manifest (`.wab-manifest.json`). Muster: SamKirkland/FTP-Deploy-Action
- * — nur neue/geänderte Dateien hoch, nur remote-only Dateien weg (PLAN §4).
+ * Hash manifest: local SHA-256 tree over `site/` and diff against the
+ * remote manifest (`.wab-manifest.json`). Pattern: SamKirkland/FTP-Deploy-Action
+ * — only upload new/changed files, only delete remote-only files (PLAN §4).
  */
 
 import { createHash } from 'node:crypto';
@@ -10,17 +10,17 @@ import { join } from 'node:path';
 
 import { MANIFEST_FILENAME, type DeployManifest, type DeployPlan } from './types';
 
-/** VCS-/Werkzeug-Rauschen, das nie mit-deployt wird. */
+/** VCS/tooling noise that is never deployed. */
 const IGNORED_NAMES = new Set(['.git', '.wab-tmp', MANIFEST_FILENAME]);
 
-/** SHA-256 (hex) eines Puffers — der Inhaltsschlüssel im Manifest. */
+/** SHA-256 (hex) of a buffer — the content key in the manifest. */
 export function hashBuffer(data: Buffer): string {
   return createHash('sha256').update(data).digest('hex');
 }
 
 /**
- * Baut den lokalen Hash-Baum von `siteDir`: relativer POSIX-Pfad → SHA-256.
- * Überspringt nur VCS-/Werkzeug-Rauschen (kein Inhalt wird still verworfen).
+ * Builds the local hash tree of `siteDir`: relative POSIX path → SHA-256.
+ * Skips only VCS/tooling noise (no content is silently discarded).
  */
 export async function hashLocalTree(siteDir: string): Promise<Map<string, string>> {
   const tree = new Map<string, string>();
@@ -37,7 +37,7 @@ export async function hashLocalTree(siteDir: string): Promise<Map<string, string
         const data = await readFile(abs);
         tree.set(rel, hashBuffer(data));
       }
-      // Symlinks u. Ä. werden bewusst ignoriert (statische Seiten haben keine).
+      // Symlinks and similar are deliberately ignored (static sites have none).
     }
   }
 
@@ -45,7 +45,7 @@ export async function hashLocalTree(siteDir: string): Promise<Map<string, string
   return tree;
 }
 
-/** Erzeugt das Manifest-Objekt für den gerade deployten Stand. */
+/** Builds the manifest object for the just-deployed state. */
 export function buildManifest(commit: string, tree: Map<string, string>): DeployManifest {
   const files: Record<string, string> = {};
   for (const key of [...tree.keys()].sort()) {
@@ -60,8 +60,8 @@ export function buildManifest(commit: string, tree: Map<string, string>): Deploy
 }
 
 /**
- * Parst ein Remote-Manifest defensiv. Bei fehlendem/kaputtem Manifest → null
- * (führt zu Voll-Upload — der sichere Fallback auf einem dummen Host).
+ * Parses a remote manifest defensively. On a missing/corrupt manifest → null
+ * (leads to a full upload — the safe fallback on a dumb host).
  */
 export function parseManifest(text: string): DeployManifest | null {
   let raw: unknown;
@@ -89,10 +89,10 @@ export function parseManifest(text: string): DeployManifest | null {
 }
 
 /**
- * Diff lokaler Hash-Baum ⟷ Remote-Manifest → minimale Upload/Delete-Ops.
- * - Upload: Datei fehlt remote oder Hash weicht ab.
- * - Delete: Datei liegt nur im Remote-Manifest.
- * Pfade werden deterministisch sortiert (stabile UI, stabile Tests).
+ * Diff local hash tree ⟷ remote manifest → minimal upload/delete ops.
+ * - Upload: file missing remotely or hash differs.
+ * - Delete: file present only in the remote manifest.
+ * Paths are sorted deterministically (stable UI, stable tests).
  */
 export function diffManifest(
   local: Map<string, string>,

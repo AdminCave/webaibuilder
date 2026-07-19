@@ -1,17 +1,17 @@
 /**
- * Backend-Erkennung, Onboarding-Bestätigung und Kill-Switch-Merge (PLAN §3/§4,
- * M4) — Main-Prozess-Orchestrierung.
+ * Backend detection, onboarding acknowledgment, and kill-switch merge (PLAN §3/§4,
+ * M4) — main-process orchestration.
  *
- *  - `availability()` ruft die (injizierte) Detection, cached ihr Ergebnis und
- *    mergt es bei jedem Aufruf mit dem AKTUELLEN Kill-Switch + Bestätigungen.
- *    Die Detection wird NICHT bei jedem Aufruf neu geprobt (manuelles
- *    „neu prüfen" über `refresh()`); nur der billige Merge läuft jedes Mal frisch.
- *  - Ein per Kill-Switch deaktiviertes Backend wird mit Grund gemeldet.
- *  - Bestätigungen (Claude-Abo-Hinweis) werden persistiert.
+ *  - `availability()` calls the (injected) detection, caches its result, and
+ *    merges it on every call with the CURRENT kill switch + acknowledgments.
+ *    The detection is NOT re-probed on every call (manual "re-check" via
+ *    `refresh()`); only the cheap merge runs fresh each time.
+ *  - A backend disabled by the kill switch is reported with a reason.
+ *  - Acknowledgments (Claude subscription notice) are persisted.
  *
- * Die Detection ist bewusst lose typisiert (`readonly unknown[]`), damit additive
- * Änderungen an `BackendAvailability` in @webaibuilder/agents (paralleler Umbau)
- * diese Schicht nicht brechen — jede rohe Zeile wird defensiv normalisiert.
+ * The detection is deliberately loosely typed (`readonly unknown[]`) so that
+ * additive changes to `BackendAvailability` in @webaibuilder/agents (parallel
+ * refactor) do not break this layer — every raw row is defensively normalized.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -28,16 +28,16 @@ import {
   type RawBackendAvailability,
 } from '../shared/backends';
 
-/** Rohe Backend-Detection (z. B. `() => detectBackends()`). Lose typisiert. */
+/** Raw backend detection (e.g. `() => detectBackends()`). Loosely typed. */
 export type BackendDetect = () => Promise<readonly unknown[]>;
 
-/** Persistenter Speicher der bestätigten Backend-Hinweise. */
+/** Persistent store of the acknowledged backend notices. */
 export interface AckStore {
   list(): BackendId[];
   add(id: BackendId): void;
 }
 
-/** Kill-Switch-Quelle (nur der synchron benötigte Teil). */
+/** Kill-switch source (only the synchronously required part). */
 export interface KillSwitchSource {
   effective(): KillSwitchConfig;
 }
@@ -53,7 +53,7 @@ export class BackendService {
   private readonly killSwitch: KillSwitchSource;
   private readonly acks: AckStore;
 
-  /** Gecachte, normalisierte Detection (null = noch nie geprobt). */
+  /** Cached, normalized detection (null = never probed yet). */
   private detected: RawBackendAvailability[] | null = null;
 
   constructor(options: BackendServiceOptions) {
@@ -62,7 +62,7 @@ export class BackendService {
     this.acks = options.acks;
   }
 
-  /** Aktueller Picker-Zustand (probt einmalig, danach aus dem Cache). */
+  /** Current picker state (probes once, then from the cache). */
   async availability(): Promise<BackendPickerState> {
     if (this.detected === null) {
       this.detected = await this.probe();
@@ -70,26 +70,26 @@ export class BackendService {
     return this.build();
   }
 
-  /** Erzwingt eine frische Detection („neu prüfen"). */
+  /** Forces a fresh detection ("re-check"). */
   async refresh(): Promise<BackendPickerState> {
     this.detected = await this.probe();
     return this.build();
   }
 
-  /** Bestätigt einen Backend-Hinweis (einmalig, persistiert). */
+  /** Acknowledges a backend notice (once, persisted). */
   async acknowledge(id: BackendId): Promise<BackendPickerState> {
     this.acks.add(id);
     return this.availability();
   }
 
-  /* ---------------- intern ---------------- */
+  /* ---------------- internal ---------------- */
 
   private async probe(): Promise<RawBackendAvailability[]> {
     let rows: readonly unknown[];
     try {
       rows = await this.detect();
     } catch {
-      // Detection-Fehler → alle Backends defensiv „nicht installiert".
+      // Detection error → all backends defensively "not installed".
       rows = [];
     }
     const out: RawBackendAvailability[] = [];
@@ -112,12 +112,12 @@ export class BackendService {
 }
 
 /* ------------------------------------------------------------------ */
-/* Datei-basierter Bestätigungs-Speicher (`<userData>/backend-acks.json`) */
+/* File-based acknowledgment store (`<userData>/backend-acks.json`)        */
 /* ------------------------------------------------------------------ */
 
 const VALID_IDS: ReadonlySet<string> = new Set(ALL_BACKEND_IDS);
 
-/** Persistiert die Liste bestätigter Backend-IDs als JSON-Array. */
+/** Persists the list of acknowledged backend IDs as a JSON array. */
 export class FileAckStore implements AckStore {
   private ids: BackendId[];
 
@@ -151,7 +151,7 @@ export class FileAckStore implements AckStore {
       mkdirSync(dirname(this.filePath), { recursive: true });
       writeFileSync(this.filePath, `${JSON.stringify(this.ids, null, 2)}\n`);
     } catch {
-      /* Best effort — der In-Memory-Zustand bleibt führend. */
+      /* Best effort — the in-memory state remains authoritative. */
     }
   }
 }

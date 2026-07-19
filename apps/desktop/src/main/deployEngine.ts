@@ -1,9 +1,8 @@
 /**
- * Adapter auf die echte Deploy-Engine (`@webaibuilder/deploy`). Bündelt genau
- * die Funktionen, die {@link DeployService} über die {@link DeployEngine}-
- * Schnittstelle konsumiert. Der einzige Ort im Desktop-Main, der das
- * (node-/ssh2-/basic-ftp-lastige) Deploy-Paket importiert — Tests injizieren
- * stattdessen einen Fake.
+ * Adapter to the real deploy engine (`@webaibuilder/deploy`). Bundles exactly
+ * the functions that {@link DeployService} consumes via the {@link DeployEngine}
+ * interface. The only place in the desktop main that imports the
+ * (node/ssh2/basic-ftp-heavy) deploy package — tests inject a fake instead.
  */
 
 import { deploy, detectDrift, preflight, rollback } from '@webaibuilder/deploy';

@@ -1,4 +1,4 @@
-/* Leer — minimales Fundament, kein Build-Schritt. */
+/* Blank — minimal foundation, no build step. */
 
 :root {
   color-scheme: dark;
@@ -10,7 +10,7 @@
   --text-muted: #9aa1a8;
   --accent: #4f9dff;
 
-  /* Geist, falls installiert — sonst die System-Grotesk. Kein Webfont-Import. */
+  /* Geist if installed — otherwise the system grotesque. No webfont import. */
   --font: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 

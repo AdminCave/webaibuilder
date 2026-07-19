@@ -1,14 +1,14 @@
 /**
- * Versionierung (PLAN §4): echtes git pro Workspace (simple-git, Fallback
- * isomorphic-git). Das UI sagt nie "git" — nach außen sind es Checkpoints.
+ * Versioning (PLAN §4): real git per workspace (simple-git, fallback
+ * isomorphic-git). The UI never says "git" — externally these are checkpoints.
  *
- * - Checkpoint pro Agent-Turn: Commit mit erster Prompt-Zeile; Trailer:
- *   Turn-ID, Backend, Session, Kosten.
- * - Benannte Versionen: annotated Tags + Anzeigename in der DB.
- * - Restore-als-neuer-Commit: linear, verlustfrei, kein detached HEAD;
- *   dirty state wird vorher auto-checkpointed.
+ * - Checkpoint per agent turn: commit with the first prompt line; trailers:
+ *   turn ID, backend, session, cost.
+ * - Named versions: annotated tags + display name in the DB.
+ * - Restore-as-new-commit: linear, lossless, no detached HEAD;
+ *   dirty state is auto-checkpointed beforehand.
  *
- * Electron-frei — dieses Paket darf niemals `electron` importieren.
+ * Electron-free — this package must never import `electron`.
  */
 
 import { existsSync } from 'node:fs';
@@ -23,64 +23,64 @@ import type { GitRepo } from './repo';
 
 export type { CheckpointMeta } from './message';
 
-/** Ergebnis von {@link nameVersion}: Tag ↔ Checkpoint ↔ Anzeigename. */
+/** Result of {@link nameVersion}: tag ↔ checkpoint ↔ display name. */
 export interface NamedVersion {
-  /** Commit-SHA des benannten Checkpoints. */
+  /** Commit SHA of the named checkpoint. */
   sha: string;
-  /** Ref-Name des annotated Tags im Repo (z. B. "wab/erste-version"). */
+  /** Ref name of the annotated tag in the repo (e.g. "wab/first-version"). */
   tagName: string;
-  /** Anzeigename (liegt zusätzlich in der DB; hier auch in der Tag-Message). */
+  /** Display name (also stored in the DB; here also in the tag message). */
   name: string;
 }
 
-/** .gitignore für einen Static-Site-Workspace. project.json ist App-Metadatum
- *  (Registry/Deploy-Ziele) und gehört nicht in die Checkpoints — sonst würde
- *  ein Restore auch Deploy-Einstellungen zurückdrehen. */
-const WORKSPACE_GITIGNORE = `# Von Web AI Builder verwaltet — bitte nicht löschen.
+/** .gitignore for a static-site workspace. project.json is app metadata
+ *  (registry/deploy targets) and does not belong in the checkpoints — otherwise
+ *  a restore would also roll back deploy settings. */
+const WORKSPACE_GITIGNORE = `# Managed by Web AI Builder — please do not delete.
 
-# App-Metadaten (liegen in der Projekt-Registry, nicht in den Checkpoints)
+# App metadata (lives in the project registry, not in the checkpoints)
 project.json
 
-# Betriebssystem-Artefakte
+# Operating-system artifacts
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# Temporäres & Logs
+# Temporary & logs
 *.log
 .wab-tmp/
 node_modules/
 `;
 
-/** Öffnet das Workspace-Repo; wirft, wenn noch keins existiert. */
+/** Opens the workspace repo; throws if none exists yet. */
 async function openRepo(workspaceDir: string): Promise<GitRepo> {
   if (!existsSync(join(workspaceDir, '.git'))) {
     throw new Error(
-      `Für dieses Projekt ist noch keine Versionierung eingerichtet (${workspaceDir}).`,
+      `Versioning is not set up for this project yet (${workspaceDir}).`,
     );
   }
   return repoFor(workspaceDir);
 }
 
-/** Löst eine Checkpoint-ID (volle/kurze SHA) auf oder wirft verständlich. */
+/** Resolves a checkpoint ID (full/short SHA) or throws a clear error. */
 async function resolveCheckpointId(repo: GitRepo, checkpointId: string): Promise<string> {
   try {
     return await repo.resolveCommit(checkpointId);
   } catch {
-    throw new Error(`Den Checkpoint "${checkpointId}" gibt es in diesem Projekt nicht.`);
+    throw new Error(`The checkpoint "${checkpointId}" does not exist in this project.`);
   }
 }
 
-/** Liest den HEAD-Commit als Checkpoint zurück (nach commit/restore). */
+/** Reads back the HEAD commit as a checkpoint (after commit/restore). */
 async function headCheckpoint(repo: GitRepo): Promise<Checkpoint> {
   const [head] = await repo.log(1);
   if (!head) {
-    throw new Error('Dieses Projekt hat noch keinen Checkpoint.');
+    throw new Error('This project has no checkpoint yet.');
   }
   return parseCheckpoint(head);
 }
 
-/** Macht aus einem Anzeigenamen einen git-ref-sicheren Tag-Slug. */
+/** Turns a display name into a git-ref-safe tag slug. */
 function slugify(name: string): string {
   const slug = name
     .toLowerCase()
@@ -98,10 +98,10 @@ function slugify(name: string): string {
 }
 
 /**
- * Initialisiert das Workspace-Repo (`~/WebAIBuilder/<projekt>/.git`):
- * legt das Repo an (falls es fehlt), schreibt eine .gitignore für den
- * Static-Site-Workspace und erstellt den Erst-Commit, wenn das Repo leer ist.
- * Idempotent — mehrfacher Aufruf ist unschädlich.
+ * Initializes the workspace repo (`~/WebAIBuilder/<project>/.git`):
+ * creates the repo (if missing), writes a .gitignore for the
+ * static-site workspace and makes the initial commit if the repo is empty.
+ * Idempotent — calling it multiple times is harmless.
  */
 export async function initWorkspace(workspaceDir: string): Promise<void> {
   await mkdir(workspaceDir, { recursive: true });
@@ -115,13 +115,13 @@ export async function initWorkspace(workspaceDir: string): Promise<void> {
   }
   if (!(await repo.hasCommits())) {
     await repo.addAll();
-    await repo.commit('Projekt angelegt');
+    await repo.commit('Project created');
   }
 }
 
 /**
- * Legt einen Checkpoint an: `add -A` + Commit. Subject = erste Zeile von
- * `message` (die Prompt-Zeile), Turn-Metadaten aus `meta` als git-Trailer.
+ * Creates a checkpoint: `add -A` + commit. Subject = first line of
+ * `message` (the prompt line), turn metadata from `meta` as git trailers.
  */
 export async function createCheckpoint(
   workspaceDir: string,
@@ -136,8 +136,8 @@ export async function createCheckpoint(
 }
 
 /**
- * Listet Checkpoints für die Timeline (neueste zuerst) — inkl. Trailer-
- * Metadaten und `versionName` aus annotated Tags.
+ * Lists checkpoints for the timeline (newest first) — incl. trailer
+ * metadata and `versionName` from annotated tags.
  */
 export async function listCheckpoints(workspaceDir: string): Promise<Checkpoint[]> {
   const repo = await openRepo(workspaceDir);
@@ -152,11 +152,11 @@ export async function listCheckpoints(workspaceDir: string): Promise<Checkpoint[
 }
 
 /**
- * Stellt einen Checkpoint wieder her — als NEUER Commit (linear, verlustfrei,
- * kein detached HEAD):
- * 1. dirty state → "Automatischer Checkpoint vor Wiederherstellung"
- * 2. Ziel-Baum über das Arbeitsverzeichnis auschecken (HEAD bleibt auf main)
- * 3. Commit "Wiederhergestellt: <Name oder Kurz-SHA>"
+ * Restores a checkpoint — as a NEW commit (linear, lossless,
+ * no detached HEAD):
+ * 1. dirty state → "Automatic checkpoint before restore"
+ * 2. check out the target tree over the working directory (HEAD stays on main)
+ * 3. commit "Restored: <name or short SHA>"
  */
 export async function restoreCheckpoint(
   workspaceDir: string,
@@ -167,7 +167,7 @@ export async function restoreCheckpoint(
 
   if (await repo.isDirty()) {
     await repo.addAll();
-    await repo.commit('Automatischer Checkpoint vor Wiederherstellung');
+    await repo.commit('Automatic checkpoint before restore');
   }
 
   const tags = await repo.listAnnotatedTags();
@@ -175,13 +175,13 @@ export async function restoreCheckpoint(
   const label = (named && firstLine(named.message)) || targetSha.slice(0, 7);
 
   await repo.restoreTree(targetSha);
-  await repo.commit(`Wiederhergestellt: ${label}`);
+  await repo.commit(`Restored: ${label}`);
   return headCheckpoint(repo);
 }
 
 /**
- * Benennt einen Checkpoint als Version: annotated Tag, der Anzeigename steht
- * in der Tag-Message (und zusätzlich in der DB — das macht der Aufrufer).
+ * Names a checkpoint as a version: annotated tag, the display name is stored
+ * in the tag message (and additionally in the DB — the caller does that).
  */
 export async function nameVersion(
   workspaceDir: string,
@@ -191,7 +191,7 @@ export async function nameVersion(
   const repo = await openRepo(workspaceDir);
   const trimmed = name.trim();
   if (trimmed.length === 0) {
-    throw new Error('Gib der Version einen Namen.');
+    throw new Error('Give the version a name.');
   }
   const sha = await resolveCheckpointId(repo, checkpointId);
   const existing = new Set(await repo.listTagNames());
@@ -205,14 +205,14 @@ export async function nameVersion(
 }
 
 /**
- * Volle SHA des aktuellen HEAD — z. B. für den "Deployed"-Abgleich
- * (den Abgleich selbst macht packages/deploy).
+ * Full SHA of the current HEAD — e.g. for the "deployed" comparison
+ * (the comparison itself is done by packages/deploy).
  */
 export async function currentSha(workspaceDir: string): Promise<string> {
   const repo = await openRepo(workspaceDir);
   try {
     return await repo.headSha();
   } catch {
-    throw new Error('Dieses Projekt hat noch keinen Checkpoint.');
+    throw new Error('This project has no checkpoint yet.');
   }
 }

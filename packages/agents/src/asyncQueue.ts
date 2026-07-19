@@ -1,7 +1,7 @@
 /**
- * Minimale, backpressure-freie Async-Queue, um zwei nebenläufige Quellen
- * (SDK-Nachrichten-Loop + `canUseTool`-Callback) in einen einzigen
- * `AgentEvent`-Strom zu mergen.
+ * Minimal, backpressure-free async queue for merging two concurrent sources
+ * (the SDK message loop + the `canUseTool` callback) into a single
+ * `AgentEvent` stream.
  */
 export class AsyncQueue<T> {
   #items: T[] = [];

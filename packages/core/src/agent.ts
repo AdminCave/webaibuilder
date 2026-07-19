@@ -1,39 +1,39 @@
 /**
- * Agent-Adapter-Vertrag: ein Interface, sechs Backends (PLAN §4).
+ * Agent adapter contract: one interface, six backends (PLAN §4).
  *
- * Datei-Änderungen sind NICHT Teil des Event-Stroms — ground truth ist der
- * chokidar-Watcher in packages/preview. Dadurch verhalten sich alle Backends
- * identisch.
+ * File changes are NOT part of the event stream — ground truth is the
+ * chokidar watcher in packages/preview. This keeps all backends behaving
+ * identically.
  */
 
 import type { PermissionPolicy, PermissionScope } from './permissions';
 
-/** Alle geplanten Backends (PLAN §4). */
+/** All planned backends (PLAN §4). */
 export type BackendId = 'claude-sdk' | 'claude-cli' | 'codex' | 'gemini-cli' | 'grok-cli' | 'byok';
 
-/** Was ein Backend kann — gespeist aus Init-Event/Capability-Detection. */
+/** What a backend can do — fed from the init event / capability detection. */
 export interface AgentCapabilities {
-  /** Kann eine Session fortsetzen (Session-ID über Turns hinweg). */
+  /** Can resume a session (session ID across turns). */
   resume: boolean;
-  /** Liefert partielle Text-Deltas während der Generierung. */
+  /** Emits partial text deltas during generation. */
   partialText: boolean;
-  /** Meldet Kosten pro Turn (`turn-complete.costUsd`). */
+  /** Reports cost per turn (`turn-complete.costUsd`). */
   cost: boolean;
 }
 
-/** Ein Nutzer-Turn, den das Backend ausführen soll. */
+/** A user turn for the backend to run. */
 export interface AgentTurnRequest {
-  /** Absoluter Pfad des Workspace (`~/WebAIBuilder/<projekt>`). */
+  /** Absolute path of the workspace (`~/WebAIBuilder/<project>`). */
   workspaceDir: string;
-  /** Absoluter Pfad des Docroot (`<workspaceDir>/site`), das die KI editiert. */
+  /** Absolute path of the docroot (`<workspaceDir>/site`) that the AI edits. */
   siteDir: string;
   prompt: string;
-  /** Session fortsetzen, falls `capabilities().resume`. */
+  /** Resume the session if `capabilities().resume`. */
   sessionId?: string;
   policy: PermissionPolicy;
 }
 
-/** Partieller Antworttext während der Generierung. */
+/** Partial response text during generation. */
 export interface TextDeltaEvent {
   type: 'text-delta';
   text: string;
@@ -41,51 +41,51 @@ export interface TextDeltaEvent {
 
 export type ToolActivityPhase = 'start' | 'update' | 'end';
 
-/** Tool-Nutzung des Backends — nur zur Anzeige, nie als Datei-Ground-Truth. */
+/** Backend tool usage — display only, never as file ground truth. */
 export interface ToolActivityEvent {
   type: 'tool-activity';
   toolCallId: string;
-  /** Anzeigename des Tools, z. B. "Datei schreiben". */
+  /** Display name of the tool, e.g. "Write file". */
   tool: string;
   phase: ToolActivityPhase;
-  /** Kurzbeschreibung fürs UI, z. B. der Dateipfad relativ zu site/. */
+  /** Short description for the UI, e.g. the file path relative to site/. */
   detail?: string;
 }
 
-/** Das Backend bittet um Erlaubnis (Policy sagt `prompt`). */
+/** The backend requests permission (policy says `prompt`). */
 export interface PermissionRequestEvent {
   type: 'permission-request';
   requestId: string;
   scope: PermissionScope;
-  /** Menschlich lesbare Beschreibung fürs UI (deutsch, Du-Form). */
+  /** Human-readable description for the UI. */
   description: string;
-  /** Backend-spezifische Rohdaten (Kommando, Pfad, URL …). */
+  /** Backend-specific raw data (command, path, URL …). */
   payload?: Readonly<Record<string, unknown>>;
 }
 
 export type TurnStopReason = 'end' | 'interrupted' | 'error';
 
-/** Abschluss eines Turns — Basis für den Checkpoint (packages/versioning). */
+/** Completion of a turn — basis for the checkpoint (packages/versioning). */
 export interface TurnCompleteEvent {
   type: 'turn-complete';
   turnId: string;
   stopReason: TurnStopReason;
-  /** Session-ID zum Fortsetzen, falls das Backend `resume` kann. */
+  /** Session ID for resuming, if the backend supports `resume`. */
   sessionId?: string;
-  /** Kosten in USD, falls das Backend `cost` kann. */
+  /** Cost in USD, if the backend supports `cost`. */
   costUsd?: number;
 }
 
 export interface AgentErrorEvent {
   type: 'error';
   message: string;
-  /** true = Turn kann erneut versucht werden, Session bleibt nutzbar. */
+  /** true = the turn can be retried, the session stays usable. */
   recoverable: boolean;
   cause?: string;
 }
 
 /**
- * Der Event-Strom eines Turns:
+ * The event stream of a turn:
  * text-delta | tool-activity | permission-request | turn-complete | error
  */
 export type AgentEvent =
@@ -95,7 +95,7 @@ export type AgentEvent =
   | TurnCompleteEvent
   | AgentErrorEvent;
 
-/** Der eine Adapter-Vertrag für alle sechs Backends (PLAN §4). */
+/** The single adapter contract for all six backends (PLAN §4). */
 export interface AgentBackend {
   readonly id: BackendId;
   capabilities(): AgentCapabilities;

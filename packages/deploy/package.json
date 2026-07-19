@@ -2,7 +2,7 @@
   "name": "@webaibuilder/deploy",
   "version": "0.0.0",
   "private": true,
-  "description": "Deploy-Engine (das Herzstück): Hash-Manifest-Sync über SFTP/FTPS, Rollback, Preflight. Electron-frei.",
+  "description": "Deploy engine (the core): hash-manifest sync over SFTP/FTPS, rollback, preflight. Electron-free.",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

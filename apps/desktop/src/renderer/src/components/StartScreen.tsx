@@ -4,11 +4,11 @@ import type { Project, StarterTemplate } from '@webaibuilder/core';
 
 interface StartScreenProps {
   projects: Project[];
-  /** Projektliste konnte nicht geladen werden (sieht sonst wie „leer" aus). */
+  /** Project list could not be loaded (otherwise looks like "empty"). */
   projectsError: boolean;
   onRetryProjects: () => void;
   templates: StarterTemplate[];
-  /** Vorlagen konnten nicht geladen werden — sonst bleibt „Anlegen" stumm tot. */
+  /** Templates could not be loaded — otherwise "Create" stays silently dead. */
   templatesError: boolean;
   onRetryTemplates: () => void;
   onOpen: (project: Project) => void;
@@ -18,8 +18,8 @@ interface StartScreenProps {
 }
 
 /**
- * Startansicht ohne geöffnetes Projekt: vorhandene Projekte öffnen, umbenennen
- * oder aus der Liste entfernen, und neue aus einer Starter-Vorlage anlegen.
+ * Start view with no open project: open, rename, or remove existing projects
+ * from the list, and create new ones from a starter template.
  */
 export function StartScreen({
   projects,
@@ -38,7 +38,7 @@ export function StartScreen({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Erste Vorlage vorauswählen, sobald die Liste da ist.
+  // Preselect the first template as soon as the list is available.
   useEffect(() => {
     if (templateId === '' && templates.length > 0) {
       setTemplateId(templates[0]?.id ?? '');
@@ -56,20 +56,20 @@ export function StartScreen({
       setName('');
       onCreated(project);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Das Projekt konnte nicht angelegt werden.');
+      setError(err instanceof Error ? err.message : 'The project could not be created.');
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <main className="start" aria-label="Projekte">
+    <main className="start" aria-label="Projects">
       <div className="start__inner">
         <section className="start__card">
-          <h1 className="start__title">Neues Projekt</h1>
+          <h1 className="start__title">New project</h1>
           <p className="start__hint">
-            Gib deinem Projekt einen Namen und wähl eine Vorlage — alles Weitere änderst du später
-            per Chat.
+            Give your project a name and pick a template — you change everything else later via
+            chat.
           </p>
 
           <form
@@ -80,20 +80,20 @@ export function StartScreen({
             }}
           >
             <label className="field">
-              <span className="field__label">Projektname</span>
+              <span className="field__label">Project name</span>
               <input
                 className="field__input"
                 type="text"
                 value={name}
-                placeholder="z. B. Vereinsseite"
+                placeholder="e.g. Club site"
                 autoFocus
                 onChange={(e) => setName(e.target.value)}
               />
             </label>
 
             <fieldset className="tpl">
-              <legend className="field__label">Vorlage</legend>
-              <div className="tpl__grid" role="radiogroup" aria-label="Vorlage wählen">
+              <legend className="field__label">Template</legend>
+              <div className="tpl__grid" role="radiogroup" aria-label="Choose template">
                 {templates.map((tpl) => (
                   <label
                     key={tpl.id}
@@ -116,13 +116,13 @@ export function StartScreen({
                 {templates.length === 0 &&
                   (templatesError ? (
                     <p className="form-error" role="alert">
-                      Vorlagen konnten nicht geladen werden.{' '}
+                      Templates could not be loaded.{' '}
                       <button type="button" className="backend-link" onClick={onRetryTemplates}>
-                        Erneut versuchen
+                        Try again
                       </button>
                     </p>
                   ) : (
-                    <p className="start__hint">Keine Vorlagen gefunden.</p>
+                    <p className="start__hint">No templates found.</p>
                   ))}
               </div>
             </fieldset>
@@ -135,7 +135,7 @@ export function StartScreen({
 
             <div className="start__actions">
               <button type="submit" className="btn btn--primary" disabled={!canSubmit}>
-                {busy ? 'Wird angelegt …' : 'Projekt anlegen'}
+                {busy ? 'Creating …' : 'Create project'}
               </button>
             </div>
           </form>
@@ -143,12 +143,12 @@ export function StartScreen({
 
         {(projects.length > 0 || projectsError) && (
           <section className="start__card">
-            <h2 className="start__title">Deine Projekte</h2>
+            <h2 className="start__title">Your projects</h2>
             {projectsError && (
               <p className="form-error" role="alert">
-                Deine Projekte konnten nicht geladen werden.{' '}
+                Your projects could not be loaded.{' '}
                 <button type="button" className="backend-link" onClick={onRetryProjects}>
-                  Erneut versuchen
+                  Try again
                 </button>
               </p>
             )}
@@ -171,9 +171,9 @@ export function StartScreen({
 }
 
 /**
- * Projektkarte mit Aktionen: Öffnen, Umbenennen (inline), aus der Liste
- * entfernen (mit Bestätigung — der Workspace-Ordner bleibt auf der Platte).
- * `projects.update/delete` waren komplett verdrahtet, es fehlte nur die UI.
+ * Project card with actions: open, rename (inline), remove from the list (with
+ * confirmation — the workspace folder stays on disk).
+ * `projects.update/delete` were fully wired, only the UI was missing.
  */
 function ProjectRow({
   project,
@@ -204,7 +204,7 @@ function ProjectRow({
       await onRename(project.id, trimmed);
       setMode('view');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Umbenennen fehlgeschlagen.');
+      setError(err instanceof Error ? err.message : 'Rename failed.');
     } finally {
       setBusy(false);
     }
@@ -215,9 +215,9 @@ function ProjectRow({
     setError(null);
     try {
       await onDelete(project.id);
-      // Die Zeile verschwindet mit dem State-Update in App — nichts zurückzusetzen.
+      // The row disappears with the state update in App — nothing to reset.
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Entfernen fehlgeschlagen.');
+      setError(err instanceof Error ? err.message : 'Remove failed.');
       setBusy(false);
     }
   }
@@ -233,14 +233,14 @@ function ProjectRow({
         {mode === 'view' && (
           <>
             <button type="button" className="backend-link" onClick={() => setMode('rename')}>
-              Umbenennen
+              Rename
             </button>
             <button
               type="button"
               className="backend-link backend-link--danger"
               onClick={() => setMode('confirm-delete')}
             >
-              Entfernen
+              Remove
             </button>
           </>
         )}
@@ -262,7 +262,7 @@ function ProjectRow({
               onChange={(e) => setName(e.target.value)}
             />
             <button type="submit" className="btn" disabled={busy || name.trim() === ''}>
-              {busy ? 'Speichere …' : 'Speichern'}
+              {busy ? 'Saving …' : 'Save'}
             </button>
             <button
               type="button"
@@ -273,7 +273,7 @@ function ProjectRow({
                 setMode('view');
               }}
             >
-              Abbrechen
+              Cancel
             </button>
           </form>
         )}
@@ -281,7 +281,7 @@ function ProjectRow({
         {mode === 'confirm-delete' && (
           <>
             <span className="project-item__confirm">
-              Aus der Liste entfernen? Der Projektordner bleibt auf der Platte.
+              Remove from the list? The project folder stays on disk.
             </span>
             <button
               type="button"
@@ -289,10 +289,10 @@ function ProjectRow({
               disabled={busy}
               onClick={() => void submitDelete()}
             >
-              {busy ? 'Entferne …' : 'Ja, entfernen'}
+              {busy ? 'Removing …' : 'Yes, remove'}
             </button>
             <button type="button" className="btn" disabled={busy} onClick={() => setMode('view')}>
-              Abbrechen
+              Cancel
             </button>
           </>
         )}

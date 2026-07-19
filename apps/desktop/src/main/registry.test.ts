@@ -1,8 +1,8 @@
 /**
- * Headless-Tests der SQLite-Projekt-Registry: temporäre DB + temporäre
- * Workspace-Wurzel, echte Vorlagen aus resources/templates. Läuft ohne
- * Electron — die `app.getPath('userData')`-Verdrahtung (paths.ts) wird nur
- * zur App-Laufzeit ausgeführt.
+ * Headless tests of the SQLite project registry: temporary DB + temporary
+ * workspace root, real templates from resources/templates. Runs without
+ * Electron — the `app.getPath('userData')` wiring (paths.ts) runs only at app
+ * runtime.
  */
 
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
@@ -48,8 +48,8 @@ function makeTarget(overrides: Partial<DeployTarget> & { id: string }): DeployTa
   };
 }
 
-describe('Starter-Vorlagen', () => {
-  it('liefert die Vorlagen aus dem Manifest (id, name, description)', async () => {
+describe('starter templates', () => {
+  it('returns the templates from the manifest (id, name, description)', async () => {
     const templates = await registry.listTemplates();
     expect(templates.map((t) => t.id)).toEqual(['einseiter', 'mehrseiter', 'leer']);
     for (const t of templates) {
@@ -60,7 +60,7 @@ describe('Starter-Vorlagen', () => {
 });
 
 describe('create', () => {
-  it('legt Workspace, site/-Docroot und project.json an und kopiert die Vorlage', async () => {
+  it('creates the workspace, site/ docroot, and project.json and copies the template', async () => {
     const project = await registry.create({ name: 'Vereinsseite Müller', templateId: 'einseiter' });
 
     expect(project.name).toBe('Vereinsseite Müller');
@@ -69,12 +69,12 @@ describe('create', () => {
     expect(project.siteDir).toBe(join(project.workspaceDir, 'site'));
     expect(project.deployTargets).toEqual([]);
 
-    // Vorlage wurde nach site/ kopiert (inkl. SITE.md für den KI-Agenten).
+    // Template was copied into site/ (incl. SITE.md for the AI agent).
     for (const file of ['index.html', 'styles.css', 'site.js', 'SITE.md']) {
-      expect(existsSync(join(project.siteDir, file)), `site/${file} fehlt`).toBe(true);
+      expect(existsSync(join(project.siteDir, file)), `site/${file} missing`).toBe(true);
     }
 
-    // project.json im Workspace-Wurzelverzeichnis.
+    // project.json in the workspace root directory.
     const projectFile = JSON.parse(
       readFileSync(join(project.workspaceDir, 'project.json'), 'utf8'),
     ) as Record<string, unknown>;
@@ -83,7 +83,7 @@ describe('create', () => {
     expect(projectFile['templateId']).toBe('einseiter');
   });
 
-  it('kopiert beim Mehrseiter alle Seiten samt gemeinsamer Dateien', async () => {
+  it('copies all pages including shared files for the multi-page template', async () => {
     const project = await registry.create({ name: 'Drei Seiten', templateId: 'mehrseiter' });
     for (const file of [
       'index.html',
@@ -93,25 +93,25 @@ describe('create', () => {
       'site.js',
       'SITE.md',
     ]) {
-      expect(existsSync(join(project.siteDir, file)), `site/${file} fehlt`).toBe(true);
+      expect(existsSync(join(project.siteDir, file)), `site/${file} missing`).toBe(true);
     }
   });
 
-  it('lehnt eine unbekannte Vorlage ab, ohne etwas anzulegen', async () => {
+  it('rejects an unknown template without creating anything', async () => {
     await expect(registry.create({ name: 'Kaputt', templateId: 'gibts-nicht' })).rejects.toThrow(
-      'Unbekannte Vorlage',
+      'Unknown template',
     );
     expect(await registry.list()).toEqual([]);
     expect(existsSync(join(workspaceRoot, 'kaputt'))).toBe(false);
   });
 
-  it('lehnt einen leeren Namen ab', async () => {
+  it('rejects an empty name', async () => {
     await expect(registry.create({ name: '   ', templateId: 'leer' })).rejects.toThrow(
-      'Projektname',
+      'project name',
     );
   });
 
-  it('löst Namenskollisionen über eindeutige Verzeichnisse auf', async () => {
+  it('resolves name collisions via unique directories', async () => {
     const first = await registry.create({ name: 'Test', templateId: 'leer' });
     const second = await registry.create({ name: 'Test', templateId: 'leer' });
     expect(first.workspaceDir).toBe(join(workspaceRoot, 'test'));
@@ -134,13 +134,13 @@ describe('list / get / update / delete', () => {
     expect(await registry.get('unbekannt')).toBeNull();
   });
 
-  it('update ändert Name und zuletzt benutztes Backend', async () => {
+  it('update changes the name and the last used backend', async () => {
     const created = await registry.create({ name: 'Alt', templateId: 'leer' });
     const updated = await registry.update(created.id, { name: 'Neu', lastBackend: 'claude-sdk' });
 
     expect(updated.name).toBe('Neu');
     expect(updated.lastBackend).toBe('claude-sdk');
-    // Umbenennen verschiebt den Workspace NICHT.
+    // Renaming does NOT move the workspace.
     expect(updated.workspaceDir).toBe(created.workspaceDir);
     expect(Date.parse(updated.updatedAt)).toBeGreaterThanOrEqual(Date.parse(created.updatedAt));
 
@@ -149,11 +149,11 @@ describe('list / get / update / delete', () => {
     expect(fetched?.lastBackend).toBe('claude-sdk');
   });
 
-  it('update auf unbekannte ID schlägt fehl', async () => {
-    await expect(registry.update('unbekannt', { name: 'x' })).rejects.toThrow('nicht gefunden');
+  it('update on an unknown ID fails', async () => {
+    await expect(registry.update('unbekannt', { name: 'x' })).rejects.toThrow('Project not found');
   });
 
-  it('speichert die deployte Commit-SHA pro Deploy-Ziel', async () => {
+  it('stores the deployed commit SHA per deploy target', async () => {
     const created = await registry.create({ name: 'Deploy', templateId: 'einseiter' });
 
     const ionos = makeTarget({ id: 'ziel-ionos', name: 'IONOS', lastDeployedCommit: 'aaa111' });
@@ -177,7 +177,7 @@ describe('list / get / update / delete', () => {
       '2026-07-12T10:00:00.000Z',
     );
 
-    // Neuer Deploy auf EIN Ziel — das andere behält seine SHA.
+    // New deploy to ONE target — the other keeps its SHA.
     await registry.update(created.id, {
       deployTargets: [{ ...ionos, lastDeployedCommit: 'ccc333' }, hetzner],
     });
@@ -189,14 +189,14 @@ describe('list / get / update / delete', () => {
       'bbb222',
     );
 
-    // Ziel ohne Deploy: SHA bleibt leer.
+    // Target without a deploy: SHA stays empty.
     await registry.update(created.id, { deployTargets: [makeTarget({ id: 'ziel-neu' })] });
     fetched = await registry.get(created.id);
     expect(fetched?.deployTargets).toHaveLength(1);
     expect(fetched?.deployTargets[0]?.lastDeployedCommit).toBeUndefined();
   });
 
-  it('delete entfernt den Registry-Eintrag, lässt den Workspace aber liegen', async () => {
+  it('delete removes the registry entry but leaves the workspace in place', async () => {
     const created = await registry.create({ name: 'Weg damit', templateId: 'leer' });
     await registry.update(created.id, { deployTargets: [makeTarget({ id: 'ziel-1' })] });
 
@@ -204,23 +204,23 @@ describe('list / get / update / delete', () => {
 
     expect(await registry.get(created.id)).toBeNull();
     expect(await registry.list()).toEqual([]);
-    // Nutzerdaten bleiben auf der Platte.
+    // User data stays on disk.
     expect(existsSync(join(created.siteDir, 'index.html'))).toBe(true);
 
-    await expect(registry.delete(created.id)).rejects.toThrow('nicht gefunden');
+    await expect(registry.delete(created.id)).rejects.toThrow('Project not found');
   });
 });
 
-describe('Persistenz', () => {
-  it('Projekte inkl. Deploy-Ziele überleben ein erneutes Öffnen der DB', async () => {
+describe('persistence', () => {
+  it('projects incl. deploy targets survive reopening the DB', async () => {
     const created = await registry.create({ name: 'Bleibt', templateId: 'mehrseiter' });
     await registry.update(created.id, {
       deployTargets: [makeTarget({ id: 'ziel-1', lastDeployedCommit: 'abc123' })],
     });
     registry.close();
 
-    // Zweiter "App-Lauf": gleiche DB-Datei, neue Instanz (Migrationen laufen
-    // idempotent erneut an).
+    // Second "app run": same DB file, new instance (migrations run again
+    // idempotently).
     registry = new SqliteProjectRegistry({ dbPath, workspaceRoot, templatesRoot: TEMPLATES_ROOT });
     const fetched = await registry.get(created.id);
     expect(fetched?.name).toBe('Bleibt');

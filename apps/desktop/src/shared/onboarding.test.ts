@@ -16,32 +16,32 @@ import {
 } from './onboarding';
 
 describe('shouldShowOnboarding', () => {
-  it('zeigt beim ersten Start und bei unbekanntem Zustand (fail-open)', () => {
+  it('shows on first launch and for an unknown state (fail-open)', () => {
     expect(shouldShowOnboarding(null)).toBe(true);
     expect(shouldShowOnboarding(undefined)).toBe(true);
     expect(shouldShowOnboarding(DEFAULT_ONBOARDING_STATE)).toBe(true);
     expect(shouldShowOnboarding({ hasOnboarded: false })).toBe(true);
   });
 
-  it('unterdrückt es nur bei explizit abgeschlossenem Onboarding', () => {
+  it('suppresses it only when onboarding is explicitly completed', () => {
     expect(shouldShowOnboarding({ hasOnboarded: true })).toBe(false);
   });
 });
 
 describe('coerceOnboardingState', () => {
-  it('liefert Default für Nicht-Objekte', () => {
+  it('returns the default for non-objects', () => {
     expect(coerceOnboardingState(undefined)).toEqual(DEFAULT_ONBOARDING_STATE);
     expect(coerceOnboardingState('kaputt')).toEqual(DEFAULT_ONBOARDING_STATE);
     expect(coerceOnboardingState(42)).toEqual(DEFAULT_ONBOARDING_STATE);
   });
 
-  it('liest hasOnboarded strikt als bool (nur true zählt)', () => {
+  it('reads hasOnboarded strictly as a bool (only true counts)', () => {
     expect(coerceOnboardingState({ hasOnboarded: true })).toEqual({ hasOnboarded: true });
     expect(coerceOnboardingState({ hasOnboarded: 'yes' })).toEqual({ hasOnboarded: false });
     expect(coerceOnboardingState({})).toEqual({ hasOnboarded: false });
   });
 
-  it('übernimmt einen gültigen Abschluss-Zeitstempel, ignoriert Fremdfelder', () => {
+  it('keeps a valid completion timestamp, ignores foreign fields', () => {
     const state = coerceOnboardingState({
       hasOnboarded: true,
       completedAt: '2026-07-13T00:00:00.000Z',
@@ -53,12 +53,12 @@ describe('coerceOnboardingState', () => {
 });
 
 describe('mergeOnboardingState', () => {
-  it('lässt unveränderte Felder stehen', () => {
+  it('leaves unchanged fields as they are', () => {
     const current = { hasOnboarded: false };
     expect(mergeOnboardingState(current, {})).toEqual(current);
   });
 
-  it('setzt hasOnboarded und übernimmt completedAt', () => {
+  it('sets hasOnboarded and adopts completedAt', () => {
     const next = mergeOnboardingState(
       { hasOnboarded: false },
       { hasOnboarded: true, completedAt: '2026-07-13T00:00:00.000Z' },
@@ -67,14 +67,14 @@ describe('mergeOnboardingState', () => {
   });
 });
 
-describe('onboardingReducer — Schritt-Navigation', () => {
-  it('startet beim ersten Schritt', () => {
+describe('onboardingReducer — step navigation', () => {
+  it('starts at the first step', () => {
     expect(INITIAL_ONBOARDING_VIEW).toEqual({ index: 0 });
     expect(isFirstStep(INITIAL_ONBOARDING_VIEW)).toBe(true);
     expect(currentStep(INITIAL_ONBOARDING_VIEW)).toBe('willkommen');
   });
 
-  it('geht mit „next" vorwärts und bleibt am letzten Schritt stehen', () => {
+  it('moves forward with "next" and stops at the last step', () => {
     let state: OnboardingViewState = INITIAL_ONBOARDING_VIEW;
     for (let i = 0; i < ONBOARDING_STEP_COUNT + 3; i++) {
       state = onboardingReducer(state, { type: 'next' });
@@ -84,7 +84,7 @@ describe('onboardingReducer — Schritt-Navigation', () => {
     expect(currentStep(state)).toBe('webspace');
   });
 
-  it('geht mit „back" zurück und bleibt bei 0 stehen', () => {
+  it('moves back with "back" and stops at 0', () => {
     let state: OnboardingViewState = { index: 1 };
     state = onboardingReducer(state, { type: 'back' });
     expect(state.index).toBe(0);
@@ -92,7 +92,7 @@ describe('onboardingReducer — Schritt-Navigation', () => {
     expect(state.index).toBe(0);
   });
 
-  it('klemmt „goto" in die gültige Spanne', () => {
+  it('clamps "goto" into the valid range', () => {
     expect(onboardingReducer(INITIAL_ONBOARDING_VIEW, { type: 'goto', index: 99 }).index).toBe(
       ONBOARDING_STEP_COUNT - 1,
     );
@@ -100,10 +100,10 @@ describe('onboardingReducer — Schritt-Navigation', () => {
     expect(onboardingReducer(INITIAL_ONBOARDING_VIEW, { type: 'goto', index: 1 }).index).toBe(1);
   });
 
-  it('liefert eine 1-basierte Schrittnummer', () => {
+  it('returns a 1-based step number', () => {
     expect(stepNumber({ index: 0 })).toBe(1);
     expect(stepNumber({ index: 2 })).toBe(3);
-    // Auch außerhalb der Spanne robust (geklemmt).
+    // Robust even outside the range (clamped).
     expect(stepNumber({ index: 999 })).toBe(ONBOARDING_STEP_COUNT);
   });
 });

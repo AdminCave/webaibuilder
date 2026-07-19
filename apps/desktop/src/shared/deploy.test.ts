@@ -1,7 +1,7 @@
 /**
- * Headless-Tests der reinen Deploy-UI-Logik (kein node/electron/DOM):
- * Formular-Validierung, „Deployed"-Badge-Auflösung, Drift und der
- * Fortschritts→UI-Reducer.
+ * Headless tests of the pure deploy UI logic (no node/electron/DOM): form
+ * validation, "deployed" badge resolution, drift, and the progress → UI
+ * reducer.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -53,7 +53,7 @@ function checkpoint(id: string, extra: Partial<Checkpoint> = {}): Checkpoint {
 }
 
 describe('defaultDeployPort', () => {
-  it('liefert 22 für SFTP und 21 für FTP/FTPS', () => {
+  it('returns 22 for SFTP and 21 for FTP/FTPS', () => {
     expect(defaultDeployPort('sftp')).toBe(22);
     expect(defaultDeployPort('ftp')).toBe(21);
     expect(defaultDeployPort('ftps')).toBe(21);
@@ -61,27 +61,27 @@ describe('defaultDeployPort', () => {
 });
 
 describe('validateDeployTargetInput', () => {
-  it('akzeptiert ein vollständiges Ziel', () => {
+  it('accepts a complete target', () => {
     expect(validateDeployTargetInput(validInput())).toBeNull();
   });
 
-  it('weist leeren Namen, Host, Benutzer, Pfad zurück', () => {
-    expect(validateDeployTargetInput(validInput({ name: '  ' }))).toMatch(/Namen/);
-    expect(validateDeployTargetInput(validInput({ host: '' }))).toMatch(/Host/);
-    expect(validateDeployTargetInput(validInput({ username: '' }))).toMatch(/Benutzernamen/);
-    expect(validateDeployTargetInput(validInput({ remotePath: '' }))).toMatch(/Zielverzeichnis/);
+  it('rejects an empty name, host, user, path', () => {
+    expect(validateDeployTargetInput(validInput({ name: '  ' }))).toMatch(/name/);
+    expect(validateDeployTargetInput(validInput({ host: '' }))).toMatch(/host/);
+    expect(validateDeployTargetInput(validInput({ username: '' }))).toMatch(/username/);
+    expect(validateDeployTargetInput(validInput({ remotePath: '' }))).toMatch(/target directory/);
   });
 
-  it('prüft den Port-Bereich', () => {
-    expect(validateDeployTargetInput(validInput({ port: 0 }))).toMatch(/Port/);
-    expect(validateDeployTargetInput(validInput({ port: 70000 }))).toMatch(/Port/);
-    expect(validateDeployTargetInput(validInput({ port: 21.5 }))).toMatch(/Port/);
+  it('checks the port range', () => {
+    expect(validateDeployTargetInput(validInput({ port: 0 }))).toMatch(/port/);
+    expect(validateDeployTargetInput(validInput({ port: 70000 }))).toMatch(/port/);
+    expect(validateDeployTargetInput(validInput({ port: 21.5 }))).toMatch(/port/);
   });
 
-  it('prüft das Protokoll', () => {
+  it('checks the protocol', () => {
     expect(
       validateDeployTargetInput(validInput({ protocol: 'rsync' as unknown as 'sftp' })),
-    ).toMatch(/Protokoll/);
+    ).toMatch(/protocol/);
   });
 });
 
@@ -92,31 +92,31 @@ describe('resolveDeployedSha', () => {
     view({ id: 'c' }),
   ];
 
-  it('liefert die last_deployed-SHA des aktiven Ziels', () => {
+  it('returns the last_deployed SHA of the active target', () => {
     expect(resolveDeployedSha(targets, 'a')).toBe('aaaaaaa000');
     expect(resolveDeployedSha(targets, 'b')).toBe('bbbbbbb111');
   });
 
-  it('liefert null ohne aktives Ziel oder ohne deployte SHA', () => {
+  it('returns null without an active target or without a deployed SHA', () => {
     expect(resolveDeployedSha(targets, null)).toBeNull();
     expect(resolveDeployedSha(targets, 'c')).toBeNull();
     expect(resolveDeployedSha(targets, 'unbekannt')).toBeNull();
   });
 });
 
-describe('Badge-Auflösung (deployedCheckpointId / markDeployedCheckpoints)', () => {
+describe('Badge resolution (deployedCheckpointId / markDeployedCheckpoints)', () => {
   const checkpoints = [checkpoint('sha1'), checkpoint('sha2'), checkpoint('sha3')];
 
-  it('findet den Checkpoint mit passender SHA', () => {
+  it('finds the checkpoint with the matching SHA', () => {
     expect(deployedCheckpointId(checkpoints, 'sha2')).toBe('sha2');
   });
 
-  it('badged nur den passenden Checkpoint, alle anderen false', () => {
+  it('badges only the matching checkpoint, all others false', () => {
     const marked = markDeployedCheckpoints(checkpoints, 'sha2');
     expect(marked.map((c) => c.deployed)).toEqual([false, true, false]);
   });
 
-  it('badged keinen, wenn die SHA nicht in der Liste ist oder leer', () => {
+  it('badges none when the SHA is not in the list or empty', () => {
     expect(deployedCheckpointId(checkpoints, 'fehlt')).toBeNull();
     expect(markDeployedCheckpoints(checkpoints, null).every((c) => c.deployed === false)).toBe(true);
     expect(markDeployedCheckpoints(checkpoints, '').every((c) => c.deployed === false)).toBe(true);
@@ -124,22 +124,22 @@ describe('Badge-Auflösung (deployedCheckpointId / markDeployedCheckpoints)', ()
 });
 
 describe('computeDrift', () => {
-  it('kein Drift, wenn nie deployt und remote leer', () => {
+  it('no drift when never deployed and remote empty', () => {
     expect(computeDrift('', null).drift).toBe(false);
   });
 
-  it('kein Drift bei gleicher SHA', () => {
+  it('no drift for the same SHA', () => {
     expect(computeDrift('abc123', 'abc123').drift).toBe(false);
   });
 
-  it('Drift bei abweichender SHA', () => {
+  it('drift for a differing SHA', () => {
     const d = computeDrift('abc123', 'def456');
     expect(d.drift).toBe(true);
     expect(d.expectedSha).toBe('abc123');
     expect(d.remoteSha).toBe('def456');
   });
 
-  it('Drift, wenn erwartet deployt, aber remote nichts liegt', () => {
+  it('drift when a deploy is expected but nothing is on the remote', () => {
     expect(computeDrift('abc123', null).drift).toBe(true);
   });
 });
@@ -149,7 +149,7 @@ describe('deployProgressReducer', () => {
     return events.reduce(deployProgressReducer, initialDeployProgressState);
   }
 
-  it('verfolgt Upload-/Delete-Fortschritt und Endzustand', () => {
+  it('tracks upload/delete progress and the final state', () => {
     const state = run([
       { type: 'connecting' },
       { type: 'planning' },
@@ -179,7 +179,7 @@ describe('deployProgressReducer', () => {
     expect(state.result?.unchanged).toBe(5);
   });
 
-  it('hält den aktuellen Datei-Pfad während des Uploads', () => {
+  it('holds the current file path during upload', () => {
     const state = run([
       { type: 'connecting' },
       { type: 'uploading', path: 'bild.png', index: 1, total: 2 },
@@ -189,13 +189,13 @@ describe('deployProgressReducer', () => {
     expect(state.uploadTotal).toBe(2);
   });
 
-  it('setzt Fehlerphase samt Meldung', () => {
+  it('sets the error phase along with the message', () => {
     const state = run([{ type: 'connecting' }, { type: 'error', message: 'Verbindung weg.' }]);
     expect(state.phase).toBe('error');
     expect(state.message).toBe('Verbindung weg.');
   });
 
-  it('connecting startet einen frischen Lauf', () => {
+  it('connecting starts a fresh run', () => {
     const dirty = run([
       { type: 'uploading', path: 'x', index: 5, total: 9 },
       { type: 'connecting' },

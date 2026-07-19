@@ -1,17 +1,17 @@
 /**
- * Live-Preview-Server (PLAN §4): eigener Static-Server + chokidar +
- * WebSocket-Reload + HTML-Injection (Reload-Client + Console/Error-Shim).
+ * Live preview server (PLAN §4): custom static server + chokidar +
+ * WebSocket reload + HTML injection (reload client + console/error shim).
  *
- * Sicherheit (PLAN §4, Sicherheit — die Preview rendert KI-generiertes
- * HTML/JS, unsere größte Angriffsfläche):
- *  - bindet ausschließlich an 127.0.0.1 (loopback-only, hart erzwungen)
- *  - zufälliger Port + zufälliges Session-Token; jeder HTTP-Request und jede
- *    WS-Verbindung braucht das Token (Query `?wab=`, Header `x-wab-token`
- *    oder Session-Cookie), Vergleich timing-sicher
- *  - Pfad-Containment inkl. realpath-Check (kein Ausbruch aus dem Docroot,
- *    auch nicht über Symlinks)
+ * Security (PLAN §4, Security — the preview renders AI-generated
+ * HTML/JS, our largest attack surface):
+ *  - binds exclusively to 127.0.0.1 (loopback-only, hard-enforced)
+ *  - random port + random session token; every HTTP request and every
+ *    WS connection needs the token (query `?wab=`, header `x-wab-token`
+ *    or session cookie), compared in a timing-safe way
+ *  - path containment incl. realpath check (no escaping the docroot,
+ *    not even via symlinks)
  *
- * Electron-frei — dieses Paket darf niemals `electron` importieren.
+ * Electron-free — this package must never import `electron`.
  */
 
 import { randomBytes, timingSafeEqual } from 'node:crypto';
@@ -33,27 +33,27 @@ const LOOPBACK_HOST = '127.0.0.1';
 const TOKEN_QUERY_PARAM = 'wab';
 const TOKEN_HEADER = 'x-wab-token';
 const TOKEN_COOKIE = 'wab_token';
-/** Obergrenze für eingehende WS-Nachrichten (Shim capt bereits clientseitig). */
+/** Upper limit for incoming WS messages (the shim already caps client-side). */
 const MAX_WS_PAYLOAD = 256 * 1024;
 const DEFAULT_DEBOUNCE_MS = 100;
 
 const CONSOLE_LEVELS: ReadonlySet<string> = new Set(['log', 'info', 'warn', 'error']);
 
-/** Startet den Preview-Server für ein Projekt (loopback-only, Token-gated). */
+/** Starts the preview server for a project (loopback-only, token-gated). */
 export async function startPreviewServer(options: PreviewServerOptions): Promise<PreviewServerHandle> {
   const host = options.host ?? LOOPBACK_HOST;
   if (host !== LOOPBACK_HOST) {
     throw new Error(
-      `Preview-Server bindet aus Sicherheitsgründen nur an ${LOOPBACK_HOST} (loopback), nicht an "${host}".`,
+      `For security reasons the preview server only binds to ${LOOPBACK_HOST} (loopback), not to "${host}".`,
     );
   }
 
   const siteDir = path.resolve(options.siteDir);
   const siteStat = await fs.stat(siteDir).catch(() => null);
   if (siteStat === null || !siteStat.isDirectory()) {
-    throw new Error(`Preview: siteDir existiert nicht oder ist kein Verzeichnis: ${siteDir}`);
+    throw new Error(`Preview: siteDir does not exist or is not a directory: ${siteDir}`);
   }
-  // Symlink-sicherer Vergleichsanker für das Pfad-Containment.
+  // Symlink-safe comparison anchor for path containment.
   const siteRealDir = await fs.realpath(siteDir);
 
   const token = randomBytes(24).toString('base64url');
@@ -66,7 +66,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   const server = createServer((req, res) => {
     void handleRequest(req, res).catch(() => {
       if (!res.headersSent) {
-        respond(req, res, 500, 'text/plain; charset=utf-8', 'Interner Fehler in der Vorschau.');
+        respond(req, res, 500, 'text/plain; charset=utf-8', 'Internal error in the preview.');
       } else {
         res.destroy();
       }
@@ -75,22 +75,22 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise<void> {
     res.setHeader('Cache-Control', 'no-store');
-    // Token darf nie über Referer an externe Ressourcen der KI-Seite lecken.
+    // The token must never leak via Referer to external resources of the AI page.
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('X-Content-Type-Options', 'nosniff');
 
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       res.setHeader('Allow', 'GET, HEAD');
-      respond(req, res, 405, 'text/plain; charset=utf-8', 'Nur GET und HEAD sind erlaubt.');
+      respond(req, res, 405, 'text/plain; charset=utf-8', 'Only GET and HEAD are allowed.');
       return;
     }
 
     if (!isAuthorized(req, token)) {
-      respond(req, res, 403, 'text/plain; charset=utf-8', 'Kein Zugriff: Das Preview-Token fehlt oder ist ungültig.');
+      respond(req, res, 403, 'text/plain; charset=utf-8', 'No access: the preview token is missing or invalid.');
       return;
     }
-    // Erstzugriff kommt mit `?wab=<token>`; das Cookie authentifiziert danach
-    // Subressourcen (CSS/JS/Bilder), die die Query nicht mitschleppen.
+    // The first request comes with `?wab=<token>`; the cookie then authenticates
+    // subresources (CSS/JS/images) that don't carry the query along.
     res.setHeader('Set-Cookie', `${TOKEN_COOKIE}=${token}; Path=/; SameSite=Strict; HttpOnly`);
 
     const url = new URL(req.url ?? '/', `http://${host}`);
@@ -98,15 +98,15 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     try {
       pathname = decodeURIComponent(url.pathname);
     } catch {
-      respond(req, res, 400, 'text/plain; charset=utf-8', 'Ungültiger Pfad.');
+      respond(req, res, 400, 'text/plain; charset=utf-8', 'Invalid path.');
       return;
     }
     if (pathname.includes('\0')) {
-      respond(req, res, 400, 'text/plain; charset=utf-8', 'Ungültiger Pfad.');
+      respond(req, res, 400, 'text/plain; charset=utf-8', 'Invalid path.');
       return;
     }
 
-    // Pfad-Containment: niemals aus dem Docroot ausbrechen.
+    // Path containment: never escape the docroot.
     let filePath = path.resolve(siteDir, `.${path.posix.normalize(`/${pathname}`)}`);
     if (filePath !== siteDir && !filePath.startsWith(siteDir + path.sep)) {
       respondNotFound(req, res, pathname);
@@ -117,7 +117,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
     if (stat?.isDirectory()) {
       if (!pathname.endsWith('/')) {
-        // Redirect mit Slash, damit relative Verweise der Seite stimmen.
+        // Redirect with a trailing slash so the page's relative links resolve.
         res.statusCode = 301;
         res.setHeader('Location', `${encodeURI(pathname)}/${url.search}`);
         res.end();
@@ -132,7 +132,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
       return;
     }
 
-    // Symlink-Check: die reale Datei muss im realen Docroot liegen.
+    // Symlink check: the real file must reside in the real docroot.
     const realPath = await fs.realpath(filePath).catch(() => null);
     if (realPath === null || (realPath !== siteRealDir && !realPath.startsWith(siteRealDir + path.sep))) {
       respondNotFound(req, res, pathname);
@@ -151,12 +151,12 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   }
 
   function respondNotFound(req: IncomingMessage, res: ServerResponse, pathname: string): void {
-    // Die 404-Seite bekommt den Reload-Client: legt die KI die Datei an,
-    // lädt die Vorschau von selbst neu.
+    // The 404 page gets the reload client: once the AI creates the file,
+    // the preview reloads on its own.
     respond(req, res, 404, 'text/html; charset=utf-8', render404Page(pathname, injectedScript));
   }
 
-  // ---- WebSocket (teilt sich den HTTP-Server) --------------------------------
+  // ---- WebSocket (shares the HTTP server) ------------------------------------
 
   const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_WS_PAYLOAD });
 
@@ -165,7 +165,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     try {
       pathname = new URL(req.url ?? '/', `http://${host}`).pathname;
     } catch {
-      /* bleibt leer → abgelehnt */
+      /* stays empty → rejected */
     }
     if (pathname !== WS_PATH || !isAuthorized(req, token)) {
       socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
@@ -179,7 +179,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   wss.on('connection', (ws) => {
     ws.on('error', () => {
-      /* defekte Clients still schließen lassen */
+      /* let broken clients close silently */
     });
     ws.on('message', (data) => {
       const raw = Array.isArray(data) ? Buffer.concat(data).toString('utf8') : data.toString('utf8');
@@ -187,7 +187,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     });
   });
 
-  /** Nachrichten des injizierten Shims → PreviewEvent (mit Server-seitigen Caps). */
+  /** Messages from the injected shim → PreviewEvent (with server-side caps). */
   function handleShimMessage(raw: string): void {
     let message: unknown;
     try {
@@ -222,7 +222,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     }
   }
 
-  // ---- Watcher (ground truth für Datei-Änderungen, PLAN §4) -----------------
+  // ---- Watcher (ground truth for file changes, PLAN §4) ---------------------
 
   const debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
   const pendingChanges = new Set<string>();
@@ -230,7 +230,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
 
   const watcher = watch(siteDir, {
     ignoreInitial: true,
-    // Versteckte Dateien/Ordner (.git & Co.) sind für die Preview irrelevant.
+    // Hidden files/folders (.git & co.) are irrelevant for the preview.
     ignored: (watchedPath) => path.basename(watchedPath).startsWith('.'),
   });
 
@@ -246,7 +246,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
     if (pendingChanges.size === 0) return;
     const changedPaths = [...pendingChanges].sort();
     pendingChanges.clear();
-    // CSS-only → Stylesheets hot-swappen statt Full-Reload.
+    // CSS-only → hot-swap stylesheets instead of a full reload.
     const cssOnly = changedPaths.every((changed) => changed.toLowerCase().endsWith('.css'));
     broadcast(cssOnly ? { kind: 'css-update', paths: changedPaths } : { kind: 'reload' });
     bus.emit({ type: 'reload', changedPaths });
@@ -296,7 +296,7 @@ export async function startPreviewServer(options: PreviewServerOptions): Promise
   };
 }
 
-// ---- Hilfsfunktionen ---------------------------------------------------------
+// ---- Helpers -----------------------------------------------------------------
 
 function respond(
   req: IncomingMessage,
@@ -317,17 +317,17 @@ function respond(
 }
 
 function capText(text: string, limit: number): string {
-  return text.length > limit ? `${text.slice(0, limit)} … [gekürzt]` : text;
+  return text.length > limit ? `${text.slice(0, limit)} … [truncated]` : text;
 }
 
-/** Token aus Query (`?wab=`), Header (`x-wab-token`) oder Cookie lesen. */
+/** Read the token from query (`?wab=`), header (`x-wab-token`) or cookie. */
 function extractToken(req: IncomingMessage): string | undefined {
   try {
     const url = new URL(req.url ?? '/', 'http://wab.invalid');
     const fromQuery = url.searchParams.get(TOKEN_QUERY_PARAM);
     if (fromQuery !== null && fromQuery !== '') return fromQuery;
   } catch {
-    /* weiter mit Header/Cookie */
+    /* continue with header/cookie */
   }
   const fromHeader = req.headers[TOKEN_HEADER];
   if (typeof fromHeader === 'string' && fromHeader !== '') return fromHeader;

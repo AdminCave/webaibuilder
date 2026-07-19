@@ -3,30 +3,30 @@ import type { Checkpoint } from '@webaibuilder/core';
 import { Icon } from './Icon';
 
 interface TimelineSidebarProps {
-  /** Bereits mit dem „Deployed"-Flag markierte Checkpoints (siehe Workbench). */
+  /** Checkpoints already marked with the "Deployed" flag (see Workbench). */
   checkpoints: Checkpoint[];
-  /** ID des Checkpoints, der gerade wiederhergestellt wird (oder null). */
+  /** ID of the checkpoint currently being restored (or null). */
   restoringId: string | null;
-  /** Fehler des letzten Wiederherstellens (vorher stiller Fehlschlag). */
+  /** Error of the last restore (previously a silent failure). */
   restoreError: string | null;
   onRestore: (checkpointId: string) => void;
-  /** Öffnet die Deploy-Oberfläche (Ziele, Test, Veröffentlichen, Historie). */
+  /** Opens the deploy UI (targets, test, publish, history). */
   onOpenDeploy: () => void;
-  /** Remote weicht vom zuletzt deployten Stand ab (Drift, PLAN §4). */
+  /** Remote differs from the last deployed state (drift, PLAN §4). */
   driftWarning: boolean;
-  /** „diese Version deployen" (Rollback-Deploy) auf das aktive Ziel. */
+  /** "Deploy this version" (rollback deploy) to the active target. */
   onDeployVersion: (sha: string) => void;
-  /** true, wenn ein Ziel mit Zugangsdaten aktiv und kein Deploy unterwegs ist. */
+  /** true when a target with credentials is active and no deploy is in flight. */
   canDeployVersion: boolean;
-  /** SHA, die gerade per Rollback-Deploy veröffentlicht wird (oder null). */
+  /** SHA currently being published via rollback deploy (or null). */
   deployingSha: string | null;
 }
 
 /**
- * Timeline: Checkpoint-Liste (mono Kurz-SHA + Nachricht + relative Zeit),
- * Wiederherstellen, „Deployed"-Badge und „diese Version deployen" (M3, PLAN §5).
- * Das Badge sitzt auf dem Checkpoint, dessen SHA dem last_deployed-Stand des
- * aktiven Ziels entspricht (in Workbench aufgelöst).
+ * Timeline: checkpoint list (mono short SHA + message + relative time), restore,
+ * "Deployed" badge, and "deploy this version" (M3, PLAN §5). The badge sits on
+ * the checkpoint whose SHA matches the active target's last_deployed state
+ * (resolved in Workbench).
  */
 export function TimelineSidebar({
   checkpoints,
@@ -42,33 +42,32 @@ export function TimelineSidebar({
   const busy = restoringId !== null || deployingSha !== null;
 
   return (
-    <aside className="timeline" aria-label="Verlauf">
+    <aside className="timeline" aria-label="History">
       <header className="panel__header">
-        <h1 className="panel__title">Verlauf</h1>
+        <h1 className="panel__title">History</h1>
         <div className="panel__header-actions">
           <button type="button" className="btn checkpoint__restore" onClick={onOpenDeploy}>
             <Icon name="deploy" size={14} />
-            Veröffentlichen
+            Publish
           </button>
         </div>
       </header>
       <div className="timeline__list">
         {driftWarning && (
           <p className="timeline__drift" role="status">
-            Der Server weicht vom zuletzt deployten Stand ab.
+            The server differs from the last deployed state.
           </p>
         )}
         {restoreError !== null && (
           <p className="timeline__error" role="alert">
-            Wiederherstellen fehlgeschlagen: {restoreError}
+            Restore failed: {restoreError}
           </p>
         )}
         {checkpoints.length === 0 ? (
           <div className="timeline__empty">
-            <p className="timeline__empty-title">Noch keine Checkpoints</p>
+            <p className="timeline__empty-title">No checkpoints yet</p>
             <p>
-              Jeder KI-Schritt legt hier automatisch einen Wiederherstellungspunkt an. Deployte
-              Stände bekommen ein Badge.
+              Every AI step automatically creates a restore point here. Deployed states get a badge.
             </p>
           </div>
         ) : (
@@ -89,12 +88,12 @@ export function TimelineSidebar({
                   onClick={() => onDeployVersion(cp.id)}
                   title={
                     canDeployVersion
-                      ? 'Diese Version auf das aktive Ziel deployen'
-                      : 'Erst ein Deploy-Ziel mit Passwort anlegen'
+                      ? 'Deploy this version to the active target'
+                      : 'Create a deploy target with a password first'
                   }
                   hidden={!canDeployVersion && deployingSha !== cp.id}
                 >
-                  {deployingSha === cp.id ? 'Wird veröffentlicht …' : 'Diese Version deployen'}
+                  {deployingSha === cp.id ? 'Publishing …' : 'Deploy this version'}
                 </button>
                 <button
                   type="button"
@@ -103,7 +102,7 @@ export function TimelineSidebar({
                   onClick={() => onRestore(cp.id)}
                 >
                   <Icon name="history" size={14} />
-                  {restoringId === cp.id ? 'Wird wiederhergestellt …' : 'Wiederherstellen'}
+                  {restoringId === cp.id ? 'Restoring …' : 'Restore'}
                 </button>
               </div>
             </article>
@@ -114,17 +113,17 @@ export function TimelineSidebar({
   );
 }
 
-/** Grobe, deutschsprachige Relativzeit ohne externe Abhängigkeit. */
+/** Rough relative time without an external dependency. */
 function relativeTime(iso: string): string {
   const then = Date.parse(iso);
   if (Number.isNaN(then)) return iso;
   const seconds = Math.round((Date.now() - then) / 1000);
-  if (seconds < 45) return 'gerade eben';
+  if (seconds < 45) return 'just now';
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `vor ${minutes} Min.`;
+  if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `vor ${hours} Std.`;
+  if (hours < 24) return `${hours} h ago`;
   const days = Math.round(hours / 24);
-  if (days < 30) return `vor ${days} T.`;
-  return new Date(then).toLocaleDateString('de-DE');
+  if (days < 30) return `${days} d ago`;
+  return new Date(then).toLocaleDateString('en-GB');
 }

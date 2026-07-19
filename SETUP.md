@@ -1,6 +1,6 @@
-# Web AI Builder — Entwickler-Setup
+# Web AI Builder — Developer Setup
 
-Voraussetzungen: Node ≥ 22, `corepack enable` (aktiviert pnpm). Siehe `PLAN.md` für Architektur und Roadmap.
+Prerequisites: Node ≥ 22, `corepack enable` (activates pnpm). See `PLAN.md` for architecture and roadmap.
 
 ## Installation
 
@@ -8,62 +8,62 @@ Voraussetzungen: Node ≥ 22, `corepack enable` (aktiviert pnpm). Siehe `PLAN.md
 pnpm install
 ```
 
-## Skripte (Repo-Root)
+## Scripts (repo root)
 
-| Befehl | Zweck |
+| Command | Purpose |
 |---|---|
-| `pnpm dev` | Vite + Electron im Dev-Modus (braucht Display; siehe Hinweis unten) |
-| `pnpm typecheck` | TypeScript strict über alle Pakete |
-| `pnpm build` | Alle Pakete + Renderer bauen |
+| `pnpm dev` | Vite + Electron in dev mode (needs a display; see note below) |
+| `pnpm typecheck` | TypeScript strict across all packages |
+| `pnpm build` | Build all packages + renderer |
 | `pnpm lint` | ESLint |
-| `pnpm -r test` | Vitest in allen Paketen (System-Node / node-ABI) |
-| `pnpm package` | Installer für die aktuelle Plattform bauen (electron-builder) |
-| `pnpm package:linux` | Linux-Installer bauen (AppImage + deb) |
+| `pnpm -r test` | Vitest in all packages (system Node / node-ABI) |
+| `pnpm package` | Build installers for the current platform (electron-builder) |
+| `pnpm package:linux` | Build the Linux installers (AppImage + deb) |
 
-## Packaging & Auto-Update (M5)
+## Packaging & auto-update (M5)
 
-Installer werden mit **electron-builder** gebaut (Konfiguration: `apps/desktop/electron-builder.yml`). Targets: Linux `AppImage` + `deb`, Windows `nsis`, macOS `dmg`. `pnpm package` baut für die aktuelle Plattform, `pnpm package:linux` gezielt die Linux-Installer. Die CI (`.github/workflows/release.yml`) baut auf Tag-Push `v*` die Installer für alle drei Plattformen und lädt sie samt Auto-Update-Metadaten zu GitHub Releases.
+Installers are built with **electron-builder** (config: `apps/desktop/electron-builder.yml`). Targets: Linux `AppImage` + `deb`, Windows `nsis`, macOS `dmg`. `pnpm package` builds for the current platform, `pnpm package:linux` targets the Linux installers specifically. On a `v*` tag push, CI (`.github/workflows/release.yml`) builds the installers for all three platforms and uploads them, together with the auto-update metadata, to GitHub Releases.
 
-**Auto-Update** (electron-updater) prüft im gepackten Build beim Start und periodisch gegen GitHub Releases (`AdminCave/webaibuilder`), lädt im Hintergrund und meldet „Update bereit" an die UI (Neustart per Klick, sonst beim Beenden). Im Dev (`!app.isPackaged`) ist der Updater ein No-op.
+**Auto-update** (electron-updater) checks in the packaged build at startup and periodically against GitHub Releases (`AdminCave/webaibuilder`), downloads in the background, and reports "update ready" to the UI (restart on click, otherwise on quit). In dev (`!app.isPackaged`) the updater is a no-op.
 
-### App im Dev-Modus starten (mit Display)
-
-```bash
-pnpm install   # nur beim ersten Mal / nach Änderungen
-pnpm dev       # baut better-sqlite3 bei Bedarf automatisch auf Electron-ABI, dann Vite + Electron
-```
-
-Der ABI-Toggle läuft automatisch: `pnpm dev` und `pnpm test` prüfen vor dem Start einen Marker (`node_modules/better-sqlite3/build/.wab-abi`) und bauen better-sqlite3 nur um, wenn die ABI nicht zur Ziel-Laufzeit passt. Manuelles `rebuild:electron`/`rebuild:node` ist nur noch für Sonderfälle nötig (erzwungener Neubau).
-
-### natives Modul (better-sqlite3) & Electron-ABI
-
-Nur **ein** Modul ist ABI-empfindlich:
-
-- **`better-sqlite3`** (Projekt-Registry) ist NAN-basiert — die kompilierte `.node`-Datei muss zur **ABI der Laufzeit** passen. Node 22 und Electron 43 haben unterschiedliche ABIs (127 vs. 148), dieselbe Binärdatei läuft **nicht** in beiden. Deshalb der Toggle: Electron-ABI für `pnpm dev`/`package`, node-ABI für die Vitest-Tests. `scripts/rebuild-native.mjs` baut better-sqlite3 gezielt (und nur dieses Modul) mit node-gyp neu — plattformübergreifend, ohne den kaputten `install-app-deps`-Pfad (der an der optionalen ssh2-Abhängigkeit `cpu-features` scheitert). Die dev-/test-Skripte rufen es mit `--if-needed` auf (Marker-Datei entscheidet), die package-Skripte erzwingen den Electron-Build.
-- **`@napi-rs/keyring`** ist dagegen **N-API** (ABI-stabil) und läuft in Node **und** Electron ohne Neubau.
-
-Kommt trotzdem je eine `NODE_MODULE_VERSION`- oder „Module did not self-register"-Meldung, sagt sie dir genau, welche ABI erwartet wird — dann das passende `rebuild:*` laufen lassen.
-
-**Packaging:** `pnpm package` baut better-sqlite3 vorab für Electron (`rebuild:electron`) und packt dann mit `npmRebuild: false` — electron-builder baut also **nichts** nativ neu (und stolpert nicht über `cpu-features`), sondern bündelt die bereits passenden Binärdateien. Voraussetzung dafür, dass electron-builder im pnpm-Monorepo alle Produktions-Deps findet, ist `nodeLinker: hoisted` in `pnpm-workspace.yaml` (flaches `node_modules`; documented pnpm-Fix, electron-builder#6389).
-
-### „Error: Electron uninstall" beim ersten `pnpm dev`
-
-electron-vite findet die Electron-Binary nicht — sie wurde beim `pnpm install` nicht heruntergeladen (pnpm überspringt Build-Skripte teils bei bestehendem `node_modules`). Einmal nachholen:
+### Start the app in dev mode (with a display)
 
 ```bash
-node node_modules/electron/install.js      # lädt die Electron-Binary
-# oder:  pnpm rebuild electron
+pnpm install   # only the first time / after changes
+pnpm dev       # rebuilds better-sqlite3 for the Electron ABI on demand, then Vite + Electron
 ```
 
-Danach `pnpm dev` erneut. Ein wirklich frischer `pnpm install` (bzw. `--frozen-lockfile` in CI) lädt die Binary selbst, weil `electron` in `allowBuilds` freigegeben ist.
+The ABI toggle runs automatically: `pnpm dev` and `pnpm test` check a marker (`node_modules/better-sqlite3/build/.wab-abi`) before starting and only rebuild better-sqlite3 if the ABI does not match the target runtime. Manual `rebuild:electron`/`rebuild:node` is only needed for special cases now (a forced rebuild).
 
-## Onboarding & Fehlerberichte (M5)
+### Native module (better-sqlite3) & the Electron ABI
 
-Beim ersten Start zeigt die App ein kurzes deutsches Onboarding (drei Screens). Das Merk-Flag (`hasOnboarded`) liegt in `<userData>/onboarding-state.json`; über **Einstellungen → Einführung erneut zeigen** startest du den Flow neu.
+Only **one** module is ABI-sensitive:
 
-Fehler- und Log-Erfassung ist **rein lokal** (kein Remote-Versand, PLAN §1): ein rotierender Datei-Logger schreibt strukturierte JSON-Zeilen nach `<userData>/logs/app.log` (Größen-Cap + letzte N rotierte Dateien). Erfasst werden `uncaughtException`/`unhandledRejection`, Renderer-Crashes (`render-process-gone`) und gemeldete Renderer-JS-Fehler; secret-förmige Felder (API-Keys, Passwörter, Token) werden vor dem Schreiben entfernt. In der App: **Einstellungen → Fehler & Logs** (Pfad anzeigen, Ordner öffnen, letzte Zeilen kopieren). Beim Debuggen findest du `<userData>` z. B. unter Linux in `~/.config/Web AI Builder/`.
+- **`better-sqlite3`** (project registry) is NAN-based — the compiled `.node` file must match the **ABI of the runtime**. Node 22 and Electron 43 have different ABIs (127 vs. 148); the same binary does **not** run in both. Hence the toggle: Electron ABI for `pnpm dev`/`package`, node ABI for the Vitest tests. `scripts/rebuild-native.mjs` rebuilds better-sqlite3 specifically (and only that module) with node-gyp — cross-platform, without the broken `install-app-deps` path (which fails on ssh2's optional `cpu-features` dependency). The dev/test scripts call it with `--if-needed` (the marker file decides), the package scripts force the Electron build.
+- **`@napi-rs/keyring`**, by contrast, is **N-API** (ABI-stable) and runs in Node **and** Electron without a rebuild.
 
-## Headless-Umgebung (ohne Display)
+If you still get a `NODE_MODULE_VERSION` or "Module did not self-register" message, it tells you exactly which ABI is expected — then run the matching `rebuild:*`.
 
-- Tests und `typecheck`/`build` laufen ohne Display.
-- Der Electron-Main-Prozess bootet headless (`WAB_SMOKE=1` + `--ozone-platform=headless`); die Fenster-Erzeugung braucht `xvfb-run` (`sudo apt install xvfb`), sonst bricht sie mangels Display ab — das ist umgebungsbedingt, kein Code-Fehler.
+**Packaging:** `pnpm package` builds better-sqlite3 for Electron ahead of time (`rebuild:electron`) and then packages with `npmRebuild: false` — so electron-builder rebuilds **nothing** natively (and does not trip over `cpu-features`), but bundles the already-matching binaries instead. For electron-builder to find all production deps in the pnpm monorepo, `nodeLinker: hoisted` in `pnpm-workspace.yaml` is required (a flat `node_modules`; a documented pnpm fix, electron-builder#6389).
+
+### "Error: Electron uninstall" on the first `pnpm dev`
+
+electron-vite cannot find the Electron binary — it was not downloaded during `pnpm install` (pnpm sometimes skips build scripts when `node_modules` already exists). Catch it up once:
+
+```bash
+node node_modules/electron/install.js      # downloads the Electron binary
+# or:  pnpm rebuild electron
+```
+
+Then run `pnpm dev` again. A truly fresh `pnpm install` (or `--frozen-lockfile` in CI) downloads the binary itself, because `electron` is allowed in `allowBuilds`.
+
+## Onboarding & error reports (M5)
+
+On first start, the app shows a short German onboarding (three screens). The remember flag (`hasOnboarded`) lives in `<userData>/onboarding-state.json`; via **Settings → Show introduction again** you restart the flow.
+
+Error and log capture is **purely local** (no remote sending, PLAN §1): a rotating file logger writes structured JSON lines to `<userData>/logs/app.log` (size cap + last N rotated files). Captured are `uncaughtException`/`unhandledRejection`, renderer crashes (`render-process-gone`), and reported renderer JS errors; secret-shaped fields (API keys, passwords, tokens) are removed before writing. In the app: **Settings → Errors & logs** (show path, open folder, copy last lines). When debugging you can find `<userData>` on Linux, for example, under `~/.config/Web AI Builder/`.
+
+## Headless environment (no display)
+
+- Tests and `typecheck`/`build` run without a display.
+- The Electron main process boots headless (`WAB_SMOKE=1` + `--ozone-platform=headless`); window creation needs `xvfb-run` (`sudo apt install xvfb`), otherwise it aborts for lack of a display — that is environmental, not a code bug.

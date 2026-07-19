@@ -1,8 +1,8 @@
 /**
- * In-Process-FTP-Server (ftp-srv) für die Tests — bildet "den Remote-Host" auf
- * ein Temp-Verzeichnis ab. Ein Recording-FileSystem zählt jeden STOR (Write),
- * damit die Delta-Upload-Asserts greifen. Kein TLS (Plain-FTP) — der Transport-
- * Code ist für FTPS identisch, nur mit `secure: true`.
+ * In-process FTP server (ftp-srv) for the tests — maps "the remote host" onto
+ * a temp directory. A recording file system counts every STOR (write) so the
+ * delta-upload asserts hold. No TLS (plain FTP) — the transport code is
+ * identical for FTPS, just with `secure: true`.
  */
 
 import net from 'node:net';
@@ -19,7 +19,7 @@ export interface TestFtpServer {
   close(): Promise<void>;
 }
 
-/** No-op-Logger, damit ftp-srv die Testausgabe nicht flutet. */
+/** No-op logger so ftp-srv does not flood the test output. */
 function silentLog(): unknown {
   const log = {
     trace: () => {},
@@ -45,7 +45,7 @@ function getFreePort(): Promise<number> {
   });
 }
 
-/** Startet den Test-FTP-Server; `rootDir` ist die Wurzel des virtuellen Dateisystems. */
+/** Starts the test FTP server; `rootDir` is the root of the virtual file system. */
 export async function startFtpServer(rootDir: string): Promise<TestFtpServer> {
   const port = await getFreePort();
   const writes: string[] = [];
@@ -62,7 +62,7 @@ export async function startFtpServer(rootDir: string): Promise<TestFtpServer> {
       rejectLogin(new Error('Falsche Zugangsdaten'));
       return;
     }
-    // Recording-FileSystem: jeder Upload (STOR) landet in `writes`.
+    // Recording file system: every upload (STOR) lands in `writes`.
     class RecordingFileSystem extends FileSystem {
       override write(fileName: string, options?: { append?: boolean; start?: number }): unknown {
         const result = super.write(fileName, options) as { clientPath?: string };

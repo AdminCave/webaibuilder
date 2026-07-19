@@ -1,7 +1,7 @@
 /**
- * Sicherheits-Tests für das Pfad-Containment (harte Anforderung, PLAN §4).
- * `resolveInSite` muss jeden Escape aus site/ verweigern — lexikalisch,
- * über absolute Pfade UND über Symlinks.
+ * Security tests for path containment (hard requirement, PLAN §4).
+ * `resolveInSite` must deny every escape out of site/ — lexically, via absolute
+ * paths AND via symlinks.
  */
 
 import { mkdtemp, mkdir, rm, symlink, writeFile } from 'node:fs/promises';
@@ -25,27 +25,27 @@ afterEach(async () => {
   await rm(workspaceDir, { recursive: true, force: true });
 });
 
-describe('resolveInSite (Containment)', () => {
-  it('erlaubt normale Pfade innerhalb von site/', async () => {
+describe('resolveInSite (containment)', () => {
+  it('allows normal paths within site/', async () => {
     const abs = await resolveInSite(siteDir, 'index.html');
     expect(abs).toBe(join(siteDir, 'index.html'));
     const nested = await resolveInSite(siteDir, 'css/style.css');
     expect(nested).toBe(join(siteDir, 'css', 'style.css'));
   });
 
-  it('verankert absolute Nutzerpfade an der Site-Wurzel', async () => {
+  it('anchors absolute user paths at the site root', async () => {
     const abs = await resolveInSite(siteDir, '/index.html');
     expect(abs).toBe(join(siteDir, 'index.html'));
   });
 
-  it('verweigert ".."-Escapes', async () => {
+  it('denies ".." escapes', async () => {
     await expect(resolveInSite(siteDir, '../evil.html')).rejects.toBeInstanceOf(PathEscapeError);
     await expect(resolveInSite(siteDir, '../../etc/passwd')).rejects.toBeInstanceOf(PathEscapeError);
     await expect(resolveInSite(siteDir, 'a/../../evil.html')).rejects.toBeInstanceOf(PathEscapeError);
   });
 
-  it('verweigert Symlink-Escapes (realpath-Prüfung)', async () => {
-    // Ein Symlink innerhalb site/, der auf das Elternverzeichnis zeigt.
+  it('denies symlink escapes (realpath check)', async () => {
+    // A symlink inside site/ that points to the parent directory.
     const outsideTarget = join(workspaceDir, 'secret');
     await mkdir(outsideTarget, { recursive: true });
     await writeFile(join(outsideTarget, 'leak.txt'), 'geheim', 'utf8');
@@ -54,7 +54,7 @@ describe('resolveInSite (Containment)', () => {
     await expect(resolveInSite(siteDir, 'link/leak.txt')).rejects.toBeInstanceOf(PathEscapeError);
   });
 
-  it('erlaubt einen Symlink, der innerhalb von site/ bleibt', async () => {
+  it('allows a symlink that stays within site/', async () => {
     const insideTarget = join(siteDir, 'real');
     await mkdir(insideTarget, { recursive: true });
     await symlink(insideTarget, join(siteDir, 'alias'), 'dir');

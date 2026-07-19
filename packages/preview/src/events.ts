@@ -1,6 +1,6 @@
 /**
- * Kleiner Event-Bus für PreviewEvent: synchrone Listener-API plus
- * async Iteration (`for await (const event of handle.events)`).
+ * Small event bus for PreviewEvent: synchronous listener API plus
+ * async iteration (`for await (const event of handle.events)`).
  */
 
 import type { PreviewEvent, PreviewEventListener, PreviewEventStream } from './types';
@@ -24,7 +24,7 @@ export class PreviewEventBus implements PreviewEventStream {
     this.listeners.delete(listener);
   }
 
-  /** Beendet alle laufenden Iterationen; weitere Events werden verworfen. */
+  /** Ends all running iterations; further events are discarded. */
   close(): void {
     if (this.closed) return;
     this.closed = true;

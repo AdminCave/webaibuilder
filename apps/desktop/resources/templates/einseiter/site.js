@@ -1,6 +1,6 @@
-// Einseiter — gemeinsames Skript. Reines Vanilla-JS, kein Build-Schritt.
+// One-Pager — shared script. Plain vanilla JS, no build step.
 
-// Jahr in der Fußzeile aktuell halten.
+// Keep the year in the footer up to date.
 document.querySelectorAll('[data-year]').forEach((el) => {
   el.textContent = String(new Date().getFullYear());
 });

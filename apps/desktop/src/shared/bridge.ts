@@ -1,16 +1,16 @@
 /**
- * Desktop-Erweiterung der Preload-Bridge (`window.wab`).
+ * Desktop extension of the preload bridge (`window.wab`).
  *
- * Der eingefrorene Basis-Vertrag `WabBridge` (ping, projects, templates) lebt in
- * @webaibuilder/core und darf nicht geändert werden. Diese Datei ergänzt die
- * M2-Oberfläche (session, chat, checkpoints, settings, Event-Abos) als eigenen,
- * additiven Vertrag. Preload stellt `WabBridge & WabDesktopBridge` unter
- * `window.wab` bereit (siehe preload/index.ts, env.d.ts).
+ * The frozen base contract `WabBridge` (ping, projects, templates) lives in
+ * @webaibuilder/core and must not be changed. This file adds the M2 surface
+ * (session, chat, checkpoints, settings, event subscriptions) as its own,
+ * additive contract. Preload exposes `WabBridge & WabDesktopBridge` under
+ * `window.wab` (see preload/index.ts, env.d.ts).
  *
- * Da `BRIDGE_VERSION` in core eingefroren ist, versioniert apps/desktop seine
- * additive Oberfläche mit einer eigenen Konstante.
+ * Since `BRIDGE_VERSION` is frozen in core, apps/desktop versions its additive
+ * surface with its own constant.
  *
- * Umgebungsneutral (kein node/electron/DOM).
+ * Environment-neutral (no node/electron/DOM).
  */
 
 import type { BackendId, Checkpoint, PermissionDecision } from '@webaibuilder/core';
@@ -43,47 +43,46 @@ import type { OnboardingState, OnboardingStateInput } from './onboarding';
 import type { AgentSettings, AgentSettingsInput } from './settings';
 
 /**
- * Version der additiven Desktop-Bridge-Oberfläche.
- * v2 (M3): `settings.get`/`set` liefern zusätzlich `keychainAvailable`; API-Keys
- *          liegen im OS-Schlüsselbund statt nur im Main-Prozess-Speicher.
- * v3 (M3): Deploy-Oberfläche — Ziel-CRUD (Passwort → Schlüsselbund),
- *          Verbindungstest, Veröffentlichen/Rollback mit Fortschritts-Push,
- *          Drift-Erkennung, Deploy-Historie.
- * v4 (M4): Backend-Erkennung (alle sechs Backends) + Kill-Switch-Merge,
- *          „neu prüfen", einmalige Bestätigung des Claude-Abo-Hinweises,
- *          Öffnen offizieller Onboarding-Links (allowlisted, extern).
- * v5 (M5): Auto-Update — `update.onStatus`-Push (electron-updater-Status) +
- *          `update.restart` („jetzt neu starten", wendet das geladene Update an).
- * v6 (M5): Erst-Start-Onboarding (`onboarding.get`/`set`, `hasOnboarded`) +
- *          lokale Fehlerberichte/Logs (`logs.info`/`report`/`tail`/`openFolder`).
+ * Version of the additive desktop bridge surface.
+ * v2 (M3): `settings.get`/`set` additionally return `keychainAvailable`; API keys
+ *          live in the OS keychain instead of only in the main-process memory.
+ * v3 (M3): deploy surface — target CRUD (password → keychain), connection test,
+ *          publish/rollback with progress push, drift detection, deploy history.
+ * v4 (M4): backend detection (all six backends) + kill-switch merge, "re-check",
+ *          one-time acknowledgment of the Claude subscription notice, opening
+ *          official onboarding links (allowlisted, external).
+ * v5 (M5): auto-update — `update.onStatus` push (electron-updater status) +
+ *          `update.restart` ("restart now", applies the downloaded update).
+ * v6 (M5): first-launch onboarding (`onboarding.get`/`set`, `hasOnboarded`) +
+ *          local error reports/logs (`logs.info`/`report`/`tail`/`openFolder`).
  */
 export const WAB_DESKTOP_BRIDGE_VERSION = 6;
 
-/** Meldet ein Push-Abo wieder ab. */
+/** Unsubscribes a push subscription. */
 export type Unsubscribe = () => void;
 
 export interface WabDesktopBridge {
   readonly desktopVersion: typeof WAB_DESKTOP_BRIDGE_VERSION;
 
   session: {
-    /** Öffnet ein Projekt: Workspace init + Preview-Start; liefert URL + Checkpoints. */
+    /** Opens a project: workspace init + preview start; returns URL + checkpoints. */
     open(projectId: string): Promise<SessionInfo>;
-    /** Schließt das aktive Projekt (Preview stoppen, Turn abbrechen). */
+    /** Closes the active project (stop the preview, abort the turn). */
     close(): Promise<void>;
   };
 
   chat: {
-    /** Startet einen Turn mit vorab erzeugter Lauf-ID; Events kommen über `onAgentEvent`. */
+    /** Starts a turn with a pre-generated run ID; events arrive via `onAgentEvent`. */
     send(prompt: string, runId: string): Promise<ChatSendResult>;
-    /** Bricht den laufenden Turn ab (Stopp). */
+    /** Aborts the running turn (stop). */
     interrupt(): Promise<void>;
-    /** Beantwortet eine Permission-Anfrage. */
+    /** Answers a permission request. */
     respondPermission(decision: PermissionDecision): Promise<void>;
   };
 
   checkpoints: {
     list(): Promise<Checkpoint[]>;
-    /** Stellt einen Checkpoint als neuen Commit wieder her. */
+    /** Restores a checkpoint as a new commit. */
     restore(checkpointId: string): Promise<Checkpoint>;
   };
 
@@ -93,62 +92,62 @@ export interface WabDesktopBridge {
   };
 
   backends: {
-    /** Aktueller Zustand aller sechs Backends (Detection + Kill-Switch-Merge). */
+    /** Current state of all six backends (detection + kill-switch merge). */
     list(): Promise<BackendPickerState>;
-    /** Erzwingt eine frische Detection („neu prüfen"). */
+    /** Forces a fresh detection ("re-check"). */
     refresh(): Promise<BackendPickerState>;
-    /** Bestätigt einen Backend-Hinweis einmalig (Claude-Abo). */
+    /** Acknowledges a backend notice once (Claude subscription). */
     acknowledge(backendId: BackendId): Promise<BackendPickerState>;
-    /** Öffnet einen offiziellen Onboarding-Link im externen Browser (allowlisted). */
+    /** Opens an official onboarding link in the external browser (allowlisted). */
     openHint(url: string): Promise<OpenHintResult>;
   };
 
   deploy: {
-    /** Deploy-Ziele eines Projekts (inkl. hasCredentials). */
+    /** A project's deploy targets (incl. hasCredentials). */
     listTargets(projectId: string): Promise<DeployTargetView[]>;
-    /** Ziel anlegen/ändern; Passwort/Passphrase gehen in den Schlüsselbund. */
+    /** Create/update a target; password/passphrase go into the keychain. */
     saveTarget(projectId: string, input: DeployTargetInput): Promise<DeployTargetView>;
-    /** Ziel löschen (entfernt auch das Schlüsselbund-Secret). */
+    /** Delete a target (also removes the keychain secret). */
     deleteTarget(projectId: string, targetId: string): Promise<void>;
-    /** Verbindungstest (nur Preflight) — strukturierte Befunde, deutsch. */
+    /** Connection test (preflight only) — structured findings. */
     test(projectId: string, targetId: string): Promise<WabPreflightResult>;
-    /** Aktuellen Stand veröffentlichen; Fortschritt kommt über `onDeployProgress`. */
+    /** Publish the current state; progress arrives via `onDeployProgress`. */
     run(projectId: string, targetId: string, runId: string): Promise<DeployRunOutcome>;
-    /** Ältere Version deployen (Rollback-Deploy). */
+    /** Deploy an older version (rollback deploy). */
     rollback(
       projectId: string,
       targetId: string,
       toCommitSha: string,
       runId: string,
     ): Promise<DeployRunOutcome>;
-    /** Drift-Erkennung: weicht der Remote-Stand von der erwarteten SHA ab? */
+    /** Drift detection: does the remote state differ from the expected SHA? */
     drift(projectId: string, targetId: string): Promise<WabDriftResult>;
-    /** Deploy-Historie des Projekts (neueste zuerst). */
+    /** The project's deploy history (newest first). */
     history(projectId: string): Promise<DeployHistoryRecord[]>;
   };
 
   update: {
-    /** Abonniert den Auto-Update-Status (checking/available/downloading/ready/error). */
+    /** Subscribes to the auto-update status (checking/available/downloading/ready/error). */
     onStatus(listener: (status: UpdateStatus) => void): Unsubscribe;
-    /** Wendet ein geladenes Update an und startet neu (quitAndInstall). */
+    /** Applies a downloaded update and restarts (quitAndInstall). */
     restart(): Promise<void>;
   };
 
   onboarding: {
-    /** Aktueller Onboarding-Zustand (`hasOnboarded`). */
+    /** Current onboarding state (`hasOnboarded`). */
     get(): Promise<OnboardingState>;
-    /** Setzt den Zustand (Flow abschließen oder „erneut zeigen"). */
+    /** Sets the state (complete the flow or "show again"). */
     set(input: OnboardingStateInput): Promise<OnboardingState>;
   };
 
   logs: {
-    /** Speicherort der lokalen Log-Dateien (Ordner + aktive Datei). */
+    /** Location of the local log files (folder + active file). */
     info(): Promise<LogLocation>;
-    /** Meldet einen Renderer-JS-Fehler ins lokale Log (kein Remote). */
+    /** Reports a renderer JS error into the local log (no remote). */
     report(report: RendererErrorReport): Promise<void>;
-    /** Die letzten `lines` Log-Zeilen als Text („Logs kopieren"). */
+    /** The last `lines` log lines as text ("Copy logs"). */
     tail(lines: number): Promise<LogTailResult>;
-    /** Öffnet den lokalen Log-Ordner im Dateimanager. */
+    /** Opens the local log folder in the file manager. */
     openFolder(): Promise<OpenFolderResult>;
   };
 

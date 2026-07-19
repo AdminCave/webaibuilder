@@ -1,10 +1,10 @@
 /**
- * Einstellungen (PLAN §6, Redesign): Modal mit Seitennavigation statt einer
- * langen Scroll-Liste. Drei Sektionen — „KI & Backends" (EIN einheitlicher
- * Aktivierungsweg für alle sechs Backends), „Darstellung" (Theme) und
- * „Hilfe & Logs". Deep-Link-fähig über `route` (z. B. aus dem Chat-Empty-State
- * direkt auf die byok-Karte). Jede Aktion speichert sofort — es gibt keinen
- * globalen „Speichern"-Knopf mehr.
+ * Settings (PLAN §6, redesign): modal with side navigation instead of one long
+ * scroll list. Three sections — "AI & Backends" (ONE unified activation path
+ * for all six backends), "Appearance" (theme), and "Help & Logs". Deep-link
+ * capable via `route` (e.g. from the chat empty state straight to the byok
+ * card). Every action saves immediately — there is no longer a global "Save"
+ * button.
  */
 
 import { useEffect, useState } from 'react';
@@ -35,7 +35,7 @@ interface SettingsDialogProps {
   onThemeChange: (theme: Theme) => void;
   onClose: () => void;
   onSaved: (settings: AgentSettings) => void;
-  /** Startet den Einführungs-Flow erneut (schließt den Dialog). */
+  /** Restarts the intro flow (closes the dialog). */
   onReplayOnboarding: () => void;
 }
 
@@ -50,29 +50,29 @@ export function SettingsDialog({
 }: SettingsDialogProps): React.JSX.Element {
   const [section, setSection] = useState<SettingsSection>(route.section);
 
-  // Deep-Link-Änderungen von außen übernehmen (z. B. Chat-Empty-State).
+  // Adopt deep-link changes from outside (e.g. chat empty state).
   useEffect(() => {
     setSection(route.section);
   }, [route]);
 
   return (
-    <div className="modal" role="dialog" aria-modal="true" aria-label="Einstellungen">
+    <div className="modal" role="dialog" aria-modal="true" aria-label="Settings">
       <div className="modal__backdrop" onClick={onClose} />
       <div className="modal__panel modal__panel--wide modal__panel--settings">
         <header className="modal__header modal__header--split">
-          <h2 className="modal__title">Einstellungen</h2>
+          <h2 className="modal__title">Settings</h2>
           <button
             type="button"
             className="btn btn--icon"
             onClick={onClose}
-            title="Einstellungen schließen"
+            title="Close settings"
           >
-            <Icon name="close" aria-label="Einstellungen schließen" />
+            <Icon name="close" aria-label="Close settings" />
           </button>
         </header>
 
         <div className="settings">
-          <nav className="settings__nav" aria-label="Einstellungs-Kategorien">
+          <nav className="settings__nav" aria-label="Settings categories">
             {SETTINGS_SECTIONS.map((entry) => (
               <button
                 key={entry.id}

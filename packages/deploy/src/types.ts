@@ -1,79 +1,79 @@
 /**
- * Öffentliche Typen der Deploy-Engine. Die Typen leben in diesem Paket
- * (core ist eingefroren) — index.ts re-exportiert sie, interne Module
- * importieren von hier (keine Ringabhängigkeit über index.ts).
+ * Public types of the deploy engine. The types live in this package
+ * (core is frozen) — index.ts re-exports them, internal modules
+ * import from here (no circular dependency via index.ts).
  */
 
-/** Dateiname des Remote-Manifests im Zielverzeichnis. */
+/** File name of the remote manifest in the target directory. */
 export const MANIFEST_FILENAME = '.wab-manifest.json';
 
-/** Aktuelle Schema-Version des Remote-Manifests. */
+/** Current schema version of the remote manifest. */
 export const MANIFEST_VERSION = 1 as const;
 
-/** Remote-Manifest: Hash-Baum + Commit-SHA (→ "Deployed"-Badge, Drift-Erkennung). */
+/** Remote manifest: hash tree + commit SHA (→ "deployed" badge, drift detection). */
 export interface DeployManifest {
   version: 1;
-  /** Commit-SHA des deployten Standes. */
+  /** Commit SHA of the deployed state. */
   commit: string;
   generatedAt: string;
-  /** Relativer POSIX-Pfad → SHA-256 des Dateiinhalts. */
+  /** Relative POSIX path → SHA-256 of the file content. */
   files: Record<string, string>;
 }
 
-/** Laufzeit-Credentials aus dem Schlüsselbund — niemals persistieren, niemals loggen. */
+/** Runtime credentials from the keychain — never persist, never log. */
 export interface DeployCredentials {
   password?: string;
-  /** Private Key (PEM) für SFTP. */
+  /** Private key (PEM) for SFTP. */
   privateKey?: string;
   passphrase?: string;
 }
 
-/** Capabilities, die der Preflight pro Host probt (nur erfassen, nicht darauf bauen). */
+/** Capabilities the preflight probes per host (only record, do not build on them). */
 export interface DeployCapabilities {
-  /** Server kann Verzeichnisse rekursiv anlegen. */
+  /** Server can create directories recursively. */
   mkdirRecursive: boolean;
-  /** RNTO/rename funktioniert (für spätere Safe-Swap-Deploys — v1 nutzt es nicht). */
+  /** RNTO/rename works (for later safe-swap deploys — v1 does not use it). */
   rename: boolean;
-  /** TLS-Session-Reuse aktiv (viele Shared-Hoster verlangen das bei FTPS). */
+  /** TLS session reuse active (many shared hosters require it for FTPS). */
   tlsSessionReuse?: boolean;
 }
 
-/** Ergebnis des Preflight-Verbindungstests + Capability-Probe (PLAN §4). */
+/** Result of the preflight connection test + capability probe (PLAN §4). */
 export interface PreflightResult {
   ok: boolean;
-  /** Menschlich lesbare Befunde fürs UI (deutsch, Du-Form). */
+  /** Human-readable findings for the UI. */
   messages: string[];
-  /** Klartext-Fehler, wenn `ok` false ist (deutsch, Du-Form). */
+  /** Plain-text errors when `ok` is false. */
   failures: string[];
   capabilities: DeployCapabilities;
-  /** Manifest auf dem Server, falls vorhanden (Drift-Erkennung). */
+  /** Manifest on the server, if present (drift detection). */
   remoteManifest?: DeployManifest | null;
-  /** Commit-SHA laut Remote-Manifest — "welche Version liegt gerade drauf". */
+  /** Commit SHA per the remote manifest — "which version is currently deployed". */
   remoteSha: string | null;
 }
 
-/** Minimale Upload/Delete-Ops aus lokalem Hash-Baum vs. Remote-Manifest. */
+/** Minimal upload/delete ops from local hash tree vs. remote manifest. */
 export interface DeployPlan {
-  /** Relative Pfade, die neu/geändert hochgeladen werden. */
+  /** Relative paths that are uploaded new/changed. */
   uploads: string[];
-  /** Relative Pfade, die remote entfernt werden. */
+  /** Relative paths that are removed remotely. */
   deletes: string[];
   unchangedCount: number;
 }
 
-/** Ergebnis eines Deploys/Rollbacks — Zähler + der ausgeführte Plan. */
+/** Result of a deploy/rollback — counters + the executed plan. */
 export interface DeployResult {
-  /** Deployte Commit-SHA (steht so im Remote-Manifest). */
+  /** Deployed commit SHA (as written in the remote manifest). */
   commit: string;
   uploaded: number;
   deleted: number;
   unchanged: number;
-  /** Summe der hochgeladenen Bytes (ohne Manifest). */
+  /** Total of uploaded bytes (excluding manifest). */
   bytesUploaded: number;
   plan: DeployPlan;
 }
 
-/** Fortschritts-Events für die Deploy-UI (file-by-file). */
+/** Progress events for the deploy UI (file-by-file). */
 export type DeployProgressEvent =
   | { type: 'connecting' }
   | { type: 'planning' }
@@ -84,33 +84,33 @@ export type DeployProgressEvent =
   | { type: 'done'; result: DeployResult }
   | { type: 'error'; message: string };
 
-/** Fortschritts-Callback — die UI zeigt damit den Verlauf an. */
+/** Progress callback — the UI uses it to display progress. */
 export type DeployProgress = (event: DeployProgressEvent) => void;
 
-/** Optionen für {@link deploy}. */
+/** Options for {@link deploy}. */
 export interface DeployOptions {
-  /** Docroot, der hochgeladen wird (`<workspace>/site`). */
+  /** Docroot that is uploaded (`<workspace>/site`). */
   siteDir: string;
-  /** Commit-SHA, die ins Manifest geschrieben wird. */
+  /** Commit SHA written into the manifest. */
   commitSha: string;
   onProgress?: DeployProgress;
 }
 
-/** Optionen für {@link rollback}. */
+/** Options for {@link rollback}. */
 export interface RollbackOptions {
-  /** Workspace mit dem git-Repo (`<workspace>/.git`, Docroot unter `site/`). */
+  /** Workspace with the git repo (`<workspace>/.git`, docroot under `site/`). */
   workspaceDir: string;
-  /** Ziel-Commit, dessen `site/`-Baum wieder hergestellt wird. */
+  /** Target commit whose `site/` tree is restored. */
   toCommitSha: string;
   onProgress?: DeployProgress;
 }
 
-/** Ergebnis der Drift-Erkennung (Registry-Erwartung ⟷ Remote-Manifest). */
+/** Result of drift detection (registry expectation ⟷ remote manifest). */
 export interface DriftResult {
-  /** true, wenn das Remote von der erwarteten SHA abweicht. */
+  /** true if the remote differs from the expected SHA. */
   drift: boolean;
-  /** Erwartete SHA (was die Registry für deployt hält). */
+  /** Expected SHA (what the registry considers deployed). */
   expectedSha: string;
-  /** SHA laut Remote-Manifest (null = kein Manifest / nie deployt). */
+  /** SHA per the remote manifest (null = no manifest / never deployed). */
   remoteSha: string | null;
 }

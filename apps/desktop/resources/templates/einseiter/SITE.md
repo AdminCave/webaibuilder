@@ -1,38 +1,38 @@
-# SITE.md — Bauplan dieser Seite
+# SITE.md — Blueprint of this site
 
-Diese Datei ist die Karte der Webseite für KI-Änderungen. Halte sie aktuell,
-wenn Seiten, Abschnitte oder gemeinsame Blöcke dazukommen oder sich ändern.
+This file is the map of the website for AI changes. Keep it up to date
+whenever pages, sections or shared blocks are added or change.
 
-## Technik
+## Technology
 
-- Reines statisches HTML/CSS/JS — kein Build-Schritt, keine Abhängigkeiten.
-- Keine externen Ressourcen (Fonts, CDNs, Tracker) einbinden: die Seite bleibt
-  selbstständig und datenschutzfreundlich.
-- Farben, Radien und Schrift hängen an den CSS-Variablen in `styles.css`
-  (`:root`) — Design-Änderungen dort vornehmen, nicht in einzelnen Regeln.
+- Pure static HTML/CSS/JS — no build step, no dependencies.
+- Do not include external resources (fonts, CDNs, trackers): the site stays
+  self-contained and privacy-friendly.
+- Colors, radii and typography live in the CSS variables in `styles.css`
+  (`:root`) — make design changes there, not in individual rules.
 
-## Seiten
+## Pages
 
-| Datei        | Zweck                                                        |
-| ------------ | ------------------------------------------------------------ |
-| `index.html` | Einzige Seite: Hero, Angebot (Karten), Über, Kontakt, Footer |
+| File         | Purpose                                                       |
+| ------------ | ------------------------------------------------------------- |
+| `index.html` | Single page: hero, offerings (cards), about, contact, footer  |
 
-## Abschnitte auf index.html
+## Sections on index.html
 
-- `#start` — Hero mit Überschrift, Lead-Text und zwei Buttons
-- `#angebot` — Karten-Grid (`.card-grid` > `.card`), pro Leistung eine Karte
-- `#ueber` — kurzer Über-Text
-- `#kontakt` — Kontakt per `mailto:`-Link (bewusst kein Formular: kein Backend)
+- `#start` — hero with heading, lead text and two buttons
+- `#angebot` — card grid (`.card-grid` > `.card`), one card per service
+- `#ueber` — short about text
+- `#kontakt` — contact via `mailto:` link (deliberately no form: no backend)
 
-## Gemeinsame Blöcke (bei neuen Seiten identisch übernehmen)
+## Shared blocks (copy identically onto new pages)
 
-- `<header class="site-header">` — Markenname + Anker-Navigation
-- `<footer class="site-footer">` — Jahr (füllt `site.js` über `[data-year]`)
-- `styles.css` und `site.js` werden von jeder Seite eingebunden
+- `<header class="site-header">` — brand name + anchor navigation
+- `<footer class="site-footer">` — year (filled by `site.js` via `[data-year]`)
+- `styles.css` and `site.js` are included by every page
 
-## Konventionen
+## Conventions
 
-- Sprache: Deutsch, Besucher werden geduzt. Keine Emojis, keine Verläufe.
-- Dunkles Design auf Schwarz, Hairline-Rahmen, genau ein Akzentblau (#4f9dff).
-- Platzhaltertexte ("Dein Name", "Leistung eins", `hallo@example.org`) durch
-  echte Inhalte ersetzen.
+- Language: English, addressing the visitor directly. No emojis, no gradients.
+- Dark design on black, hairline borders, exactly one accent blue (#4f9dff).
+- Replace placeholder text ("Your Name", "Service one", `hello@example.org`)
+  with real content.

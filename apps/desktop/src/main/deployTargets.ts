@@ -1,18 +1,18 @@
 /**
- * Verwaltung der Deploy-Ziele eines Projekts (M3, PLAN §4).
+ * Management of a project's deploy targets (M3, PLAN §4).
  *
- * Aufteilung nach Sensibilität:
- *  - Secret-freie Felder (Protokoll, Host, Port, Benutzer, Zielverzeichnis,
- *    Anzeigename, last_deployed*) → Projekt-Registry (`deploy_targets`).
- *  - Passwort/Passphrase → OS-Schlüsselbund über secrets.ts, als EIN JSON-Secret
- *    unter `deploy:<targetId>`. `DeployTarget.credentialRef` verweist mit
- *    `keyring:deploy:<targetId>` darauf.
+ * Split by sensitivity:
+ *  - Secret-free fields (protocol, host, port, user, target directory, display
+ *    name, last_deployed*) → project registry (`deploy_targets`).
+ *  - Password/passphrase → OS keychain via secrets.ts, as ONE JSON secret under
+ *    `deploy:<targetId>`. `DeployTarget.credentialRef` points to it with
+ *    `keyring:deploy:<targetId>`.
  *
- * Der Klartext eines Passworts verlässt nie den Main-Prozess und wird nie
- * geloggt; nach außen (Renderer) geht nur das abgeleitete `hasCredentials`-Flag.
+ * The plaintext of a password never leaves the main process and is never logged;
+ * only the derived `hasCredentials` flag goes outward (to the renderer).
  *
- * Registry und Schlüsselbund sind injiziert → headless mit vitest testbar
- * (temporäre DB + Secrets-Fake).
+ * Registry and keychain are injected → headless testable with vitest
+ * (temporary DB + secrets fake).
  */
 
 import { randomUUID } from 'node:crypto';
@@ -21,7 +21,7 @@ import type { DeployTarget, Project, ProjectRegistry } from '@webaibuilder/core'
 
 import { validateDeployTargetInput, type DeployTargetInput, type DeployTargetView } from '../shared/deploy';
 
-/** Schmale Schlüsselbund-Schnittstelle (der echte SecretsService erfüllt sie). */
+/** Narrow keychain interface (the real SecretsService satisfies it). */
 export interface DeploySecretsPort {
   setSecret(kind: 'deploy', id: string, value: string): void;
   getSecret(kind: 'deploy', id: string): string | null;
@@ -29,19 +29,19 @@ export interface DeploySecretsPort {
   hasSecret(kind: 'deploy', id: string): boolean;
 }
 
-/** Zur Laufzeit aus dem Schlüsselbund gelesene Zugangsdaten (nie persistiert). */
+/** Credentials read from the keychain at runtime (never persisted). */
 export interface StoredCredentials {
   password?: string;
   passphrase?: string;
 }
 
-/** `credentialRef` eines Ziels — verweist auf `deploy:<targetId>` im Schlüsselbund. */
+/** A target's `credentialRef` — points to `deploy:<targetId>` in the keychain. */
 export function credentialRefFor(targetId: string): string {
   return `keyring:deploy:${targetId}`;
 }
 
 export interface DeployTargetServiceOptions {
-  /** Eindeutige Ziel-IDs (Default: randomUUID). Injizierbar für Tests. */
+  /** Unique target IDs (default: randomUUID). Injectable for tests. */
   idFactory?: () => string;
 }
 
@@ -56,21 +56,21 @@ export class DeployTargetService {
     this.idFactory = options.idFactory ?? randomUUID;
   }
 
-  /** Deploy-Ziele eines Projekts als Renderer-Sicht (mit hasCredentials). */
+  /** A project's deploy targets as the renderer view (with hasCredentials). */
   async list(projectId: string): Promise<DeployTargetView[]> {
     const project = await this.requireProject(projectId);
     return project.deployTargets.map((t) => this.toView(t));
   }
 
-  /** Ein einzelnes Ziel (secret-frei) oder null. */
+  /** A single target (secret-free) or null. */
   async getTarget(projectId: string, targetId: string): Promise<DeployTarget | null> {
     const project = await this.requireProject(projectId);
     return project.deployTargets.find((t) => t.id === targetId) ?? null;
   }
 
   /**
-   * Legt ein Ziel an oder ändert ein bestehendes (per `input.id`). Secret-freie
-   * Felder landen in der Registry, Passwort/Passphrase im Schlüsselbund.
+   * Creates a target or updates an existing one (by `input.id`). Secret-free
+   * fields land in the registry, password/passphrase in the keychain.
    */
   async save(projectId: string, input: DeployTargetInput): Promise<DeployTargetView> {
     const error = validateDeployTargetInput(input);
@@ -80,7 +80,7 @@ export class DeployTargetService {
     const existing =
       input.id !== undefined ? project.deployTargets.find((t) => t.id === input.id) : undefined;
     if (input.id !== undefined && existing === undefined) {
-      throw new Error('Das zu ändernde Deploy-Ziel gibt es in diesem Projekt nicht.');
+      throw new Error('The deploy target to update does not exist in this project.');
     }
 
     const targetId = existing?.id ?? this.idFactory();
@@ -93,8 +93,8 @@ export class DeployTargetService {
       username: input.username.trim(),
       remotePath: input.remotePath.trim(),
       credentialRef: credentialRefFor(targetId),
-      // last_deployed* beim Ändern bewahren — ein reines Bearbeiten der
-      // Verbindungsdaten darf den "Deployed"-Stand nicht zurücksetzen.
+      // Preserve last_deployed* on update — editing only the connection details
+      // must not reset the "deployed" state.
       ...(existing?.lastDeployedCommit !== undefined
         ? { lastDeployedCommit: existing.lastDeployedCommit }
         : {}),
@@ -110,7 +110,7 @@ export class DeployTargetService {
 
     await this.registry.update(projectId, { deployTargets: nextTargets });
 
-    // Secrets nur anfassen, wenn der Renderer welche mitgeschickt hat.
+    // Only touch secrets if the renderer sent any along.
     if (input.password !== undefined || input.passphrase !== undefined) {
       this.writeCredentials(targetId, input, existing !== undefined);
     }
@@ -118,22 +118,22 @@ export class DeployTargetService {
     return this.toView(target);
   }
 
-  /** Löscht ein Ziel samt seinem Schlüsselbund-Secret. */
+  /** Deletes a target along with its keychain secret. */
   async delete(projectId: string, targetId: string): Promise<void> {
     const project = await this.requireProject(projectId);
     const nextTargets = project.deployTargets.filter((t) => t.id !== targetId);
     if (nextTargets.length !== project.deployTargets.length) {
       await this.registry.update(projectId, { deployTargets: nextTargets });
     }
-    // Secret immer entfernen (idempotent) — kein verwaistes Passwort im
-    // Schlüsselbund zurücklassen.
+    // Always remove the secret (idempotent) — do not leave an orphaned password
+    // in the keychain.
     this.secrets.deleteSecret('deploy', targetId);
   }
 
   /**
-   * Liest die Zugangsdaten eines Ziels aus dem Schlüsselbund. Nur der
-   * Main-Prozess ruft das (deployService) — die Rückgabe geht nie an den
-   * Renderer. Null, wenn nichts hinterlegt oder das Secret unlesbar ist.
+   * Reads a target's credentials from the keychain. Only the main process calls
+   * this (deployService) — the return value never goes to the renderer. Null if
+   * nothing is stored or the secret is unreadable.
    */
   getCredentials(targetId: string): StoredCredentials | null {
     const raw = this.secrets.getSecret('deploy', targetId);
@@ -151,16 +151,16 @@ export class DeployTargetService {
     }
   }
 
-  /** Liegen für dieses Ziel Zugangsdaten vor? */
+  /** Are credentials present for this target? */
   hasCredentials(targetId: string): boolean {
     return this.secrets.hasSecret('deploy', targetId);
   }
 
-  /* ---------------- intern ---------------- */
+  /* ---------------- internal ---------------- */
 
   private writeCredentials(targetId: string, input: DeployTargetInput, isEdit: boolean): void {
-    // Beim Ändern bestehende Werte als Basis nehmen, damit z. B. das Setzen der
-    // Passphrase das Passwort nicht verwirft.
+    // On update, take existing values as the base so that, e.g., setting the
+    // passphrase does not discard the password.
     const base = isEdit ? (this.getCredentials(targetId) ?? {}) : {};
     const next: StoredCredentials = { ...base };
     if (input.password !== undefined) {
@@ -184,7 +184,7 @@ export class DeployTargetService {
 
   private async requireProject(projectId: string): Promise<Project> {
     const project = await this.registry.get(projectId);
-    if (project === null) throw new Error('Projekt nicht gefunden.');
+    if (project === null) throw new Error('Project not found.');
     return project;
   }
 }

@@ -1,14 +1,14 @@
 /**
- * Desktop-lokale IPC-Kanal-Registry für die M2-Features (Chat, Preview,
- * Checkpoints, Einstellungen).
+ * Desktop-local IPC channel registry for the M2 features (chat, preview,
+ * checkpoints, settings).
  *
- * Die Basis-Kanäle (ping, projects, templates) leben in @webaibuilder/core
- * (eingefroren). Da core nicht erweitert werden darf, definiert apps/desktop
- * seine zusätzlichen Kanäle hier — nach derselben Konvention
- * `wab:v<version>:<domäne>:<aktion>` und ebenfalls voll typisiert.
+ * The base channels (ping, projects, templates) live in @webaibuilder/core
+ * (frozen). Since core must not be extended, apps/desktop defines its additional
+ * channels here — following the same convention
+ * `wab:v<version>:<domain>:<action>` and likewise fully typed.
  *
- * Umgebungsneutral (kein node/electron/DOM); von main, preload und renderer
- * gemeinsam genutzt.
+ * Environment-neutral (no node/electron/DOM); shared by main, preload, and
+ * renderer.
  */
 
 import type { AgentEvent, BackendId, Checkpoint, PermissionDecision } from '@webaibuilder/core';
@@ -28,95 +28,95 @@ import type { OnboardingState, OnboardingStateInput } from './onboarding';
 import type { WabPreviewEvent } from './preview';
 import type { AgentSettings, AgentSettingsInput } from './settings';
 
-/* ---------------- Request/Response-Kanäle (renderer → main) ---------------- */
+/* ---------------- Request/response channels (renderer → main) ---------------- */
 
 export const DesktopIpcChannels = {
-  /** Projekt öffnen: Workspace initialisieren + Preview starten. */
+  /** Open a project: initialize the workspace + start the preview. */
   sessionOpen: 'wab:v1:session:open',
-  /** Aktives Projekt schließen: Preview stoppen, Turn abbrechen. */
+  /** Close the active project: stop the preview, abort the turn. */
   sessionClose: 'wab:v1:session:close',
-  /** Chat-Nachricht senden: Turn starten (Events kommen als Push). */
+  /** Send a chat message: start a turn (events arrive as push). */
   chatSend: 'wab:v1:chat:send',
-  /** Laufenden Turn abbrechen (Stopp-Aktion). */
+  /** Abort the running turn (stop action). */
   chatInterrupt: 'wab:v1:chat:interrupt',
-  /** Antwort auf eine Permission-Anfrage (Erlauben/Ablehnen). */
+  /** Answer to a permission request (allow/deny). */
   chatPermission: 'wab:v1:chat:permission',
-  /** Checkpoints des aktiven Projekts auflisten. */
+  /** List the checkpoints of the active project. */
   checkpointsList: 'wab:v1:checkpoints:list',
-  /** Checkpoint wiederherstellen (als neuer Commit). */
+  /** Restore a checkpoint (as a new commit). */
   checkpointsRestore: 'wab:v1:checkpoints:restore',
-  /** Aktuelle Backend-Einstellungen lesen (ohne den Key). */
+  /** Read the current backend settings (without the key). */
   settingsGet: 'wab:v1:settings:get',
-  /** Backend-Einstellungen setzen (Key nur renderer → main). */
+  /** Set the backend settings (key only renderer → main). */
   settingsSet: 'wab:v1:settings:set',
-  /** Deploy-Ziele eines Projekts auflisten (inkl. hasCredentials). */
+  /** List a project's deploy targets (incl. hasCredentials). */
   deployTargetsList: 'wab:v1:deploytargets:list',
-  /** Deploy-Ziel anlegen/ändern (Passwort → Schlüsselbund). */
+  /** Create/update a deploy target (password → keychain). */
   deployTargetsSave: 'wab:v1:deploytargets:save',
-  /** Deploy-Ziel löschen (entfernt auch das Schlüsselbund-Secret). */
+  /** Delete a deploy target (also removes the keychain secret). */
   deployTargetsDelete: 'wab:v1:deploytargets:delete',
-  /** Verbindungstest (nur Preflight), liefert strukturierte Befunde. */
+  /** Connection test (preflight only), returns structured findings. */
   deployTest: 'wab:v1:deploy:test',
-  /** Aktuellen Stand veröffentlichen (Preflight + Deploy, Fortschritt als Push). */
+  /** Publish the current state (preflight + deploy, progress as push). */
   deployRun: 'wab:v1:deploy:run',
-  /** Ältere Version deployen (Rollback-Deploy, Fortschritt als Push). */
+  /** Deploy an older version (rollback deploy, progress as push). */
   deployRollback: 'wab:v1:deploy:rollback',
-  /** Drift-Erkennung: Remote-Stand vs. erwartete SHA. */
+  /** Drift detection: remote state vs. expected SHA. */
   deployDrift: 'wab:v1:deploy:drift',
-  /** Deploy-Historie eines Projekts auflisten. */
+  /** List a project's deploy history. */
   deployHistory: 'wab:v1:deploy:history',
-  /** KI-Backends erkennen + Kill-Switch-Merge (aus dem Cache, M4). */
+  /** Detect AI backends + kill-switch merge (from the cache, M4). */
   backendsList: 'wab:v1:backends:list',
-  /** Backends neu prüfen (erzwingt frische Detection, M4). */
+  /** Re-check backends (forces a fresh detection, M4). */
   backendsRefresh: 'wab:v1:backends:refresh',
-  /** Einen Backend-Hinweis einmalig bestätigen (Claude-Abo, M4). */
+  /** Acknowledge a backend notice once (Claude subscription, M4). */
   backendsAck: 'wab:v1:backends:ack',
-  /** Offiziellen Onboarding-Link im externen Browser öffnen (allowlisted, M4). */
+  /** Open an official onboarding link in the external browser (allowlisted, M4). */
   backendsOpenHint: 'wab:v1:backends:openhint',
-  /** „Jetzt neu starten": geladenes Update anwenden (quitAndInstall, M5). */
+  /** "Restart now": apply the downloaded update (quitAndInstall, M5). */
   updateRestart: 'wab:v1:update:restart',
-  /** Onboarding-Zustand lesen (`hasOnboarded`, M5). */
+  /** Read the onboarding state (`hasOnboarded`, M5). */
   onboardingGet: 'wab:v1:onboarding:get',
-  /** Onboarding-Zustand setzen (abschließen / erneut zeigen, M5). */
+  /** Set the onboarding state (complete / show again, M5). */
   onboardingSet: 'wab:v1:onboarding:set',
-  /** Log-Speicherort (Ordner + Datei) für die „Fehler & Logs"-Anzeige (M5). */
+  /** Log location (folder + file) for the "Errors & Logs" view (M5). */
   logsInfo: 'wab:v1:logs:info',
-  /** Renderer meldet einen JS-Fehler ins lokale Log (M5). */
+  /** Renderer reports a JS error into the local log (M5). */
   logsReport: 'wab:v1:logs:report',
-  /** Die letzten N Log-Zeilen holen („Logs kopieren", M5). */
+  /** Fetch the last N log lines ("Copy logs", M5). */
   logsTail: 'wab:v1:logs:tail',
-  /** Den lokalen Log-Ordner im Dateimanager öffnen (M5). */
+  /** Open the local log folder in the file manager (M5). */
   logsOpen: 'wab:v1:logs:open',
 } as const;
 
 export type DesktopIpcChannel = (typeof DesktopIpcChannels)[keyof typeof DesktopIpcChannels];
 
-/* ---------------- Event-Kanäle (main → renderer, Push) ---------------- */
+/* ---------------- Event channels (main → renderer, push) ---------------- */
 
 export const DesktopIpcEvents = {
-  /** Ein `AgentEvent` eines laufenden Turns. */
+  /** An `AgentEvent` of a running turn. */
   agent: 'wab:v1:event:agent',
-  /** Ein `WabPreviewEvent` (reload / page-console / page-error). */
+  /** A `WabPreviewEvent` (reload / page-console / page-error). */
   preview: 'wab:v1:event:preview',
-  /** Frische Checkpoint-Liste (nach Turn-Abschluss / Restore). */
+  /** Fresh checkpoint list (after turn completion / restore). */
   checkpoints: 'wab:v1:event:checkpoints',
-  /** Ein `WabDeployProgressEvent` eines laufenden Deploys/Rollbacks. */
+  /** A `WabDeployProgressEvent` of a running deploy/rollback. */
   deploy: 'wab:v1:event:deploy',
-  /** Frische Deploy-Ziel-Liste (nach Deploy/Rollback → neue last_deployed-SHA). */
+  /** Fresh deploy-target list (after deploy/rollback → new last_deployed SHA). */
   targets: 'wab:v1:event:targets',
-  /** Auto-Update-Status (electron-updater, M5) — app-global, projektunabhängig. */
+  /** Auto-update status (electron-updater, M5) — app-global, project-independent. */
   update: 'wab:v1:event:update',
 } as const;
 
 export type DesktopIpcEvent = (typeof DesktopIpcEvents)[keyof typeof DesktopIpcEvents];
 
-/* ---------------- Nutzlast-Typen ---------------- */
+/* ---------------- Payload types ---------------- */
 
 export interface PreviewInfo {
-  /** Vollständige iframe-URL inkl. Token: `http://127.0.0.1:<port>/?wab=<token>`. */
+  /** Full iframe URL incl. token: `http://127.0.0.1:<port>/?wab=<token>`. */
   url: string;
   port: number;
-  /** Origin ohne Token — für postMessage-/Fehler-Pfad-Abgleich im Renderer. */
+  /** Origin without the token — for postMessage/error-path matching in the renderer. */
   origin: string;
 }
 
@@ -129,81 +129,81 @@ export interface SessionInfo {
 export interface ChatSendInput {
   prompt: string;
   /**
-   * Vom Renderer erzeugte Lauf-ID. Sie wird vor dem Senden gesetzt, damit die
-   * Assistenten-Nachricht existiert, bevor die ersten Push-Events eintreffen
-   * (kein Verlust früher text-delta-Events durch eine Race Condition).
+   * Run ID generated by the renderer. It is set before sending so that the
+   * assistant message exists before the first push events arrive (no loss of
+   * early text-delta events through a race condition).
    */
   runId: string;
 }
 
 export interface ChatSendResult {
-  /** Bestätigte Lauf-ID (echo). */
+  /** Confirmed run ID (echo). */
   runId: string;
 }
 
-/** Push-Nutzlast eines Agent-Events. */
+/** Push payload of an agent event. */
 export interface AgentEventMessage {
   runId: string;
   projectId: string;
   event: AgentEvent;
 }
 
-/** Push-Nutzlast eines Preview-Events. */
+/** Push payload of a preview event. */
 export interface PreviewEventMessage {
   projectId: string;
   event: WabPreviewEvent;
 }
 
-/** Push-Nutzlast der aktualisierten Checkpoint-Liste. */
+/** Push payload of the updated checkpoint list. */
 export interface CheckpointsMessage {
   projectId: string;
   checkpoints: Checkpoint[];
 }
 
-/** Push-Nutzlast eines Deploy-Fortschritts-Events (file-by-file). */
+/** Push payload of a deploy progress event (file-by-file). */
 export interface DeployProgressMessage {
   projectId: string;
   targetId: string;
-  /** Vom Renderer erzeugte Lauf-ID (korreliert Fortschritt mit dem Aufruf). */
+  /** Run ID generated by the renderer (correlates progress with the call). */
   runId: string;
   event: WabDeployProgressEvent;
 }
 
-/** Push-Nutzlast der aktualisierten Deploy-Ziel-Liste (frische last_deployed-SHA). */
+/** Push payload of the updated deploy-target list (fresh last_deployed SHA). */
 export interface DeployTargetsMessage {
   projectId: string;
   targets: DeployTargetView[];
 }
 
-/** Ergebnis von {@link DesktopIpcChannels.backendsOpenHint}. */
+/** Result of {@link DesktopIpcChannels.backendsOpenHint}. */
 export interface OpenHintResult {
-  /** true = Link war erlaubt und wurde an den externen Browser übergeben. */
+  /** true = the link was allowed and handed to the external browser. */
   opened: boolean;
 }
 
-/** Speicherort der lokalen Log-Dateien (M5, „Fehler & Logs"). */
+/** Location of the local log files (M5, "Errors & Logs"). */
 export interface LogLocation {
-  /** Verzeichnis der Log-Dateien (`<userData>/logs`). */
+  /** Directory of the log files (`<userData>/logs`). */
   dir: string;
-  /** Pfad der aktiven Log-Datei (`<userData>/logs/app.log`). */
+  /** Path of the active log file (`<userData>/logs/app.log`). */
   file: string;
 }
 
-/** Ergebnis der „Logs kopieren"-Aktion: die letzten N Zeilen als Text. */
+/** Result of the "Copy logs" action: the last N lines as text. */
 export interface LogTailResult {
   text: string;
 }
 
-/** Ergebnis des Öffnens des Log-Ordners (M5). */
+/** Result of opening the log folder (M5). */
 export interface OpenFolderResult {
-  /** true = der Ordner wurde an den Dateimanager übergeben. */
+  /** true = the folder was handed to the file manager. */
   opened: boolean;
 }
 
 /**
- * Auto-Update-Status (M5, electron-updater). Als Push über
- * {@link DesktopIpcEvents.update} an den Renderer. Diskriminierte Union, damit
- * die UI nur den `ready`-Zustand als Handlungsaufforderung zeigt.
+ * Auto-update status (M5, electron-updater). Pushed to the renderer via
+ * {@link DesktopIpcEvents.update}. A discriminated union so the UI only shows the
+ * `ready` state as a call to action.
  */
 export type UpdateStatus =
   | { phase: 'idle' }
@@ -214,7 +214,7 @@ export type UpdateStatus =
   | { phase: 'ready'; version: string }
   | { phase: 'error'; message: string };
 
-/* ---------------- Verträge pro Kanal ---------------- */
+/* ---------------- Per-channel contracts ---------------- */
 
 export interface DesktopIpcInvokeMap {
   [DesktopIpcChannels.sessionOpen]: { args: [projectId: string]; result: SessionInfo };
@@ -280,7 +280,7 @@ export interface DesktopIpcInvokeMap {
 export type DesktopIpcArgs<C extends DesktopIpcChannel> = DesktopIpcInvokeMap[C]['args'];
 export type DesktopIpcResult<C extends DesktopIpcChannel> = DesktopIpcInvokeMap[C]['result'];
 
-/** Nutzlast-Typ pro Push-Event-Kanal. */
+/** Payload type per push-event channel. */
 export interface DesktopIpcEventMap {
   [DesktopIpcEvents.agent]: AgentEventMessage;
   [DesktopIpcEvents.preview]: PreviewEventMessage;

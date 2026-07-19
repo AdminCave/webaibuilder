@@ -1,7 +1,7 @@
 /**
- * GitRepo-Implementierung über isomorphic-git (reines JS) — Fallback für
- * Systeme ohne git-Binary. Muss byte-kompatibel zu SystemGitRepo sein:
- * beide schreiben/lesen dasselbe Repo-Format.
+ * GitRepo implementation via isomorphic-git (pure JS) — fallback for
+ * systems without a git binary. Must be byte-compatible with SystemGitRepo:
+ * both write/read the same repo format.
  */
 
 import fs from 'node:fs';
@@ -18,8 +18,8 @@ export class IsoGitRepo implements GitRepo {
 
   async init(): Promise<void> {
     await git.init({ fs, dir: this.dir, defaultBranch: 'main' });
-    // Lokale Identität setzen, damit das Repo auch mit normalem git-Binary
-    // ohne globale Config benutzbar bleibt (Nutzer darf es öffnen, PLAN §4).
+    // Set a local identity so the repo stays usable with a normal git binary
+    // without a global config (the user is allowed to open it, PLAN §4).
     await git.setConfig({ fs, dir: this.dir, path: 'user.name', value: GIT_AUTHOR.name });
     await git.setConfig({ fs, dir: this.dir, path: 'user.email', value: GIT_AUTHOR.email });
   }
@@ -34,8 +34,8 @@ export class IsoGitRepo implements GitRepo {
   }
 
   async addAll(): Promise<void> {
-    // "add -A"-Äquivalent: gelöschte Dateien aus dem Index entfernen,
-    // alles andere (neu/geändert/unverändert) stagen.
+    // "add -A" equivalent: remove deleted files from the index,
+    // stage everything else (new/changed/unchanged).
     const matrix = await git.statusMatrix({ fs, dir: this.dir });
     const toAdd: string[] = [];
     for (const [filepath, , worktreeStatus] of matrix) {
@@ -51,8 +51,8 @@ export class IsoGitRepo implements GitRepo {
   }
 
   async commit(message: string): Promise<string> {
-    // isomorphic-git committet den Index auch ohne Änderungen — entspricht
-    // `--allow-empty` (Checkpoint pro Turn, siehe SystemGitRepo).
+    // isomorphic-git commits the index even without changes — equivalent to
+    // `--allow-empty` (checkpoint per turn, see SystemGitRepo).
     return git.commit({ fs, dir: this.dir, message, author: { ...GIT_AUTHOR } });
   }
 
@@ -61,7 +61,7 @@ export class IsoGitRepo implements GitRepo {
     try {
       entries = await git.log({ fs, dir: this.dir, ref: 'HEAD', depth: maxCount });
     } catch {
-      // Repo ohne Commits
+      // Repo without commits
       return [];
     }
     return entries.map((entry) => ({
@@ -93,7 +93,7 @@ export class IsoGitRepo implements GitRepo {
           tags.push({ tagName, targetSha: tag.object, message: tag.message });
         }
       } catch {
-        // Lightweight-Tag (zeigt direkt auf einen Commit) — keine benannte Version.
+        // Lightweight tag (points directly at a commit) — not a named version.
       }
     }
     return tags;
@@ -109,8 +109,8 @@ export class IsoGitRepo implements GitRepo {
   }
 
   async restoreTree(sha: string): Promise<void> {
-    // force + noUpdateHead: Arbeitsverzeichnis und Index werden auf den
-    // Ziel-Baum gesetzt (inkl. Löschungen), HEAD bleibt auf dem Branch.
+    // force + noUpdateHead: working directory and index are set to the
+    // target tree (incl. deletions), HEAD stays on the branch.
     await git.checkout({ fs, dir: this.dir, ref: sha, force: true, noUpdateHead: true });
   }
 
@@ -127,7 +127,7 @@ export class IsoGitRepo implements GitRepo {
       await git.readCommit({ fs, dir: this.dir, oid });
       return oid;
     } catch {
-      // Evtl. ein annotated Tag-Objekt — einmal peelen.
+      // Possibly an annotated tag object — peel once.
       const { tag } = await git.readTag({ fs, dir: this.dir, oid });
       await git.readCommit({ fs, dir: this.dir, oid: tag.object });
       return tag.object;

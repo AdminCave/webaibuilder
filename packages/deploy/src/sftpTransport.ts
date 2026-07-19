@@ -1,6 +1,6 @@
 /**
- * SFTP-Transport über ssh2-sftp-client v12 (PLAN §4, primärer Transport für
- * die Admin-Zielgruppe). Alle Pfade sind absolute POSIX-Pfade.
+ * SFTP transport via ssh2-sftp-client v12 (PLAN §4, primary transport for
+ * the admin target audience). All paths are absolute POSIX paths.
  */
 
 import SftpClient from 'ssh2-sftp-client';
@@ -10,7 +10,7 @@ import type { DeployTarget } from '@webaibuilder/core';
 import type { DeployCredentials } from './types';
 import type { RemoteEntry, Transport } from './transport';
 
-/** Timeout bis "ready" — bewusst niedrig, damit Fehler schnell sichtbar werden. */
+/** Timeout until "ready" — deliberately low so errors surface quickly. */
 const READY_TIMEOUT_MS = 15_000;
 
 export class SftpTransport implements Transport {
@@ -40,7 +40,7 @@ export class SftpTransport implements Transport {
     try {
       await this.client.end();
     } catch {
-      // Verbindung war evtl. schon zu — kein harter Fehler beim Aufräumen.
+      // Connection may already be closed — not a hard error during cleanup.
     }
   }
 
@@ -65,7 +65,7 @@ export class SftpTransport implements Transport {
   }
 
   async deleteFile(remotePath: string): Promise<void> {
-    // notFoundOK=true → idempotent; erneutes Löschen ist kein Fehler.
+    // notFoundOK=true → idempotent; deleting again is not an error.
     await this.client.delete(remotePath, true);
   }
 
@@ -87,8 +87,8 @@ export class SftpTransport implements Transport {
   }
 
   async writeFile(remotePath: string, data: Buffer): Promise<void> {
-    // Fast-atomar: erst temp hochladen, altes Ziel weg, dann umbenennen.
-    // Fällt auf direkten Upload zurück, wenn der Host rename verweigert.
+    // Fast-atomic: upload temp first, remove the old target, then rename.
+    // Falls back to a direct upload if the host refuses rename.
     const tmp = `${remotePath}.wabtmp-${process.pid}`;
     await this.uploadFile(tmp, data);
     try {
@@ -98,7 +98,7 @@ export class SftpTransport implements Transport {
       try {
         await this.deleteFile(tmp);
       } catch {
-        // temp evtl. schon weg — egal.
+        // temp may already be gone — does not matter.
       }
       await this.uploadFile(remotePath, data);
     }

@@ -16,8 +16,8 @@ import type { DeployRunOutcome, DeployTargetInput } from './deploy';
 import type { RendererErrorReport } from './logging';
 import type { OnboardingState, OnboardingStateInput } from './onboarding';
 
-describe('Desktop-IPC-Kanäle', () => {
-  it('sind eindeutig und folgen der Namenskonvention', () => {
+describe('Desktop IPC channels', () => {
+  it('are unique and follow the naming convention', () => {
     const names = [...Object.values(DesktopIpcChannels), ...Object.values(DesktopIpcEvents)];
     expect(new Set(names).size).toBe(names.length);
     for (const name of names) {
@@ -25,17 +25,17 @@ describe('Desktop-IPC-Kanäle', () => {
     }
   });
 
-  it('kollidieren nicht mit dem core-Namensraum-Präfix der Basis-Kanäle', () => {
-    // Basis-Kanäle (core) nutzen projects/templates/ping; die Desktop-Kanäle
-    // liegen in eigenen Domänen (session/chat/checkpoints/settings/event).
+  it('do not collide with the core namespace prefix of the base channels', () => {
+    // The base channels (core) use projects/templates/ping; the desktop channels
+    // live in their own domains (session/chat/checkpoints/settings/event).
     for (const name of Object.values(DesktopIpcChannels)) {
       expect(name).not.toMatch(/:(projects|templates|ping):/);
     }
   });
 
-  it('typisiert Nutzlasten pro Kanal (Compile-Time-Absicherung)', () => {
-    // Diese Zuweisungen prüfen die Map zur Compile-Zeit; der Laufzeit-Assert
-    // hält den Test „grün".
+  it('types payloads per channel (compile-time safety)', () => {
+    // These assignments check the map at compile time; the runtime assert
+    // keeps the test green.
     const send: ChatSendInput = { prompt: 'Hallo', runId: 'r1' };
     const openResult: DesktopIpcInvokeMap[typeof DesktopIpcChannels.sessionOpen]['result'] = {
       projectId: 'p1',
@@ -47,8 +47,8 @@ describe('Desktop-IPC-Kanäle', () => {
     expect(openResult.preview.port).toBe(1);
   });
 
-  it('typisiert die Deploy-Kanäle (Args/Result + Push-Nutzlast)', () => {
-    // Args des Save-Kanals: [projectId, DeployTargetInput].
+  it('types the deploy channels (args/result + push payload)', () => {
+    // Args of the save channel: [projectId, DeployTargetInput].
     const saveArgs: DesktopIpcInvokeMap[typeof DesktopIpcChannels.deployTargetsSave]['args'] = [
       'p1',
       {
@@ -62,13 +62,13 @@ describe('Desktop-IPC-Kanäle', () => {
       } satisfies DeployTargetInput,
     ];
 
-    // Result des Run-Kanals: DeployRunOutcome (diskriminiert).
+    // Result of the run channel: DeployRunOutcome (discriminated).
     const outcome: DesktopIpcInvokeMap[typeof DesktopIpcChannels.deployRun]['result'] = {
       status: 'error',
       message: 'x',
     } satisfies DeployRunOutcome;
 
-    // Push-Nutzlast des Deploy-Fortschritts.
+    // Push payload of the deploy progress.
     const progress: DesktopIpcEventMap[typeof DesktopIpcEvents.deploy] = {
       projectId: 'p1',
       targetId: 't1',
@@ -81,8 +81,8 @@ describe('Desktop-IPC-Kanäle', () => {
     expect(progress.event.type).toBe('connecting');
   });
 
-  it('typisiert die Onboarding- und Log-Kanäle (Args/Result, M5)', () => {
-    // onboarding.get: keine Args, OnboardingState als Result.
+  it('types the onboarding and log channels (args/result, M5)', () => {
+    // onboarding.get: no args, OnboardingState as result.
     const getArgs: DesktopIpcInvokeMap[typeof DesktopIpcChannels.onboardingGet]['args'] = [];
     const state: DesktopIpcInvokeMap[typeof DesktopIpcChannels.onboardingGet]['result'] = {
       hasOnboarded: true,
@@ -110,8 +110,8 @@ describe('Desktop-IPC-Kanäle', () => {
     expect(info.file).toContain('app.log');
   });
 
-  it('typisiert die Backend-Kanäle (Args/Result, M4)', () => {
-    // list/refresh: keine Args, BackendPickerState als Result.
+  it('types the backend channels (args/result, M4)', () => {
+    // list/refresh: no args, BackendPickerState as result.
     const listArgs: DesktopIpcInvokeMap[typeof DesktopIpcChannels.backendsList]['args'] = [];
     const pickerState: DesktopIpcInvokeMap[typeof DesktopIpcChannels.backendsRefresh]['result'] = {
       backends: [],

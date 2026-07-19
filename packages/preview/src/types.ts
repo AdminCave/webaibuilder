@@ -1,48 +1,48 @@
 /**
- * Öffentliche Typen des Preview-Pakets (PLAN §4, Live-Preview).
+ * Public types of the preview package (PLAN §4, live preview).
  *
- * Hinweis: `PreviewEvent` lebt hier (nicht in @webaibuilder/core) — core kennt
- * nur den Agent-Event-Strom; Datei-Änderungen und Seiten-Events kommen per
- * Strukturregel aus diesem Paket.
+ * Note: `PreviewEvent` lives here (not in @webaibuilder/core) — core knows
+ * only the agent event stream; file changes and page events come from this
+ * package by structural rule.
  */
 
 export interface PreviewServerOptions {
-  /** Absoluter Pfad des Docroot (`<workspace>/site`), das ausgeliefert wird. */
+  /** Absolute path of the docroot (`<workspace>/site`) that is served. */
   siteDir: string;
   /**
-   * Bind-Adresse. Sicherheits-Hardregel (PLAN §4, Sicherheit): nur loopback —
-   * alles außer `127.0.0.1` wird abgelehnt.
+   * Bind address. Hard security rule (PLAN §4, Security): loopback only —
+   * anything other than `127.0.0.1` is rejected.
    * @default '127.0.0.1'
    */
   host?: string;
   /**
-   * Entprellung des Datei-Watchers in Millisekunden: schnelle Änderungsserien
-   * werden zu einem Reload zusammengefasst.
+   * Debounce of the file watcher in milliseconds: rapid bursts of changes
+   * are coalesced into a single reload.
    * @default 100
    */
   debounceMs?: number;
-  /** Listener für Reload-, Console- und Fehler-Events der Seite. */
+  /** Listener for reload, console and error events of the page. */
   onEvent?: PreviewEventListener;
 }
 
-/** Laufende Preview-Instanz. */
+/** Running preview instance. */
 export interface PreviewServerHandle {
-  /** Vollständige URL fürs iframe: `http://127.0.0.1:<port>/?wab=<token>`. */
+  /** Full URL for the iframe: `http://127.0.0.1:<port>/?wab=<token>`. */
   url: string;
   port: number;
-  /** Zugriffstoken — Requests ohne Token werden abgewiesen. */
+  /** Access token — requests without a token are rejected. */
   token: string;
-  /** Event-Strom: Listener-API und async-iterierbar (`for await`). */
+  /** Event stream: listener API and async-iterable (`for await`). */
   events: PreviewEventStream;
-  /** Fährt HTTP-Server, WebSocket-Server und Watcher sauber herunter. */
+  /** Cleanly shuts down HTTP server, WebSocket server and watcher. */
   close(): Promise<void>;
 }
 
 export type PageConsoleLevel = 'log' | 'info' | 'warn' | 'error';
 
 /**
- * Events aus Watcher und Injection-Shim. `page-error` speist den
- * "Fehler beheben"-Button im Chat (PLAN §4, Live-Preview).
+ * Events from the watcher and injection shim. `page-error` feeds the
+ * "Fix error" button in the chat (PLAN §4, live preview).
  */
 export type PreviewEvent =
   | { type: 'reload'; changedPaths: string[] }
@@ -51,9 +51,9 @@ export type PreviewEvent =
 
 export type PreviewEventListener = (event: PreviewEvent) => void;
 
-/** Abonnierbarer Event-Strom — Listener-API plus async Iteration. */
+/** Subscribable event stream — listener API plus async iteration. */
 export interface PreviewEventStream extends AsyncIterable<PreviewEvent> {
-  /** Registriert einen Listener; die Rückgabe meldet ihn wieder ab. */
+  /** Registers a listener; the return value unregisters it. */
   on(listener: PreviewEventListener): () => void;
   off(listener: PreviewEventListener): void;
 }

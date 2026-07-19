@@ -1,6 +1,6 @@
 /**
- * Tests für den byok-Adapter mit einem gefälschten Modell (AI-SDK-Mock).
- * Kein Live-API-Key nötig.
+ * Tests for the byok adapter with a fake model (AI SDK mock).
+ * No live API key required.
  */
 
 import { existsSync } from 'node:fs';
@@ -17,7 +17,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createByokBackend } from '../src/byok';
 import { createSiteTools } from '../src/tools';
 
-// --- Mock-Helfer: valide LanguageModelV4-Stream-Teile ---------------------
+// --- Mock helpers: valid LanguageModelV4 stream parts ---------------------
 
 const USAGE = {
   inputTokens: { total: 12, noCache: 12, cacheRead: 0, cacheWrite: 0 },
@@ -81,8 +81,8 @@ async function collect(iterable: AsyncIterable<AgentEvent>): Promise<AgentEvent[
 
 // --- Tests -----------------------------------------------------------------
 
-describe('byok-Adapter (Event-Mapping)', () => {
-  it('mappt text-delta, tool-activity und turn-complete und schreibt in site/', async () => {
+describe('byok adapter (event mapping)', () => {
+  it('maps text-delta, tool-activity and turn-complete and writes into site/', async () => {
     const model = mockModel([
       [
         ...textParts('0', 'Ich baue die Startseite.'),
@@ -100,7 +100,7 @@ describe('byok-Adapter (Event-Mapping)', () => {
     expect(textDeltas.map((e) => (e.type === 'text-delta' ? e.text : '')).join('')).toContain('Startseite');
 
     const activity = events.filter((e) => e.type === 'tool-activity');
-    expect(activity.some((e) => e.type === 'tool-activity' && e.tool === 'Datei schreiben')).toBe(true);
+    expect(activity.some((e) => e.type === 'tool-activity' && e.tool === 'Write file')).toBe(true);
     const startActivity = activity.find((e) => e.type === 'tool-activity' && e.phase === 'start');
     expect(startActivity && startActivity.type === 'tool-activity' ? startActivity.detail : undefined).toBe(
       'site/index.html',
@@ -110,12 +110,12 @@ describe('byok-Adapter (Event-Mapping)', () => {
     expect(complete?.type).toBe('turn-complete');
     expect(complete && complete.type === 'turn-complete' ? complete.stopReason : undefined).toBe('end');
 
-    // Datei ist wirklich in site/ gelandet (ground truth: Dateisystem).
+    // The file really landed in site/ (ground truth: the file system).
     const written = await readFile(join(siteDir, 'index.html'), 'utf8');
     expect(written).toBe('<h1>Hallo</h1>');
   });
 
-  it('KRITISCH: verweigert Schreibzugriff außerhalb von site/ (Containment)', async () => {
+  it('CRITICAL: denies write access outside of site/ (containment)', async () => {
     const model = mockModel([
       [
         toolCallPart('c1', 'write_file', { path: '../evil.html', content: 'pwned' }),
@@ -127,14 +127,14 @@ describe('byok-Adapter (Event-Mapping)', () => {
 
     const events = await collect(backend.runTurn(request('Schreib außerhalb')));
 
-    // Die Datei darf NICHT außerhalb von site/ existieren.
+    // The file must NOT exist outside of site/.
     expect(existsSync(join(workspaceDir, 'evil.html'))).toBe(false);
     expect(existsSync(join(siteDir, '..', 'evil.html'))).toBe(false);
-    // Der Turn läuft trotzdem sauber zu Ende.
+    // The turn still finishes cleanly.
     expect(events.at(-1)?.type).toBe('turn-complete');
   });
 
-  it('interrupt() bricht den laufenden Turn ab', async () => {
+  it('interrupt() aborts the running turn', async () => {
     const manyDeltas: unknown[] = [
       { type: 'stream-start', warnings: [] },
       { type: 'text-start', id: '0' },
@@ -164,21 +164,21 @@ describe('byok-Adapter (Event-Mapping)', () => {
     expect(complete && complete.type === 'turn-complete' ? complete.stopReason : undefined).toBe(
       'interrupted',
     );
-    // Nicht alle 12 Deltas dürfen durchgekommen sein.
+    // Not all 12 deltas may have made it through.
     expect(collected.filter((e) => e.type === 'text-delta').length).toBeLessThan(12);
   });
 });
 
-describe('byok-Tools (direktes Containment)', () => {
+describe('byok tools (direct containment)', () => {
   type ExecFn = (input: unknown, options: unknown) => Promise<unknown>;
   function execOf(name: string): ExecFn {
     const tools = createSiteTools(siteDir) as Record<string, { execute?: ExecFn }>;
     const fn = tools[name]?.execute;
-    if (!fn) throw new Error(`Tool ${name} hat kein execute`);
+    if (!fn) throw new Error(`Tool ${name} has no execute`);
     return fn;
   }
 
-  it('write_file verweigert Pfade außerhalb von site/ und schreibt nichts', async () => {
+  it('write_file denies paths outside of site/ and writes nothing', async () => {
     const result = (await execOf('write_file')(
       { path: '../escape.html', content: 'x' },
       { toolCallId: 't', messages: [] },
@@ -189,7 +189,7 @@ describe('byok-Tools (direktes Containment)', () => {
     expect(existsSync(join(workspaceDir, 'escape.html'))).toBe(false);
   });
 
-  it('write_file + read_file arbeiten innerhalb von site/', async () => {
+  it('write_file + read_file work within site/', async () => {
     const opts = { toolCallId: 't', messages: [] };
     await execOf('write_file')({ path: 'sub/page.html', content: 'hi' }, opts);
     expect(await readFile(join(siteDir, 'sub', 'page.html'), 'utf8')).toBe('hi');

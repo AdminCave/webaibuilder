@@ -1,8 +1,8 @@
 /**
- * Minimale Ambient-Typen für `ssh2-sftp-client` v12 — das Paket liefert keine
- * eigenen `.d.ts` und es gibt kein `@types/ssh2-sftp-client`. Hier nur die
- * Methoden, die die Deploy-Engine tatsächlich benutzt (schmal gehalten, damit
- * es kein irreführendes Vollversprechen der Client-API gibt).
+ * Minimal ambient types for `ssh2-sftp-client` v12 — the package ships no
+ * `.d.ts` of its own and there is no `@types/ssh2-sftp-client`. Only the
+ * methods the deploy engine actually uses (kept narrow so there is no
+ * misleading full promise of the client API).
  */
 declare module 'ssh2-sftp-client' {
   export interface SftpConnectOptions {
@@ -10,18 +10,18 @@ declare module 'ssh2-sftp-client' {
     port?: number;
     username?: string;
     password?: string;
-    /** Private Key (PEM) für Key-Auth. */
+    /** Private key (PEM) for key auth. */
     privateKey?: Buffer | string;
     passphrase?: string;
-    /** Timeout (ms) bis "ready"; wir setzen ihn niedrig für schnelles Failen. */
+    /** Timeout (ms) until "ready"; we set it low for fast failure. */
     readyTimeout?: number;
     retries?: number;
-    /** ssh2-Algorithmen etc. — nicht typisiert, aber durchgereicht. */
+    /** ssh2 algorithms etc. — not typed, but passed through. */
     [key: string]: unknown;
   }
 
   export interface SftpFileInfo {
-    /** 'd' Verzeichnis, '-' Datei, 'l' Symlink. */
+    /** 'd' directory, '-' file, 'l' symlink. */
     type: 'd' | '-' | 'l';
     name: string;
     size: number;
@@ -52,7 +52,7 @@ declare module 'ssh2-sftp-client' {
       remotePath: string,
       options?: unknown,
     ): Promise<string>;
-    /** Ohne `dst` liefert `get` den Inhalt als Buffer zurück. */
+    /** Without `dst`, `get` returns the content as a Buffer. */
     get(remotePath: string): Promise<Buffer>;
     delete(remotePath: string, notFoundOK?: boolean): Promise<string>;
     rename(fromPath: string, toPath: string): Promise<string>;

@@ -2,7 +2,7 @@
   "name": "@webaibuilder/core",
   "version": "0.0.0",
   "private": true,
-  "description": "Geteilte Typen: AgentBackend/AgentEvent, Permission-Policy, Projekt-/Workspace-Typen, IPC-Registry.",
+  "description": "Shared types: AgentBackend/AgentEvent, permission policy, project/workspace types, IPC registry.",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

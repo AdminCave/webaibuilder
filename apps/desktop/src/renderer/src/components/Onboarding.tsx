@@ -12,21 +12,21 @@ import {
 } from '../../../shared/onboarding';
 
 interface OnboardingProps {
-  /** Schließt den Flow und merkt sich, dass er gesehen wurde (hasOnboarded=true). */
+  /** Closes the flow and remembers that it was seen (hasOnboarded=true). */
   onComplete: () => void;
-  /** Beendet den Flow und öffnet die Einstellungen (KI-Backends). */
+  /** Ends the flow and opens settings (AI backends). */
   onOpenSettings: () => void;
 }
 
 /**
- * Erst-Start-Onboarding (M5, PLAN §1/§3/§6). Leichter, deutscher Willkommens-Flow
- * mit drei Screens — Willkommen · KI wählen · Webspace — kein Wizard-Framework.
- * Erscheint nur beim ersten Start (App gated über `onboarding.get`), ist jederzeit
- * überspringbar und aus den Einstellungen erneut aufrufbar.
+ * First-launch onboarding (M5, PLAN §1/§3/§6). Lightweight welcome flow with
+ * three screens — Welcome · Choose AI · Web space — no wizard framework.
+ * Appears only on first launch (app gated via `onboarding.get`), can be skipped
+ * at any time, and can be reopened from settings.
  *
- * Strikt AdminCave-DS: Hairline-Card, eine betonte Aktion pro Screen, Pill-Buttons,
- * Du-Form, keine Emojis, keine Gradients. Der Schritt-Automat kommt aus
- * shared/onboarding.ts (rein, getestet).
+ * Strict AdminCave DS: hairline card, one emphasized action per screen, pill
+ * buttons, no emojis, no gradients. The step machine comes from
+ * shared/onboarding.ts (pure, tested).
  */
 export function Onboarding({ onComplete, onOpenSettings }: OnboardingProps): React.JSX.Element {
   const [view, dispatch] = useReducer(onboardingReducer, INITIAL_ONBOARDING_VIEW);
@@ -34,15 +34,15 @@ export function Onboarding({ onComplete, onOpenSettings }: OnboardingProps): Rea
   const last = isLastStep(view);
 
   return (
-    <div className="modal" role="dialog" aria-modal="true" aria-label="Einführung">
+    <div className="modal" role="dialog" aria-modal="true" aria-label="Introduction">
       <div className="modal__backdrop" />
       <div className="modal__panel modal__panel--wide onboarding">
         <header className="onboarding__head">
           <span className="onboarding__step">
-            Schritt {stepNumber(view)} von {ONBOARDING_STEP_COUNT}
+            Step {stepNumber(view)} of {ONBOARDING_STEP_COUNT}
           </span>
           <button type="button" className="onboarding__skip" onClick={onComplete}>
-            Überspringen
+            Skip
           </button>
         </header>
 
@@ -66,16 +66,16 @@ export function Onboarding({ onComplete, onOpenSettings }: OnboardingProps): Rea
             disabled={isFirstStep(view)}
             onClick={() => dispatch({ type: 'back' })}
           >
-            Zurück
+            Back
           </button>
           <span className="modal__actions-spacer" />
           {last ? (
             <button type="button" className="btn btn--primary" onClick={onComplete}>
-              Los geht’s
+              Get started
             </button>
           ) : (
             <button type="button" className="btn btn--primary" onClick={() => dispatch({ type: 'next' })}>
-              Weiter
+              Next
             </button>
           )}
         </footer>
@@ -95,67 +95,67 @@ function StepContent({
     case 'willkommen':
       return (
         <section className="onboarding__screen">
-          <h2 className="onboarding__title">Willkommen bei Web AI Builder</h2>
-          <p className="onboarding__lead">Deine Webseite. Deine KI. Dein Webspace.</p>
+          <h2 className="onboarding__title">Welcome to Web AI Builder</h2>
+          <p className="onboarding__lead">Your website. Your AI. Your web space.</p>
           <p className="onboarding__text">
-            Du baust deine Webseite per KI-Chat, siehst jede Änderung sofort in der Live-Vorschau und
-            veröffentlichst sie per Knopfdruck auf deinem eigenen Webspace — mit Rollback, falls etwas
-            schiefgeht.
+            You build your website through AI chat, see every change instantly in the live preview,
+            and publish it to your own web space at the press of a button — with rollback if
+            something goes wrong.
           </p>
           <p className="onboarding__text">
-            Alles läuft lokal auf deinem Rechner. Die KI nutzt deine eigenen Abos oder API-Keys, die
-            Seite liegt auf deinem eigenen Hosting. Keine Cloud dazwischen, keine Zwischenspeicher.
+            Everything runs locally on your machine. The AI uses your own subscriptions or API keys,
+            and the site lives on your own hosting. No cloud in between, no intermediate storage.
           </p>
         </section>
       );
     case 'ki':
       return (
         <section className="onboarding__screen">
-          <h2 className="onboarding__title">KI wählen</h2>
+          <h2 className="onboarding__title">Choose your AI</h2>
           <p className="onboarding__text">
-            Du hast zwei Wege, und du kannst sie mischen:
+            You have two options, and you can mix them:
           </p>
           <ul className="onboarding__list">
             <li>
-              <span className="onboarding__list-title">Eigener API-Key</span> — du hinterlegst einen
-              Schlüssel von Anthropic, OpenAI, Google oder xAI. Der Key liegt im Systemschlüsselbund
-              deines Betriebssystems, nie im Klartext auf der Platte.
+              <span className="onboarding__list-title">Your own API key</span> — you add a key from
+              Anthropic, OpenAI, Google, or xAI. The key is stored in your operating system's
+              keychain, never in plain text on disk.
             </li>
             <li>
-              <span className="onboarding__list-title">Eigenes Abo per CLI</span> — nutzt dein
-              bestehendes Abo (Claude, Codex, Gemini, Grok) über die offizielle CLI des Anbieters, die
-              du selbst installierst und in die du dich selbst einloggst.
+              <span className="onboarding__list-title">Your own subscription via CLI</span> — uses
+              your existing subscription (Claude, Codex, Gemini, Grok) through the provider's
+              official CLI, which you install and log into yourself.
             </li>
           </ul>
           <p className="onboarding__note">
-            Wichtig: Diese App speichert, proxied oder überträgt niemals deine Anbieter-Token. Beim
-            Abo-Weg läuft der Login ausschließlich in der eigenen CLI des Anbieters — wir starten nur,
-            was du selbst eingerichtet hast.
+            Important: this app never stores, proxies, or transmits your provider tokens. With the
+            subscription option, login happens exclusively in the provider's own CLI — we only launch
+            what you set up yourself.
           </p>
           <div className="onboarding__inline-actions">
             <button type="button" className="btn" onClick={onOpenSettings}>
-              KI-Backends öffnen
+              Open AI backends
             </button>
-            <span className="onboarding__hint">Du kannst das auch später in den Einstellungen tun.</span>
+            <span className="onboarding__hint">You can also do this later in settings.</span>
           </div>
         </section>
       );
     case 'webspace':
       return (
         <section className="onboarding__screen">
-          <h2 className="onboarding__title">Veröffentlichen kommt später — pro Projekt</h2>
+          <h2 className="onboarding__title">Publishing comes later — per project</h2>
           <p className="onboarding__text">
-            Wohin deine Seite deployt wird, richtest du je Projekt ein: ein SFTP-, FTP- oder
-            FTPS-Ziel auf deinem klassischen Webspace (z. B. IONOS, Strato, all-inkl, Netcup,
-            Hetzner). Zugangsdaten landen im Systemschlüsselbund.
+            You set up where your site deploys per project: an SFTP, FTP, or FTPS target on your
+            classic web space (e.g. IONOS, Strato, all-inkl, Netcup, Hetzner). Credentials go into
+            the system keychain.
           </p>
           <p className="onboarding__text">
-            Beim Veröffentlichen lädt Web AI Builder nur die geänderten Dateien hoch und merkt sich
-            den Stand — so kannst du jederzeit sekundenschnell auf eine frühere Version zurückrollen.
+            When publishing, Web AI Builder uploads only the changed files and remembers the state —
+            so you can roll back to an earlier version in seconds at any time.
           </p>
           <p className="onboarding__note">
-            Leg jetzt einfach dein erstes Projekt an. Alles Weitere — KI und Webspace — erledigst du,
-            wenn du es brauchst.
+            Just create your first project now. Everything else — AI and web space — you handle when
+            you need it.
           </p>
         </section>
       );

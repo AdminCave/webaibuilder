@@ -1,34 +1,34 @@
 /**
- * Deutsche, handlungsleitende Kurz-Hinweise für bekannte KI-Fehlerursachen
- * (PLAN §5: Du-Form). Rein (kein DOM/node/electron) — headless testbar.
+ * Short, actionable hints for known AI error causes (PLAN §5). Pure (no
+ * DOM/node/electron) — headless-testable.
  *
- * Bewusst renderer-seitig statt in den Adaptern: die Adapter liefern die echte
- * Ursache unverändert als `cause` (kein Informationsverlust), die UI übersetzt
- * bekannte Muster zusätzlich in einen verständlichen Hinweis. Die vollständige
- * Ursache bleibt in einem aufklappbaren Detailbereich sichtbar.
+ * Deliberately on the renderer side instead of in the adapters: the adapters pass
+ * the real cause through unchanged as `cause` (no loss of information), and the UI
+ * additionally translates known patterns into an understandable hint. The full
+ * cause stays visible in an expandable detail section.
  */
 
 /**
- * Erkennt bekannte Fehlermuster in Meldung + Ursache und liefert einen kurzen
- * deutschen Hinweis — oder `null`, wenn kein Muster passt (dann zeigt die UI
- * nur Meldung + Details).
+ * Detects known error patterns in message + cause and returns a short hint — or
+ * `null` when no pattern matches (in which case the UI only shows message +
+ * details).
  */
 export function humanizeAgentError(details: string): string | null {
   const text = details.toLowerCase();
   if (/(^|\D)401(\D|$)|invalid x-api-key|authentication_error|unauthorized|api key/.test(text)) {
-    return 'Dein API-Key wurde abgelehnt — prüfe ihn in den Einstellungen.';
+    return 'Your API key was rejected — check it in Settings.';
   }
   if (/(^|\D)429(\D|$)|rate.?limit/.test(text)) {
-    return 'Rate-Limit erreicht — warte einen Moment und versuch es dann erneut.';
+    return 'Rate limit reached — wait a moment, then try again.';
   }
   if (/not_found_error|model.*not.*(found|exist|support)|unknown model/.test(text)) {
-    return 'Das eingestellte Modell ist ungültig — prüfe die Modell-ID in den Einstellungen.';
+    return 'The configured model is invalid — check the model ID in Settings.';
   }
   if (/insufficient|credit balance|billing|quota/.test(text)) {
-    return 'Dein Kontingent beim Anbieter scheint erschöpft — prüfe dort dein Konto.';
+    return 'Your quota with the provider appears to be exhausted — check your account there.';
   }
   if (/enotfound|econnrefused|econnreset|etimedout|fetch failed|network error/.test(text)) {
-    return 'Keine Verbindung zum Anbieter — prüfe deine Internetverbindung.';
+    return 'No connection to the provider — check your internet connection.';
   }
   return null;
 }

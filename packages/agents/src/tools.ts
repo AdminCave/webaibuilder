@@ -1,9 +1,9 @@
 /**
- * Workspace-scoped Datei-Tools für den `byok`-Adapter (PLAN §4).
+ * Workspace-scoped file tools for the `byok` adapter (PLAN §4).
  *
- * Alle Tools lösen Pfade über {@link resolveInSite} auf und verweigern hart
- * alles außerhalb von `<workspaceDir>/site/`. Datei-Inhalte werden NICHT als
- * Event gemeldet — ground truth ist der chokidar-Watcher (packages/preview).
+ * All tools resolve paths via {@link resolveInSite} and hard-deny anything
+ * outside of `<workspaceDir>/site/`. File contents are NOT reported as an
+ * event — ground truth is the chokidar watcher (packages/preview).
  */
 
 import { mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
@@ -14,7 +14,7 @@ import { z } from 'zod';
 
 import { PathEscapeError, resolveInSite } from './paths';
 
-/** Einheitliches Fehlerobjekt, das das Modell als Tool-Ergebnis sieht. */
+/** Uniform error object that the model sees as a tool result. */
 interface ToolError {
   ok: false;
   error: string;
@@ -23,7 +23,7 @@ interface ToolError {
 function denied(path: string): ToolError {
   return {
     ok: false,
-    error: `Zugriff verweigert: "${path}" liegt außerhalb von site/. Du darfst nur Dateien unter site/ bearbeiten.`,
+    error: `Access denied: "${path}" lies outside of site/. You may only edit files under site/.`,
   };
 }
 
@@ -32,7 +32,7 @@ function relInSite(siteDir: string, abs: string): string {
   return rel === '' ? '.' : rel.split(sep).join('/');
 }
 
-/** Minimaler Glob → RegExp (unterstützt `**`, `*`, `?`, ohne Brace-Expansion). */
+/** Minimal glob → RegExp (supports `**`, `*`, `?`, without brace expansion). */
 function globToRegExp(pattern: string): RegExp {
   let re = '';
   for (let i = 0; i < pattern.length; i += 1) {
@@ -71,12 +71,12 @@ async function walk(root: string, current: string, out: string[], limit: number)
   }
 }
 
-/** Erzeugt die site/-gebundenen Tools für einen Turn. */
+/** Creates the site/-bound tools for a turn. */
 export function createSiteTools(siteDir: string): ToolSet {
   const read_file = tool({
-    description: 'Liest eine Textdatei unter site/. Pfad relativ zu site/, z. B. "index.html".',
+    description: 'Reads a text file under site/. Path relative to site/, e.g. "index.html".',
     inputSchema: z.object({
-      path: z.string().describe('Pfad relativ zu site/, z. B. "css/style.css".'),
+      path: z.string().describe('Path relative to site/, e.g. "css/style.css".'),
     }),
     execute: async ({ path }) => {
       let abs: string;
@@ -90,16 +90,16 @@ export function createSiteTools(siteDir: string): ToolSet {
         const content = await readFile(abs, 'utf8');
         return { ok: true as const, path: relInSite(siteDir, abs), content };
       } catch {
-        return { ok: false as const, error: `Datei "${path}" konnte nicht gelesen werden.` };
+        return { ok: false as const, error: `File "${path}" could not be read.` };
       }
     },
   });
 
   const write_file = tool({
-    description: 'Schreibt (oder überschreibt) eine Textdatei unter site/. Legt Ordner an.',
+    description: 'Writes (or overwrites) a text file under site/. Creates folders.',
     inputSchema: z.object({
-      path: z.string().describe('Pfad relativ zu site/, z. B. "index.html".'),
-      content: z.string().describe('Vollständiger neuer Dateiinhalt.'),
+      path: z.string().describe('Path relative to site/, e.g. "index.html".'),
+      content: z.string().describe('Complete new file content.'),
     }),
     execute: async ({ path, content }) => {
       let abs: string;
@@ -117,12 +117,12 @@ export function createSiteTools(siteDir: string): ToolSet {
 
   const edit_file = tool({
     description:
-      'Ersetzt in einer Datei unter site/ einen Textabschnitt durch einen neuen (String-Replace).',
+      'Replaces a section of text in a file under site/ with a new one (string replace).',
     inputSchema: z.object({
-      path: z.string().describe('Pfad relativ zu site/.'),
-      old_string: z.string().describe('Der exakt zu ersetzende Text.'),
-      new_string: z.string().describe('Der neue Text.'),
-      replace_all: z.boolean().optional().describe('Alle Vorkommen ersetzen (Standard: nur das erste).'),
+      path: z.string().describe('Path relative to site/.'),
+      old_string: z.string().describe('The exact text to replace.'),
+      new_string: z.string().describe('The new text.'),
+      replace_all: z.boolean().optional().describe('Replace all occurrences (default: only the first).'),
     }),
     execute: async ({ path, old_string, new_string, replace_all }) => {
       let abs: string;
@@ -136,10 +136,10 @@ export function createSiteTools(siteDir: string): ToolSet {
       try {
         content = await readFile(abs, 'utf8');
       } catch {
-        return { ok: false as const, error: `Datei "${path}" konnte nicht gelesen werden.` };
+        return { ok: false as const, error: `File "${path}" could not be read.` };
       }
       if (!content.includes(old_string)) {
-        return { ok: false as const, error: `Der zu ersetzende Text kommt in "${path}" nicht vor.` };
+        return { ok: false as const, error: `The text to replace does not occur in "${path}".` };
       }
       const updated = replace_all
         ? content.split(old_string).join(new_string)
@@ -150,9 +150,9 @@ export function createSiteTools(siteDir: string): ToolSet {
   });
 
   const list_dir = tool({
-    description: 'Listet den Inhalt eines Ordners unter site/ auf.',
+    description: 'Lists the contents of a folder under site/.',
     inputSchema: z.object({
-      path: z.string().optional().describe('Ordner relativ zu site/ (Standard: site/-Wurzel).'),
+      path: z.string().optional().describe('Folder relative to site/ (default: site/ root).'),
     }),
     execute: async ({ path }) => {
       const target = path ?? '.';
@@ -171,15 +171,15 @@ export function createSiteTools(siteDir: string): ToolSet {
           entries: entries.map((e) => ({ name: e.name, type: e.isDirectory() ? 'dir' : 'file' })),
         };
       } catch {
-        return { ok: false as const, error: `Ordner "${target}" konnte nicht gelesen werden.` };
+        return { ok: false as const, error: `Folder "${target}" could not be read.` };
       }
     },
   });
 
   const glob = tool({
-    description: 'Findet Dateien unter site/ per Glob-Muster, z. B. "**/*.html".',
+    description: 'Finds files under site/ using a glob pattern, e.g. "**/*.html".',
     inputSchema: z.object({
-      pattern: z.string().describe('Glob-Muster relativ zu site/, z. B. "css/*.css".'),
+      pattern: z.string().describe('Glob pattern relative to site/, e.g. "css/*.css".'),
     }),
     execute: async ({ pattern }) => {
       const all: string[] = [];
@@ -189,7 +189,7 @@ export function createSiteTools(siteDir: string): ToolSet {
           await walk(root, root, all, 5000);
         }
       } catch {
-        return { ok: false as const, error: 'site/ konnte nicht durchsucht werden.' };
+        return { ok: false as const, error: 'site/ could not be searched.' };
       }
       const rx = globToRegExp(pattern);
       const matches = all.filter((p) => rx.test(p)).slice(0, 1000);

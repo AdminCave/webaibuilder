@@ -1,11 +1,11 @@
 /**
- * Preload: typisierte, versionierte, minimale Bridge (`window.wab`).
- * Läuft sandboxed — nur `electron` ist importierbar, alles andere wird
- * von electron-vite in diese Datei gebundelt.
+ * Preload: typed, versioned, minimal bridge (`window.wab`).
+ * Runs sandboxed — only `electron` is importable, everything else is bundled
+ * into this file by electron-vite.
  *
- * Die Bridge vereint den eingefrorenen core-Vertrag (`WabBridge`: ping,
- * projects, templates) mit der additiven M2-Oberfläche (`WabDesktopBridge`:
- * session, chat, checkpoints, settings, Event-Abos).
+ * The bridge unites the frozen core contract (`WabBridge`: ping, projects,
+ * templates) with the additive M2 surface (`WabDesktopBridge`: session, chat,
+ * checkpoints, settings, event subscriptions).
  */
 
 import { contextBridge, ipcRenderer } from 'electron';
@@ -42,7 +42,7 @@ import type { RendererErrorReport } from '../shared/logging';
 import type { OnboardingStateInput } from '../shared/onboarding';
 import type { AgentSettingsInput } from '../shared/settings';
 
-/** Abonniert einen Push-Kanal und liefert die Abmelde-Funktion. */
+/** Subscribes to a push channel and returns the unsubscribe function. */
 function subscribe<C extends DesktopIpcEvent>(
   channel: C,
   listener: (payload: DesktopIpcEventPayload<C>) => void,

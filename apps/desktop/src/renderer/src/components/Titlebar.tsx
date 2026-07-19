@@ -6,11 +6,11 @@ interface TitlebarProps {
   onSwap: () => void;
   theme: Theme;
   onToggleTheme: () => void;
-  /** Name des geöffneten Projekts; undefined = Startansicht. */
+  /** Name of the open project; undefined = start view. */
   projectName?: string | undefined;
-  /** Zurück zur Projektübersicht; undefined = Button ausblenden. */
+  /** Back to the project overview; undefined = hide button. */
   onShowProjects?: (() => void) | undefined;
-  /** Öffnet die Backend-Einstellungen. */
+  /** Opens the backend settings. */
   onOpenSettings: () => void;
 }
 
@@ -26,46 +26,46 @@ export function Titlebar({
   return (
     <header className="titlebar">
       <span className="titlebar__brand">Web AI Builder</span>
-      <span className="titlebar__project">{projectName ?? 'Kein Projekt geöffnet'}</span>
+      <span className="titlebar__project">{projectName ?? 'No project open'}</span>
       <div className="titlebar__actions">
         {onShowProjects !== undefined && (
           <button
             type="button"
             className="btn"
-            title="Zur Projektübersicht"
+            title="Back to projects"
             onClick={onShowProjects}
           >
             <Icon name="folder" />
-            Projekte
+            Projects
           </button>
         )}
         <button
           type="button"
           className="btn"
           aria-pressed={swapped}
-          title="Chat- und Vorschau-Panel tauschen"
+          title="Swap chat and preview panels"
           onClick={onSwap}
         >
           <Icon name="swap" />
-          Panels tauschen
+          Swap panels
         </button>
         <button
           type="button"
           className="btn"
-          title={theme === 'dark' ? 'Zum hellen Design wechseln' : 'Zum dunklen Design wechseln'}
+          title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
           onClick={onToggleTheme}
         >
           <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
-          {theme === 'dark' ? 'Hell' : 'Dunkel'}
+          {theme === 'dark' ? 'Light' : 'Dark'}
         </button>
         <button
           type="button"
           className="btn"
-          title="Einstellungen (Strg+,)"
+          title="Settings (Ctrl+,)"
           onClick={onOpenSettings}
         >
           <Icon name="settings" />
-          Einstellungen
+          Settings
         </button>
       </div>
     </header>

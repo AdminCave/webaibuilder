@@ -1,11 +1,11 @@
 /**
- * Persistenz der KI-Backend-Einstellungen im Main-Prozess.
+ * Persistence of the AI backend settings in the main process.
  *
- * Secret-freie Daten (Backend, Provider, Modell) landen als JSON unter
- * `<userData>/agent-settings.json`. Der API-Key wird bewusst NICHT auf die
- * Platte geschrieben (PLAN §4, Linux-Plaintext-Falle) — er liegt seit M3 im
- * OS-Schlüsselbund (secrets.ts) bzw. bei fehlendem Schlüsselbund nur im Speicher
- * für die laufende Sitzung. Der Store hält nur das abgeleitete `hasApiKey`-Flag.
+ * Secret-free data (backend, provider, model) is stored as JSON at
+ * `<userData>/agent-settings.json`. The API key is deliberately NOT written to
+ * disk (PLAN §4, Linux plaintext trap) — since M3 it lives in the OS keychain
+ * (secrets.ts), or, when no keychain is available, only in memory for the
+ * running session. The store holds only the derived `hasApiKey` flag.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -36,9 +36,9 @@ export class AgentSettingsStore {
     private readonly filePath: string,
     private readonly secrets: SecretsService,
     /**
-     * Umgebung für den env-Key-Fallback (ANTHROPIC_API_KEY & Co.). Bewusst
-     * Default `{}` statt `process.env`: die Kompositionswurzel (ipc.ts) reicht
-     * `process.env` explizit durch, Tests bleiben deterministisch.
+     * Environment for the env-key fallback (ANTHROPIC_API_KEY & co.). Deliberately
+     * defaults to `{}` instead of `process.env`: the composition root (ipc.ts)
+     * passes `process.env` through explicitly, tests stay deterministic.
      */
     private readonly env: Readonly<Record<string, string | undefined>> = {},
   ) {
@@ -51,7 +51,7 @@ export class AgentSettingsStore {
         return coerceAgentSettings(JSON.parse(readFileSync(this.filePath, 'utf8')));
       }
     } catch {
-      /* Kaputte Datei → Defaults, nicht crashen. */
+      /* Corrupt file → defaults, don't crash. */
     }
     return coerceAgentSettings(undefined);
   }
@@ -59,25 +59,24 @@ export class AgentSettingsStore {
   private persist(): void {
     try {
       mkdirSync(dirname(this.filePath), { recursive: true });
-      // Nur die secret-freien Felder — niemals der API-Key (coerceAgentSettings
-      // stellt sicher, dass `this.data` keine Fremdfelder trägt).
+      // Only the secret-free fields — never the API key (coerceAgentSettings
+      // ensures `this.data` carries no foreign fields).
       writeFileSync(this.filePath, `${JSON.stringify(this.data, null, 2)}\n`);
     } catch {
-      /* Best effort — der In-Memory-Zustand bleibt führend. */
+      /* Best effort — the in-memory state remains authoritative. */
     }
   }
 
   /**
-   * Renderer-taugliche Sicht: secret-frei plus abgeleitete Flags. `hasApiKey`
-   * bezieht sich auf das aktuelle Backend/Provider — Schlüsselbund zuerst,
-   * sonst Umgebungsvariable (Konsistenz zur Erkennung: ein per
-   * ANTHROPIC_API_KEY „erkanntes" claude-sdk ist damit auch nutzbar).
-   * `keychainAvailable` meldet, ob der OS-Schlüsselbund genutzt wird oder der
-   * In-Memory-Fallback aktiv ist.
+   * Renderer-ready view: secret-free plus derived flags. `hasApiKey` refers to
+   * the current backend/provider — keychain first, otherwise the environment
+   * variable (consistency with detection: a claude-sdk "detected" via
+   * ANTHROPIC_API_KEY is thereby also usable). `keychainAvailable` reports
+   * whether the OS keychain is in use or the in-memory fallback is active.
    */
   get(): AgentSettings {
-    // Abo-/CLI-Backends haben keinen app-verwalteten Key — `hasApiKey` darf sie
-    // nicht gaten (der Login liegt allein bei der Vendor-CLI, PLAN §3).
+    // Subscription/CLI backends have no app-managed key — `hasApiKey` must not
+    // gate them (login is solely up to the vendor CLI, PLAN §3).
     const subscription = isSubscriptionBackend(this.data.backendId);
     const keychainKey =
       !subscription && this.secrets.hasApiKey(this.data.backendId, this.data.provider);
@@ -92,7 +91,7 @@ export class AgentSettingsStore {
     return view;
   }
 
-  /** Key aus der Umgebung (Fallback, wenn keiner im Schlüsselbund liegt). */
+  /** Key from the environment (fallback when none is in the keychain). */
   private envApiKey(): string | undefined {
     const name = PROVIDER_ENV_KEYS[effectiveProvider(this.data.backendId, this.data.provider)];
     const value = this.env[name]?.trim();
@@ -100,11 +99,10 @@ export class AgentSettingsStore {
   }
 
   /**
-   * Wendet ein Update an. `apiKey`: string setzt, null (oder leer) löscht,
-   * undefined lässt den bestehenden Key unverändert. Nur die secret-freien
-   * Felder werden persistiert; der Key geht in den Schlüsselbund. Die
-   * secret-freien Felder werden zuerst gemischt, damit der Key unter dem NEU
-   * gewählten Backend/Provider abgelegt wird.
+   * Applies an update. `apiKey`: a string sets it, null (or empty) deletes it,
+   * undefined leaves the existing key unchanged. Only the secret-free fields are
+   * persisted; the key goes into the keychain. The secret-free fields are merged
+   * first so the key is stored under the NEWLY selected backend/provider.
    */
   set(input: AgentSettingsInput): AgentSettings {
     this.data = mergeAgentSettings(this.data, input);
@@ -121,17 +119,17 @@ export class AgentSettingsStore {
   }
 
   /**
-   * Der API-Key für `createBackend` (nur im Main-Prozess), oder undefined.
-   * Schlüsselbund zuerst, sonst Umgebungsvariable (wichtig für `byok`, das ohne
-   * expliziten Key wirft). Für Abo-/CLI-Backends immer undefined — sie nutzen
-   * den eigenen Login der Vendor-CLI und bekommen von der App keinen Key (PLAN §3).
+   * The API key for `createBackend` (main process only), or undefined. Keychain
+   * first, otherwise the environment variable (important for `byok`, which
+   * throws without an explicit key). For subscription/CLI backends always
+   * undefined — they use the vendor CLI's own login and get no key from the app (PLAN §3).
    */
   currentApiKey(): string | undefined {
     if (isSubscriptionBackend(this.data.backendId)) return undefined;
     return this.secrets.getApiKey(this.data.backendId, this.data.provider) ?? this.envApiKey();
   }
 
-  /** Effektiv zu verwendendes Modell (Override oder Provider-Default). */
+  /** The model to use effectively (override or provider default). */
   currentModel(): string {
     return effectiveModel(this.data);
   }
@@ -141,19 +139,18 @@ export class AgentSettingsStore {
   }
 }
 
-/** Nur der von {@link applySettingsUpdate} benötigte Teil des BackendService. */
+/** Only the part of the BackendService that {@link applySettingsUpdate} needs. */
 export interface SubscriptionReadinessSource {
   availability(): Promise<BackendPickerState>;
 }
 
 /**
- * Wendet ein Einstellungs-Update an und setzt dabei die AUTORITATIVE
- * Aktivierungsprüfung für Abo-Backends durch (PLAN §3/§4): Wird als aktives
- * Backend ein Abo-Backend gewählt, muss es nach derselben Erkennung +
- * Kill-Switch + Bestätigung, die auch die UI sieht, nutzbar sein — sonst wird
- * das Update mit einer deutschen, handlungsleitenden Meldung abgelehnt und NICHT
- * persistiert. So kann `appSession` nie eine CLI starten, die der Nutzer gar
- * nicht verwenden kann. API-Key-Backends laufen ungehindert durch.
+ * Applies a settings update while enforcing the AUTHORITATIVE activation check
+ * for subscription backends (PLAN §3/§4): if a subscription backend is chosen as
+ * the active backend, it must be usable after the same detection + kill switch +
+ * acknowledgment that the UI sees — otherwise the update is rejected with an
+ * actionable message and NOT persisted. This way `appSession` can never start a
+ * CLI that the user cannot use at all. API-key backends pass through unhindered.
  */
 export async function applySettingsUpdate(
   store: AgentSettingsStore,
@@ -166,7 +163,7 @@ export async function applySettingsUpdate(
     const view = state.backends.find((b) => b.backendId === target);
     const message =
       view === undefined
-        ? `${backendDisplayName(target)} ist nicht verfügbar.`
+        ? `${backendDisplayName(target)} is not available.`
         : subscriptionActivationError(view);
     if (message !== null) throw new Error(message);
   }

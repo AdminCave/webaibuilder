@@ -1,18 +1,18 @@
 /**
- * Gemeinsame Maschinerie für die vier Abo-/CLI-Adapter (PLAN §4, M4):
+ * Shared machinery for the four subscription/CLI adapters (PLAN §4, M4):
  * `claude-cli` · `codex` · `gemini-cli` · `grok-cli`.
  *
- * Jeder Adapter spawnt die OFFIZIELLE, UNVERÄNDERTE Vendor-CLI, die der Nutzer
- * selbst installiert und selbst eingeloggt hat (PLAN §3, nicht verhandelbar):
- *   - Die App liest/speichert/proxied/überträgt NIEMALS OAuth-Tokens.
- *   - Kein `ANTHROPIC_BASE_URL`/Backend-Umleiten, kein Harness-Spoofing.
- *   - Die App reicht KEINE Credentials weiter — die CLI nutzt ihren eigenen
- *     Login. Das Env wird 1:1 durchgereicht (keine token-/base-url-Injektion).
+ * Each adapter spawns the OFFICIAL, UNMODIFIED vendor CLI that the user has
+ * installed and logged in to themselves (PLAN §3, non-negotiable):
+ *   - The app NEVER reads/stores/proxies/transmits OAuth tokens.
+ *   - No `ANTHROPIC_BASE_URL`/backend redirect, no harness spoofing.
+ *   - The app passes NO credentials through — the CLI uses its own login.
+ *     The env is passed through verbatim (no token/base-url injection).
  *
- * Der Prozess-Stdout ist JSONL (ein JSON-Objekt pro Zeile). Diese Engine liest
- * zeilenweise, überspringt kaputte Zeilen tolerant und mappt jede Zeile per
- * vendor-spezifischem {@link CliSpec} auf den core-`AgentEvent`-Strom. Der
- * Permission-Rückkanal läuft über den `yield`-Rückgabewert (siehe `runTurn`).
+ * The process stdout is JSONL (one JSON object per line). This engine reads
+ * line by line, tolerantly skips broken lines, and maps each line via a
+ * vendor-specific {@link CliSpec} onto the core `AgentEvent` stream. The
+ * permission back-channel runs over the `yield` return value (see `runTurn`).
  */
 
 import { spawn as nodeSpawn } from 'node:child_process';
@@ -32,19 +32,19 @@ import type {
 
 import { AsyncQueue } from './asyncQueue';
 
-/** Minimaler stdin-Writer (Teilmenge von `Writable`). */
+/** Minimal stdin writer (subset of `Writable`). */
 export interface CliStdin {
   write(chunk: string): unknown;
   end(): unknown;
 }
 
-/** Minimaler lesbarer Stream (Teilmenge von `Readable`). */
+/** Minimal readable stream (subset of `Readable`). */
 export interface CliReadable {
   on(event: 'data', listener: (chunk: Buffer | string) => void): unknown;
   on(event: 'end', listener: () => void): unknown;
 }
 
-/** Minimale Kindprozess-Schnittstelle, die die Engine nutzt (testbar). */
+/** Minimal child-process interface the engine uses (testable). */
 export interface CliChild {
   readonly stdout: CliReadable | null;
   readonly stderr: CliReadable | null;
@@ -55,14 +55,14 @@ export interface CliChild {
   kill(signal?: NodeJS.Signals | number): boolean;
 }
 
-/** Injizierbare spawn-Funktion (Default: echtes `child_process.spawn`). */
+/** Injectable spawn function (default: real `child_process.spawn`). */
 export type SpawnFn = (
   command: string,
   args: readonly string[],
   options: { cwd: string; env: NodeJS.ProcessEnv },
 ) => CliChild;
 
-/** Default-spawn: echtes, ungepipetes Vendor-CLI-Kind. */
+/** Default spawn: a real, un-piped vendor-CLI child. */
 export const defaultSpawn: SpawnFn = (command, args, options) =>
   nodeSpawn(command, args as string[], {
     cwd: options.cwd,
@@ -70,74 +70,74 @@ export const defaultSpawn: SpawnFn = (command, args, options) =>
     stdio: ['pipe', 'pipe', 'pipe'],
   }) as unknown as CliChild;
 
-/** Konstruktionsdaten für einen CLI-Adapter. */
+/** Construction data for a CLI adapter. */
 export interface CliBackendConfig {
-  /** Pfad/Name der Vendor-Binary. Default: `spec.binary` (PATH-Auflösung). */
+  /** Path/name of the vendor binary. Default: `spec.binary` (PATH resolution). */
   cliPath?: string;
-  /** Injizierbare spawn-Funktion — für Tests. Default: {@link defaultSpawn}. */
+  /** Injectable spawn function — for tests. Default: {@link defaultSpawn}. */
   spawn?: SpawnFn;
-  /** Grace-Zeit (ms) zwischen SIGTERM und SIGKILL bei `interrupt()`. Default 2000. */
+  /** Grace period (ms) between SIGTERM and SIGKILL on `interrupt()`. Default 2000. */
   killGraceMs?: number;
   /**
-   * Env, das an die CLI durchgereicht wird. Default: `process.env` (unverändert).
-   * WICHTIG (PLAN §3): hier NIEMALS `ANTHROPIC_BASE_URL` o. Ä. oder Tokens setzen.
+   * Env passed through to the CLI. Default: `process.env` (unchanged).
+   * IMPORTANT (PLAN §3): NEVER set `ANTHROPIC_BASE_URL` or similar, or tokens, here.
    */
   env?: NodeJS.ProcessEnv;
   /**
-   * Watchdog: liefert die CLI so lange keinerlei Ausgabe (stdout/stderr) und
-   * wartet dabei nicht auf eine Permission-Antwort, wird der Turn mit Fehler
-   * abgebrochen und der Prozess beendet — sonst hinge die UI bei Protokoll-
-   * Drift (z. B. fehlendes result-Event) ewig in „Die KI arbeitet …".
-   * 0 = aus. Default 120 000 ms.
+   * Watchdog: while the CLI produces no output at all (stdout/stderr) and is
+   * not waiting for a permission answer, the turn is aborted with an error and
+   * the process is terminated — otherwise the UI would hang forever on protocol
+   * drift (e.g. a missing result event) in "The AI is working …".
+   * 0 = off. Default 120,000 ms.
    */
   idleTimeoutMs?: number;
 }
 
-/** Was die Engine über einen laufenden Turn mitführt; von `mapLine` mutierbar. */
+/** What the engine carries along for a running turn; mutable by `mapLine`. */
 export interface TurnState {
-  /** Docroot des Turns (`<workspaceDir>/site`). */
+  /** Docroot of the turn (`<workspaceDir>/site`). */
   readonly siteDir: string;
-  /** Session-ID zum Fortsetzen (falls das Backend `resume` kann). */
+  /** Session ID for resuming (if the backend supports `resume`). */
   sessionId: string | undefined;
-  /** Kosten in USD, falls die CLI sie meldet. */
+  /** Cost in USD, if the CLI reports it. */
   costUsd: number | undefined;
-  /** Abschlussgrund; Default `end`, von `mapLine` auf `error` setzbar. */
+  /** Stop reason; default `end`, settable to `error` by `mapLine`. */
   stopReason: TurnStopReason;
-  /** Signalisiert der Engine, dass der Turn logisch fertig ist (stdin schließen). */
+  /** Signals to the engine that the turn is logically done (close stdin). */
   done: boolean;
-  /** Anzeige-Namen offener Tool-Calls (toolCallId → Label). */
+  /** Display names of open tool calls (toolCallId → label). */
   readonly tools: Map<string, string>;
 }
 
-/** Aufruf-Beschreibung, die ein {@link CliSpec} pro Turn liefert. */
+/** Invocation description that a {@link CliSpec} provides per turn. */
 export interface CliInvocation {
-  /** Argumente (ohne die Binary selbst). */
+  /** Arguments (without the binary itself). */
   args: string[];
-  /** JSON-Objekte, die vor dem Lesen auf stdin geschrieben werden (z. B. Prompt). */
+  /** JSON objects written to stdin before reading begins (e.g. the prompt). */
   stdinInit?: unknown[];
   /**
-   * stdin offen halten (claude-cli braucht das für `control_response`-Antworten).
-   * Default: false → stdin wird nach `stdinInit` sofort geschlossen.
+   * Keep stdin open (claude-cli needs this for `control_response` replies).
+   * Default: false → stdin is closed immediately after `stdinInit`.
    */
   keepStdinOpen?: boolean;
 }
 
-/** Vendor-spezifischer Vertrag; die Engine ist ansonsten backend-agnostisch. */
+/** Vendor-specific contract; the engine is otherwise backend-agnostic. */
 export interface CliSpec {
   readonly id: BackendId;
-  /** Default-Binaryname (auf PATH), z. B. "claude". */
+  /** Default binary name (on PATH), e.g. "claude". */
   readonly binary: string;
   capabilities(): AgentCapabilities;
-  /** Fehler-Event, wenn die Binary nicht gefunden wurde (ENOENT) — mit Install-Hinweis. */
+  /** Error event when the binary was not found (ENOENT) — with an install hint. */
   notFound(): AgentErrorEvent;
-  /** Baut Argumente + stdin für einen Turn. */
+  /** Builds arguments + stdin for a turn. */
   buildInvocation(req: AgentTurnRequest): CliInvocation;
-  /** Mappt eine geparste JSONL-Zeile auf 0..n AgentEvents; darf `state` mutieren. */
+  /** Maps a parsed JSONL line onto 0..n AgentEvents; may mutate `state`. */
   mapLine(json: Record<string, unknown>, state: TurnState): AgentEvent[];
   /**
-   * Baut die stdin-Antwort auf ein permission-request (z. B. claude
-   * `control_response`). `null` = nichts schreiben. Fail-safe deny, wenn
-   * `decision` undefined/`allow:false` ist.
+   * Builds the stdin reply to a permission-request (e.g. claude
+   * `control_response`). `null` = write nothing. Fail-safe deny when
+   * `decision` is undefined/`allow:false`.
    */
   answerPermission?(event: PermissionRequestEvent, decision: PermissionDecision | undefined): unknown | null;
 }
@@ -170,7 +170,7 @@ class CliBackend implements AgentBackend {
     this.id = spec.id;
     this.#spawn = config.spawn ?? defaultSpawn;
     this.#command = config.cliPath ?? spec.binary;
-    // Env unverändert durchreichen (PLAN §3: keine base-url/token-Injektion).
+    // Pass the env through unchanged (PLAN §3: no base-url/token injection).
     this.#env = config.env ?? process.env;
     this.#killGraceMs = config.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
     this.#idleTimeoutMs = config.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
@@ -194,7 +194,7 @@ class CliBackend implements AgentBackend {
     const inv = this.#spec.buildInvocation(req);
     const queue = new AsyncQueue<EngineItem>();
 
-    // Reset des Interrupt-/Exit-Zustands für diesen Turn.
+    // Reset the interrupt/exit state for this turn.
     this.#exited = false;
     this.#interrupted = false;
     this.#killTimer = null;
@@ -203,19 +203,19 @@ class CliBackend implements AgentBackend {
     try {
       child = this.#spawn(this.#command, inv.args, { cwd: req.siteDir, env: this.#env });
     } catch (err) {
-      // Synchroner spawn-Fehler (selten) — wie ENOENT behandeln.
+      // Synchronous spawn error (rare) — treat like ENOENT.
       const e = err as NodeJS.ErrnoException;
       yield e.code === 'ENOENT'
         ? this.#spec.notFound()
-        : { type: 'error', message: 'Die CLI konnte nicht gestartet werden.', recoverable: false, cause: e.message };
+        : { type: 'error', message: 'The CLI could not be started.', recoverable: false, cause: e.message };
       yield { type: 'turn-complete', turnId, stopReason: 'error', sessionId: state.sessionId, costUsd: state.costUsd };
       return;
     }
     this.#child = child;
 
-    // --- Watchdog: neu armiert bei jedem stdout/stderr-CHUNK (echtes
-    // Lebenszeichen), pausiert bei offener Permission-Anfrage (der Nutzer darf
-    // beliebig lange überlegen — die CLI ist dann legitim still).
+    // --- Watchdog: re-armed on every stdout/stderr CHUNK (a real sign of
+    // life), paused while a permission request is open (the user may take as
+    // long as they like — the CLI is legitimately silent then).
     let watchdogPaused = false;
     let idleTimer: ReturnType<typeof setTimeout> | null = null;
     const stopWatchdog = (): void => {
@@ -227,13 +227,13 @@ class CliBackend implements AgentBackend {
     const armWatchdog = (): void => {
       if (this.#idleTimeoutMs <= 0 || watchdogPaused) return;
       stopWatchdog();
-      // push nach queue.close() ist ein No-op — ein spät feuernder Timer
-      // kann einen beendeten Turn nicht stören.
+      // push after queue.close() is a no-op — a late-firing timer cannot
+      // disturb a finished turn.
       idleTimer = setTimeout(() => queue.push({ kind: 'idle-timeout' }), this.#idleTimeoutMs);
       idleTimer.unref?.();
     };
 
-    // --- stdout zeilenweise puffern → JSONL parsen (kaputte Zeilen skippen) ---
+    // --- Buffer stdout line by line → parse JSONL (skip broken lines) ---
     let buffer = '';
     const pushLine = (raw: string): void => {
       const line = raw.trim();
@@ -242,7 +242,7 @@ class CliBackend implements AgentBackend {
       try {
         value = JSON.parse(line);
       } catch {
-        return; // kaputte/partielle Zeile tolerant überspringen
+        return; // tolerantly skip a broken/partial line
       }
       if (value !== null && typeof value === 'object') {
         queue.push({ kind: 'json', value: value as Record<string, unknown> });
@@ -271,7 +271,7 @@ class CliBackend implements AgentBackend {
       stderrTail = (stderrTail + chunk.toString()).slice(-2000);
     });
 
-    // spawn-Fehler (ENOENT) und Prozess-Ende genau einmal einreihen.
+    // Enqueue the spawn error (ENOENT) and process exit exactly once.
     let settled = false;
     const settle = (item: EngineItem): void => {
       if (settled) return;
@@ -290,7 +290,7 @@ class CliBackend implements AgentBackend {
       settle({ kind: 'exit', code, signal });
     });
 
-    // --- Prompt/Init auf stdin schreiben ---
+    // --- Write prompt/init to stdin ---
     if (inv.stdinInit) {
       for (const obj of inv.stdinInit) child.stdin?.write(`${JSON.stringify(obj)}\n`);
     }
@@ -298,25 +298,25 @@ class CliBackend implements AgentBackend {
       try {
         child.stdin?.end();
       } catch {
-        /* stdin evtl. schon zu */
+        /* stdin may already be closed */
       }
     }
 
-    // Initial armieren — fängt auch eine CLI, die nie irgendetwas ausgibt.
+    // Arm initially — also catches a CLI that never outputs anything.
     armWatchdog();
 
     try {
       for await (const item of queue) {
         if (item.kind === 'idle-timeout') {
           state.stopReason = 'error';
-          // Erst den Prozess beenden (VOR dem yield — der Konsument könnte den
-          // Strom sonst fallen lassen und die CLI liefe weiter); das close-Event
-          // schließt anschließend die Queue.
+          // Terminate the process first (BEFORE the yield — otherwise the
+          // consumer could drop the stream and the CLI would keep running); the
+          // close event then closes the queue.
           this.#terminate();
           const seconds = Math.round(this.#idleTimeoutMs / 1000);
           yield {
             type: 'error',
-            message: `Die CLI hat seit ${seconds} Sekunden nicht geantwortet und wurde beendet.`,
+            message: `The CLI has not responded for ${seconds} seconds and was terminated.`,
             recoverable: true,
           };
           continue;
@@ -327,7 +327,7 @@ class CliBackend implements AgentBackend {
             ? this.#spec.notFound()
             : {
                 type: 'error',
-                message: 'Die CLI konnte nicht gestartet werden.',
+                message: 'The CLI could not be started.',
                 recoverable: false,
                 cause: item.error.message,
               };
@@ -341,7 +341,7 @@ class CliBackend implements AgentBackend {
             const tail = stderrTail.trim();
             yield {
               type: 'error',
-              message: `Die CLI wurde mit Code ${item.code ?? '?'} beendet.`,
+              message: `The CLI exited with code ${item.code ?? '?'}.`,
               recoverable: true,
               ...(tail.length > 0 ? { cause: tail } : {}),
             };
@@ -352,13 +352,13 @@ class CliBackend implements AgentBackend {
         // item.kind === 'json'
         const events = this.#spec.mapLine(item.value, state);
         for (const event of events) {
-          // Solange eine Permission-Antwort aussteht, pausiert der Watchdog.
+          // While a permission answer is pending, the watchdog is paused.
           if (event.type === 'permission-request') {
             watchdogPaused = true;
             stopWatchdog();
           }
-          // Der Rückgabewert des yield ist die Nutzer-Entscheidung (Desktop
-          // treibt mit `next(decision)`); für Nicht-Permission-Events undefined.
+          // The yield return value is the user's decision (the desktop drives
+          // with `next(decision)`); undefined for non-permission events.
           const decision = yield event;
           if (event.type === 'permission-request') {
             if (this.#spec.answerPermission) {
@@ -370,7 +370,7 @@ class CliBackend implements AgentBackend {
                 try {
                   child.stdin?.write(`${JSON.stringify(response)}\n`);
                 } catch {
-                  /* stdin evtl. schon zu — Entscheidung nicht zustellbar */
+                  /* stdin may already be closed — decision undeliverable */
                 }
               }
             }
@@ -379,12 +379,12 @@ class CliBackend implements AgentBackend {
           }
         }
 
-        // Logisches Turn-Ende erreicht → stdin schließen, damit die CLI beendet.
+        // Logical end of turn reached → close stdin so the CLI terminates.
         if (state.done && inv.keepStdinOpen) {
           try {
             child.stdin?.end();
           } catch {
-            /* schon zu */
+            /* already closed */
           }
         }
       }
@@ -412,21 +412,21 @@ class CliBackend implements AgentBackend {
     return Promise.resolve();
   }
 
-  /** Erst höflich (SIGTERM), dann nach Grace hart (SIGKILL) — von `interrupt()` und dem Watchdog genutzt. */
+  /** First gracefully (SIGTERM), then after the grace period forcibly (SIGKILL) — used by `interrupt()` and the watchdog. */
   #terminate(): void {
     const child = this.#child;
     if (child === null || this.#exited) return;
     try {
       child.kill('SIGTERM');
     } catch {
-      /* Prozess evtl. schon weg */
+      /* process may already be gone */
     }
     const timer = setTimeout(() => {
       if (!this.#exited) {
         try {
           child.kill('SIGKILL');
         } catch {
-          /* schon weg */
+          /* already gone */
         }
       }
     }, this.#killGraceMs);
@@ -435,7 +435,7 @@ class CliBackend implements AgentBackend {
   }
 }
 
-/** Erzeugt einen CLI-Adapter aus einem vendor-spezifischen {@link CliSpec}. */
+/** Creates a CLI adapter from a vendor-specific {@link CliSpec}. */
 export function createCliBackend(spec: CliSpec, config: CliBackendConfig = {}): AgentBackend {
   return new CliBackend(spec, config);
 }

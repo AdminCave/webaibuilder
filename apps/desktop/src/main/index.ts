@@ -10,9 +10,9 @@ import { logsDir } from './paths';
 import { devRendererUrl, hardenWebContents, installPermissionHandlers } from './security';
 import { initUpdater } from './updater';
 
-// Fehlerberichte so früh wie möglich verdrahten (M5, PLAN §1/§6): lokaler,
-// rotierender Datei-Logger + process-/app-Fehler-Hooks. Rein lokal, kein Remote.
-// `app.getPath('userData')` ist im Main-Prozess schon vor `ready` verfügbar.
+// Wire up error reporting as early as possible (M5, PLAN §1/§6): a local,
+// rotating file logger + process/app error hooks. Purely local, no remote.
+// `app.getPath('userData')` is available in the main process before `ready`.
 const logger = initLogger(logsDir());
 installErrorReporting(logger);
 
@@ -26,12 +26,12 @@ function createMainWindow(): void {
     autoHideMenuBar: true,
     backgroundColor: '#000000',
     title: 'Web AI Builder',
-    // Fenster-/Taskbar-Icon im Dev-Modus (build/icon.png, AdminCave-Marke).
-    // Im gepackten Build setzt electron-builder das App-Icon selbst.
+    // Window/taskbar icon in dev mode (build/icon.png, AdminCave brand).
+    // In the packaged build, electron-builder sets the app icon itself.
     ...(app.isPackaged ? {} : { icon: join(__dirname, '../../build/icon.png') }),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
-      // Hardening (PLAN §4, Sicherheit) — explizit, auch wo es Default ist.
+      // Hardening (PLAN §4, security) — explicit, even where it is the default.
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
@@ -39,20 +39,20 @@ function createMainWindow(): void {
     },
   });
 
-  // Der Main-Prozess streamt Preview-/Agent-/Checkpoint-Events an dieses Fenster.
+  // The main process streams preview/agent/checkpoint events to this window.
   getAppSession().setWindow(win);
 
-  // Auto-Update (M5): prüft/lädt im Hintergrund, meldet den Status an dieses
-  // Fenster; No-op im Dev (siehe updater.ts).
+  // Auto-update (M5): checks/downloads in the background, reports status to this
+  // window; no-op in dev (see updater.ts).
   initUpdater(win);
 
   win.once('ready-to-show', () => win.show());
 
-  // Headless-Smoke-Test (CI/Umgebungen ohne Display): sauber beenden,
-  // sobald der Renderer geladen ist.
+  // Headless smoke test (CI/environments without a display): exit cleanly
+  // as soon as the renderer has loaded.
   if (process.env['WAB_SMOKE'] === '1') {
     win.webContents.once('did-finish-load', () => {
-      console.log('[smoke] Renderer geladen — beende.');
+      console.log('[smoke] Renderer loaded — exiting.');
       app.quit();
     });
   }
@@ -65,20 +65,21 @@ function createMainWindow(): void {
   }
 }
 
-// Härtung gilt für JEDEN WebContents, auch künftig erzeugte.
+// Hardening applies to EVERY WebContents, including those created in the future.
 app.on('web-contents-created', (_event, contents) => hardenWebContents(contents));
 
-// Scheitert die Initialisierung (z. B. korrupte Registry-DB oder ein natives
-// Modul mit falscher ABI), gäbe es sonst nie ein Fenster und keine Meldung —
-// der Prozess stünde stumm da. Deshalb: Fehler loggen, dem Nutzer zeigen, beenden.
+// If initialization fails (e.g. a corrupt registry DB or a native module with
+// the wrong ABI), there would otherwise never be a window and no message —
+// the process would just sit there silently. So: log the error, show it to the
+// user, and exit.
 function failStartup(error: unknown): void {
   const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
-  logger.error('startup', 'App-Start fehlgeschlagen', { detail });
-  console.error('[startup] App-Start fehlgeschlagen:', detail);
+  logger.error('startup', 'App startup failed', { detail });
+  console.error('[startup] App startup failed:', detail);
   if (process.env['WAB_SMOKE'] !== '1') {
     dialog.showErrorBox(
-      'Web AI Builder konnte nicht starten',
-      `Beim Start ist ein Fehler aufgetreten:\n\n${detail}\n\nLogs: ${logsDir()}`,
+      'Web AI Builder could not start',
+      `An error occurred during startup:\n\n${detail}\n\nLogs: ${logsDir()}`,
     );
   }
   app.exit(1);
@@ -89,7 +90,7 @@ void app.whenReady().then(() => {
     installPermissionHandlers();
     registerIpcHandlers();
     if (process.env['WAB_SMOKE'] === '1') {
-      console.log('[smoke] App bereit — Security-Handler und IPC registriert.');
+      console.log('[smoke] App ready — security handlers and IPC registered.');
     }
     createMainWindow();
 
@@ -101,12 +102,12 @@ void app.whenReady().then(() => {
   }
 }, failStartup);
 
-// Preview-Server, Watcher und laufende Turns sauber herunterfahren.
+// Cleanly shut down the preview server, watchers, and any running turns.
 app.on('before-quit', () => {
   try {
     void getAppSession().closeProject();
   } catch {
-    // Session noch nicht initialisiert (sehr früher Quit) — nichts zu schließen.
+    // Session not yet initialized (very early quit) — nothing to close.
   }
 });
 

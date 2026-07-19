@@ -1,8 +1,8 @@
 /**
- * Tests für die Backend-Erkennung (detectBackends) mit injizierten which-/probe-
- * Fakes — KEINE echten CLIs. Fälle: installiert+eingeloggt, installiert+nicht-
- * eingeloggt, nicht installiert. Plus byok/claude-sdk (M2-Verfügbarkeit),
- * Install-Hinweise, experimental-Flag (grok) und Kill-Switch.
+ * Tests for backend detection (detectBackends) with injected which/probe fakes —
+ * NO real CLIs. Cases: installed+logged-in, installed+not-logged-in, not
+ * installed. Plus byok/claude-sdk (M2 availability), install hints, the
+ * experimental flag (grok) and the kill switch.
  */
 
 import type { BackendId } from '@webaibuilder/core';
@@ -25,7 +25,7 @@ function byId(list: BackendAvailability[]): Record<string, BackendAvailability> 
 }
 
 describe('detectBackends', () => {
-  it('installiert + eingeloggt: installed/loggedIn/version/account gesetzt', async () => {
+  it('installed + logged in: installed/loggedIn/version/account set', async () => {
     const list = await detectBackends({
       which: whichAll,
       probe: probeReturning({ loggedIn: true, version: '1.2.3', account: 'du@example.de' }),
@@ -39,12 +39,12 @@ describe('detectBackends', () => {
       expect(map[id]?.account).toBe('du@example.de');
       expect(map[id]?.installHintUrl).toMatch(/^https:\/\//);
     }
-    // grok ist als experimentell markiert.
+    // grok is marked as experimental.
     expect(map['grok-cli']?.experimental).toBe(true);
     expect(map['claude-cli']?.experimental).toBeUndefined();
   });
 
-  it('installiert + nicht eingeloggt: installed true, loggedIn false', async () => {
+  it('installed + not logged in: installed true, loggedIn false', async () => {
     const list = await detectBackends({
       which: whichAll,
       probe: probeReturning({ loggedIn: false, version: '2.0.0' }),
@@ -57,7 +57,7 @@ describe('detectBackends', () => {
     }
   });
 
-  it('nicht installiert: installed false, loggedIn unbekannt, Hinweis trotzdem da', async () => {
+  it('not installed: installed false, loggedIn unknown, hint present anyway', async () => {
     const list = await detectBackends({ which: whichNone, keyEnv: {} });
     const map = byId(list);
     for (const id of CLI_IDS) {
@@ -65,10 +65,10 @@ describe('detectBackends', () => {
       expect(map[id]?.loggedIn).toBeUndefined();
       expect(map[id]?.installHintUrl).toMatch(/^https:\/\//);
     }
-    // Der Probe darf nicht laufen, wenn nichts gefunden wird.
+    // The probe must not run when nothing is found.
   });
 
-  it('byok immer verfügbar; claude-sdk hängt am ANTHROPIC_API_KEY', async () => {
+  it('byok always available; claude-sdk depends on ANTHROPIC_API_KEY', async () => {
     const withKey = byId(await detectBackends({ which: whichNone, keyEnv: { ANTHROPIC_API_KEY: 'x' } }));
     expect(withKey.byok?.installed).toBe(true);
     expect(withKey['claude-sdk']?.installed).toBe(true);
@@ -77,7 +77,7 @@ describe('detectBackends', () => {
     expect(withoutKey['claude-sdk']?.installed).toBe(false);
   });
 
-  it('Kill-Switch pro Anbieter wird durchgereicht', async () => {
+  it('per-provider kill switch is passed through', async () => {
     const list = await detectBackends({
       which: whichAll,
       probe: probeReturning({ loggedIn: true }),
@@ -89,7 +89,7 @@ describe('detectBackends', () => {
     expect(map.codex?.killSwitched).toBe(false);
   });
 
-  it('liefert alle sechs Backends', async () => {
+  it('returns all six backends', async () => {
     const list = await detectBackends({ which: whichNone, keyEnv: {} });
     const ids = list.map((b) => b.id).sort();
     expect(ids).toEqual(['byok', 'claude-cli', 'claude-sdk', 'codex', 'gemini-cli', 'grok-cli']);

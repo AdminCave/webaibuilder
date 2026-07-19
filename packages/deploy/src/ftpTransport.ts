@@ -1,7 +1,7 @@
 /**
- * FTP/FTPS-Transport über basic-ftp v6 (PLAN §4). Unterstützt explizites FTPS
- * (secure: true) inkl. TLS-Session-Reuse für die Datenverbindung — viele
- * Shared-Hoster verlangen das. Alle Pfade sind absolute POSIX-Pfade.
+ * FTP/FTPS transport via basic-ftp v6 (PLAN §4). Supports explicit FTPS
+ * (secure: true) including TLS session reuse for the data connection — many
+ * shared hosters require this. All paths are absolute POSIX paths.
  */
 
 import { posix } from 'node:path';
@@ -16,7 +16,7 @@ import type { RemoteEntry, Transport } from './transport';
 
 const CONNECT_TIMEOUT_MS = 15_000;
 
-/** FTP-Antwortcodes für "Datei/Verzeichnis nicht vorhanden" (Hoster streuen hier). */
+/** FTP response codes for "file/directory not found" (hosters vary here). */
 function isNotFound(err: unknown): boolean {
   if (!(err instanceof FTPError)) return false;
   if (err.code === 550 || err.code === 551 || err.code === 450) return true;
@@ -36,8 +36,8 @@ export class FtpTransport implements Transport {
   ) {
     this.kind = target.protocol === 'ftps' ? 'ftps' : 'ftp';
     this.secure = target.protocol === 'ftps';
-    // basic-ftp verwendet die TLS-Session der Steuerverbindung automatisch für
-    // die Datenverbindung wieder (Session-Reuse) — das melden wir nur.
+    // basic-ftp automatically reuses the control connection's TLS session for
+    // the data connection (session reuse) — we only report it.
     this.tlsSessionReuse = this.secure ? true : undefined;
   }
 
@@ -48,8 +48,8 @@ export class FtpTransport implements Transport {
       user: this.target.username,
       password: this.credentials.password,
       secure: this.secure,
-      // Shared-Hoster nutzen oft selbst-signierte Zertifikate; die Prüfung
-      // liegt beim Aufrufer (Host ist vom Nutzer explizit konfiguriert).
+      // Shared hosters often use self-signed certificates; verification
+      // is up to the caller (the host is explicitly configured by the user).
       secureOptions: this.secure ? { rejectUnauthorized: false } : undefined,
     });
   }
@@ -68,8 +68,8 @@ export class FtpTransport implements Transport {
   }
 
   async ensureDir(remoteDir: string): Promise<void> {
-    // ensureDir legt rekursiv an UND wechselt das Arbeitsverzeichnis dorthin;
-    // da wir überall absolute Pfade nutzen, ist der cwd-Nebeneffekt harmlos.
+    // ensureDir creates recursively AND changes the working directory there;
+    // since we use absolute paths everywhere, the cwd side effect is harmless.
     await this.client.ensureDir(remoteDir);
   }
 
@@ -82,7 +82,7 @@ export class FtpTransport implements Transport {
   }
 
   async deleteFile(remotePath: string): Promise<void> {
-    // ignoreErrorCodes=true → idempotent (kein Fehler, wenn schon weg).
+    // ignoreErrorCodes=true → idempotent (no error if already gone).
     await this.client.remove(remotePath, true);
   }
 
@@ -132,7 +132,7 @@ export class FtpTransport implements Transport {
       try {
         await this.deleteFile(tmp);
       } catch {
-        // temp evtl. schon weg — egal.
+        // temp may already be gone — does not matter.
       }
       await this.uploadFile(remotePath, data);
     }

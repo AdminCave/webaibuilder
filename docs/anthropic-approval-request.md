@@ -1,6 +1,6 @@
 # Approval request to Anthropic — subscription use via the customer's own Claude Code CLI
 
-> **Status:** Entwurf. Auf Englisch verfasst (Anthropics Partnerschafts-/Developer-Relations-Team). Platzhalter stehen in `[eckigen Klammern]` — vor dem Versand ausfüllen. Versandweg und Erläuterung: siehe unten „Hinweise zum Versand".
+> **Status:** Draft. Written in English (Anthropic's partnerships/developer-relations team). Placeholders are in `[square brackets]` — fill in before sending. Sending path and explanation: see "Notes on sending" below.
 
 ---
 
@@ -8,7 +8,7 @@
 
 Hi Anthropic team,
 
-I'm [Kevin Stenzel], the developer behind **AdminCave** ([kurze Beschreibung, z. B. "an independent, DACH-focused project that builds tooling to make sysadmins' lives easier"]; [Website/URL, falls vorhanden]). I'm reaching out to request approval for a specific, narrowly-scoped integration with Claude, and to confirm my reading of your policies before I ship.
+I'm [Kevin Stenzel], the developer behind **AdminCave** ([short description, e.g. "an independent, DACH-focused project that builds tooling to make sysadmins' lives easier"]; [website/URL, if available]). I'm reaching out to request approval for a specific, narrowly-scoped integration with Claude, and to confirm my reading of your policies before I ship.
 
 ## What the product is
 
@@ -46,26 +46,26 @@ Thank you for your time.
 
 Best regards,
 [Kevin Stenzel]
-[E-Mail: mail@kevin-stenzel.de]
-[AdminCave — Website/Kontakt, falls vorhanden]
+[Email: mail@kevin-stenzel.de]
+[AdminCave — website/contact, if available]
 
 ---
 
-## Hinweise zum Versand (nicht mitschicken)
+## Notes on sending (do not include)
 
-**Sprache:** Englisch ist bewusst gewählt — Anthropics Partnerschafts-/Developer-Relations-Team liest Englisch, und die zitierten Klauseln stehen so in deren Docs.
+**Language:** English is deliberate — Anthropic's partnerships/developer-relations team reads English, and the quoted clauses appear that way in their docs.
 
-**Vor dem Absenden ausfüllen/prüfen:**
-- `[Kevin Stenzel]` — dein Name (2×: oben und in der Signatur).
-- AdminCave-Kurzbeschreibung und ggf. Website/URL. Kläre für dich, ob du als Einzelperson oder als Organisation auftrittst — Anthropic fragt das ggf. nach.
-- Ob es schon eine Release-/Veröffentlichungs-Zeitschiene gibt (kann man ergänzen, muss aber nicht).
-- E-Mail-Signatur (mail@kevin-stenzel.de ist eingetragen — anpassen, falls du eine andere Adresse nutzen willst).
+**Fill in/check before sending:**
+- `[Kevin Stenzel]` — your name (2×: at the top and in the signature).
+- AdminCave short description and, if applicable, website/URL. Decide for yourself whether you are acting as an individual or as an organization — Anthropic may ask about this.
+- Whether there is already a release/publication timeline (you can add it, but you don't have to).
+- Email signature (mail@kevin-stenzel.de is entered — change it if you want to use a different address).
 
-**Wohin schicken (Anthropic nennt keinen dedizierten „Approval"-Kanal):**
-- **Erste Wahl:** Partnerschaften/Sales über das Kontaktformular auf `anthropic.com` (bzw. `claude.com`) — dort „partnerships"/„sales" wählen und diesen Text einfügen.
-- **Alternativ:** Developer-/Support-Kontakt (`support.claude.com`). Wenn du dort schreibst, bitte im ersten Satz um Weiterleitung an das Team, das über Agent-SDK-/Subscription-Nutzung durch Dritte entscheidet.
-- Erfinde keine Adresse — nimm den offiziell auf der Website ausgewiesenen Weg zum Zeitpunkt des Versands.
+**Where to send (Anthropic names no dedicated "approval" channel):**
+- **First choice:** partnerships/sales via the contact form on `anthropic.com` (or `claude.com`) — select "partnerships"/"sales" there and paste this text.
+- **Alternatively:** the developer/support contact (`support.claude.com`). If you write there, ask in the first sentence to be forwarded to the team that decides on third-party Agent-SDK/subscription use.
+- Do not invent an address — use the path officially listed on the website at the time of sending.
 
-**Warum die Anfrage gut steht:** Wir bitten faktisch um Bestätigung eines Musters, das laut Anthropics eigenem Hilfe-Artikel vom 15.06.2026 aktuell geduldet ist („third-party app usage still draws from your subscription's usage limits"), und das Zed und JetBrains in ähnlicher Form fahren. Das Risiko für Anthropic ist gering (echter Abonnent, eigene offizielle CLI, kein Token-Handling bei uns), und wir bieten Feature-Flag + Kill-Switch als Vertrauensvorschuss an.
+**Why the request is well-positioned:** We are effectively asking for confirmation of a pattern that, per Anthropic's own help article of 2026-06-15, is currently tolerated ("third-party app usage still draws from your subscription's usage limits") and that Zed and JetBrains run in a similar form. The risk for Anthropic is low (a real subscriber, their own official CLI, no token handling on our side), and we offer a feature flag + kill switch as a gesture of good faith.
 
-**Realistische Erwartung:** Eine schnelle, verbindliche Zusage ist nicht garantiert — Anthropic hat die Richtung mehrfach geändert. Deshalb bleibt der API-Key-Modus der empfohlene Standard, und der Abo-Modus bleibt bis zu einer Antwort hinter dem Feature-Flag. Egal wie die Antwort ausfällt: dokumentiere sie (Datum, Ansprechpartner, Wortlaut) für die Compliance-Historie.
+**Realistic expectation:** A quick, binding commitment is not guaranteed — Anthropic has changed direction several times. That is why API-key mode remains the recommended default, and subscription mode stays behind the feature flag until there is a response. Whatever the answer: document it (date, contact person, wording) for the compliance history.

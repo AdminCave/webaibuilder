@@ -1,16 +1,16 @@
 /**
- * `codex`-Adapter (Abo ODER API-Key — die CLI entscheidet, PLAN §4) — spawnt die
- * vom Nutzer installierte OpenAI-Codex-CLI:
+ * `codex` adapter (subscription OR API key — the CLI decides, PLAN §4) — spawns
+ * the user-installed OpenAI Codex CLI:
  *
- *   codex exec --json "<prompt>"                    (neuer Turn)
- *   codex exec resume <sessionId> --json "<prompt>" (Session fortsetzen)
+ *   codex exec --json "<prompt>"                    (new turn)
+ *   codex exec resume <sessionId> --json "<prompt>" (resume session)
  *
- * cwd = `<workspace>/site`. Der JSONL-Strom (`thread.*`, `turn.*`, `item.*`)
- * wird auf core-`AgentEvent`s gemappt. Es gibt kein Token-Streaming: die finale
- * Antwort kommt als ein `item.completed` mit `item.type === "agent_message"`.
+ * cwd = `<workspace>/site`. The JSONL stream (`thread.*`, `turn.*`, `item.*`)
+ * is mapped onto core `AgentEvent`s. There is no token streaming: the final
+ * answer arrives as a single `item.completed` with `item.type === "agent_message"`.
  *
- * Compliance (PLAN §3): Die App reicht NICHTS weiter (kein Key, kein Token) — die
- * `codex`-CLI nutzt den Login/Key, den der Nutzer selbst gesetzt hat.
+ * Compliance (PLAN §3): The app passes NOTHING through (no key, no token) — the
+ * `codex` CLI uses the login/key the user set up themselves.
  */
 
 import type {
@@ -30,7 +30,7 @@ import {
   type TurnState,
 } from './cliEngine';
 
-/** Deep-Link auf die offizielle Installationsanleitung (Onboarding, PLAN §6). */
+/** Deep link to the official installation guide (onboarding, PLAN §6). */
 export const CODEX_INSTALL_URL = 'https://developers.openai.com/codex/cli/';
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -59,15 +59,15 @@ const codexSpec: CliSpec = {
   binary: 'codex',
 
   capabilities(): AgentCapabilities {
-    // Resume via `codex exec resume <thread_id>`; KEIN Token-Streaming; Codex
-    // exec --json meldet nur Token-Usage, keine USD → cost false.
+    // Resume via `codex exec resume <thread_id>`; NO token streaming; codex
+    // exec --json reports only token usage, no USD → cost false.
     return { resume: true, partialText: false, cost: false };
   },
 
   notFound(): AgentErrorEvent {
     return {
       type: 'error',
-      message: `Codex CLI nicht gefunden — installiere sie von ${CODEX_INSTALL_URL} und melde dich mit ChatGPT-Abo oder API-Key an.`,
+      message: `Codex CLI not found — install it from ${CODEX_INSTALL_URL} and sign in with your ChatGPT subscription or API key.`,
       recoverable: false,
     };
   },
@@ -100,7 +100,7 @@ const codexSpec: CliSpec = {
         const phase = phaseOf(type);
         switch (itemType) {
           case 'agent_message': {
-            // Finale Antwort nur beim Abschluss als (ganzer) Text ausgeben.
+            // Emit the final answer only on completion, as a single (whole) text.
             const text = asString(item.text);
             if (type === 'item.completed' && text !== undefined && text.length > 0) {
               return [{ type: 'text-delta', text }];
@@ -108,13 +108,13 @@ const codexSpec: CliSpec = {
             return [];
           }
           case 'reasoning':
-            return []; // internes Denken nicht anzeigen
+            return []; // do not display internal reasoning
           case 'command_execution':
             return [
               {
                 type: 'tool-activity',
                 toolCallId: id,
-                tool: 'Shell-Befehl',
+                tool: 'Shell command',
                 phase,
                 ...(asString(item.command) ? { detail: asString(item.command) } : {}),
               },
@@ -125,7 +125,7 @@ const codexSpec: CliSpec = {
               {
                 type: 'tool-activity',
                 toolCallId: id,
-                tool: 'Datei bearbeiten',
+                tool: 'Edit file',
                 phase,
                 ...(path ? { detail: path } : {}),
               },
@@ -136,7 +136,7 @@ const codexSpec: CliSpec = {
               {
                 type: 'tool-activity',
                 toolCallId: id,
-                tool: asString(item.tool) ?? 'MCP-Tool',
+                tool: asString(item.tool) ?? 'MCP tool',
                 phase,
                 ...(asString(item.server) ? { detail: asString(item.server) } : {}),
               },
@@ -146,7 +146,7 @@ const codexSpec: CliSpec = {
               {
                 type: 'tool-activity',
                 toolCallId: id,
-                tool: 'Web-Suche',
+                tool: 'Web search',
                 phase,
                 ...(asString(item.query) ? { detail: asString(item.query) } : {}),
               },
@@ -166,7 +166,7 @@ const codexSpec: CliSpec = {
         return [
           {
             type: 'error',
-            message: 'Codex hat den Turn abgebrochen.',
+            message: 'Codex aborted the turn.',
             recoverable: true,
             ...(message ? { cause: message } : {}),
           },
@@ -178,7 +178,7 @@ const codexSpec: CliSpec = {
         return [
           {
             type: 'error',
-            message: 'Codex hat einen Fehler gemeldet.',
+            message: 'Codex reported an error.',
             recoverable: true,
             ...(message ? { cause: message } : {}),
           },
@@ -190,7 +190,7 @@ const codexSpec: CliSpec = {
   },
 };
 
-/** Erzeugt den codex-Adapter (Abo oder API-Key, offizielle Vendor-CLI). */
+/** Creates the codex adapter (subscription or API key, official vendor CLI). */
 export function createCodexBackend(config: CliBackendConfig = {}): AgentBackend {
   return createCliBackend(codexSpec, config);
 }

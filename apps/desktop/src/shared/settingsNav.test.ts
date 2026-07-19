@@ -1,4 +1,4 @@
-/** Headless-Tests der Settings-Navigation (Sektionen + Deep-Link-Coercion). */
+/** Headless tests of the settings navigation (sections + deep-link coercion). */
 
 import { describe, expect, it } from 'vitest';
 
@@ -9,7 +9,7 @@ import {
 } from './settingsNav';
 
 describe('SETTINGS_SECTIONS', () => {
-  it('enthält die drei Kategorien in Anzeigereihenfolge', () => {
+  it('contains the three categories in display order', () => {
     expect(SETTINGS_SECTIONS.map((s) => s.id)).toEqual(['backends', 'appearance', 'help']);
     for (const section of SETTINGS_SECTIONS) {
       expect(section.label.length).toBeGreaterThan(0);
@@ -18,7 +18,7 @@ describe('SETTINGS_SECTIONS', () => {
 });
 
 describe('coerceSettingsRoute', () => {
-  it('liest eine gültige Route inkl. Deep-Link-Backend', () => {
+  it('reads a valid route including a deep-link backend', () => {
     expect(coerceSettingsRoute({ section: 'help' })).toEqual({ section: 'help' });
     expect(coerceSettingsRoute({ section: 'backends', backendId: 'byok' })).toEqual({
       section: 'backends',
@@ -26,7 +26,7 @@ describe('coerceSettingsRoute', () => {
     });
   });
 
-  it('fällt bei Unbekanntem auf die Default-Sektion zurück', () => {
+  it('falls back to the default section for unknown input', () => {
     expect(coerceSettingsRoute(null)).toEqual(DEFAULT_SETTINGS_ROUTE);
     expect(coerceSettingsRoute('quatsch')).toEqual(DEFAULT_SETTINGS_ROUTE);
     expect(coerceSettingsRoute({ section: 'gibts-nicht' })).toEqual(DEFAULT_SETTINGS_ROUTE);

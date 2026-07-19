@@ -1,20 +1,20 @@
 /**
- * Permission-Policy für Agent-Backends (PLAN §4, Agent-Adapter).
+ * Permission policy for agent backends (PLAN §4, agent adapter).
  *
- * Default: Auto-Approve für Edits in `<workspace>/site/`, Deny außerhalb,
- * Prompt für Shell und Netz.
+ * Default: auto-approve for edits in `<workspace>/site/`, deny outside,
+ * prompt for shell and network.
  */
 
-/** Wofür ein Backend um Erlaubnis fragt. */
+/** What a backend asks permission for. */
 export type PermissionScope = 'edit-in-site' | 'edit-outside-site' | 'shell' | 'network';
 
-/** Wie die App auf eine Anfrage in einem Scope reagiert. */
+/** How the app responds to a request in a scope. */
 export type PermissionRule = 'allow' | 'deny' | 'prompt';
 
-/** Regelwerk pro Scope; wird pro Turn an das Backend gereicht. */
+/** Rule set per scope; passed to the backend on each turn. */
 export type PermissionPolicy = Readonly<Record<PermissionScope, PermissionRule>>;
 
-/** Nicht verhandelbarer v1-Default (PLAN §4). */
+/** Non-negotiable v1 default (PLAN §4). */
 export const DEFAULT_PERMISSION_POLICY: PermissionPolicy = {
   'edit-in-site': 'allow',
   'edit-outside-site': 'deny',
@@ -22,10 +22,10 @@ export const DEFAULT_PERMISSION_POLICY: PermissionPolicy = {
   network: 'prompt',
 };
 
-/** Antwort des Nutzers auf ein `permission-request`-Event. */
+/** The user's response to a `permission-request` event. */
 export interface PermissionDecision {
   requestId: string;
   allow: boolean;
-  /** Entscheidung für den Rest des Turns merken. */
+  /** Remember the decision for the rest of the turn. */
   remember?: boolean;
 }

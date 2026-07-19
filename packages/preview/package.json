@@ -2,7 +2,7 @@
   "name": "@webaibuilder/preview",
   "version": "0.0.0",
   "private": true,
-  "description": "Live-Preview: statischer Server + chokidar + WS-Reload + Console/Error-Shim. Electron-frei.",
+  "description": "Live preview: static server + chokidar + WS reload + console/error shim. Electron-free.",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

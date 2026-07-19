@@ -1,13 +1,13 @@
 /* ============================================================
-   Einseiter — eigenständiges Stylesheet, kein Build-Schritt.
-   Dunkel auf Schwarz, Hairline-Rahmen, ein blauer Akzent.
-   Alle Farben/Abstände hängen an den Variablen in :root.
+   One-Pager — self-contained stylesheet, no build step.
+   Dark on black, hairline borders, one blue accent.
+   All colors/spacing live in the variables in :root.
    ============================================================ */
 
 :root {
   color-scheme: dark;
 
-  /* Farben */
+  /* Colors */
   --bg: #000000;
   --surface: #050506;
   --surface-raised: #101013;
@@ -19,13 +19,13 @@
   --text-subtle: #6e757c;
   --accent: #4f9dff;
 
-  /* Form */
+  /* Shape */
   --radius-card: 16px;
   --radius-pill: 999px;
   --measure: 68ch;
 
-  /* Schrift: Geist, falls installiert — sonst die System-Grotesk.
-     Bewusst kein Webfont-Import: die Seite bleibt selbstständig. */
+  /* Typeface: Geist if installed — otherwise the system grotesque.
+     Deliberately no webfont import: the site stays self-contained. */
   --font: 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
@@ -60,7 +60,7 @@ h3 {
   letter-spacing: -0.02em;
 }
 
-/* ---- Kopf & Navigation ---- */
+/* ---- Header & navigation ---- */
 
 .site-header {
   display: flex;
@@ -133,7 +133,7 @@ h3 {
   gap: 0.75rem;
 }
 
-/* ---- Buttons: Pills, primär = weiß auf schwarz ---- */
+/* ---- Buttons: pills, primary = white on black ---- */
 
 .button {
   display: inline-block;
@@ -161,7 +161,7 @@ h3 {
   background: #dfe2e5;
 }
 
-/* ---- Abschnitte & Karten ---- */
+/* ---- Sections & cards ---- */
 
 .section {
   max-width: var(--measure);
@@ -204,7 +204,7 @@ h3 {
   font-size: 0.9375rem;
 }
 
-/* ---- Fußzeile ---- */
+/* ---- Footer ---- */
 
 .site-footer {
   max-width: var(--measure);

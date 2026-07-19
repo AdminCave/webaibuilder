@@ -1,10 +1,10 @@
 /**
- * „Fehler beheben"-Button (PLAN §4, Live-Preview): Ein `page-error` aus der
- * Vorschau wird in einen Chat-Turn geschrieben, den die KI beheben soll.
+ * "Fix error" button (PLAN §4, live preview): a `page-error` from the preview is
+ * turned into a chat turn for the AI to fix.
  *
- * Rein und headless testbar. Der Shim macht Pfade bereits projekt-relativ und
- * tilgt das Token; zur Sicherheit entfernt diese Funktion einen ggf. noch
- * enthaltenen Preview-Origin ein weiteres Mal.
+ * Pure and headless-testable. The shim already makes paths project-relative and
+ * strips the token; as a safeguard, this function removes any still-present
+ * preview origin one more time.
  */
 
 export interface PreviewPageError {
@@ -13,29 +13,29 @@ export interface PreviewPageError {
   source?: string;
 }
 
-/** Entfernt den Preview-Origin aus einem Text (macht Pfade projekt-relativ). */
+/** Removes the preview origin from a text (makes paths project-relative). */
 function stripOrigin(text: string, origin?: string): string {
   if (origin === undefined || origin === '') return text;
   return text.split(`${origin}/`).join('').split(origin).join('');
 }
 
 /**
- * Baut den deutschen Prompt (Du-Form) aus Fehlermeldung, Quelle und Stack.
- * `previewOrigin` (z. B. `http://127.0.0.1:5173`) wird — falls angegeben — aus
- * allen Feldern getilgt, damit die Pfade projekt-relativ zu `site/` bleiben.
+ * Builds the prompt from the error message, source, and stack. `previewOrigin`
+ * (e.g. `http://127.0.0.1:5173`) — if provided — is stripped from all fields so
+ * that the paths stay project-relative to `site/`.
  */
 export function buildErrorFixPrompt(error: PreviewPageError, previewOrigin?: string): string {
   const message = stripOrigin(error.message, previewOrigin).trim();
   const lines: string[] = [
-    'In der Live-Vorschau ist ein Fehler aufgetreten. Bitte finde die Ursache und behebe sie in den Dateien unter site/.',
+    'An error occurred in the live preview. Please find the cause and fix it in the files under site/.',
     '',
-    'Fehlermeldung:',
-    message.length > 0 ? message : '(keine Meldung)',
+    'Error message:',
+    message.length > 0 ? message : '(no message)',
   ];
 
   const source = error.source ? stripOrigin(error.source, previewOrigin).trim() : '';
   if (source.length > 0) {
-    lines.push('', `Quelle: ${source}`);
+    lines.push('', `Source: ${source}`);
   }
 
   const stack = error.stack ? stripOrigin(error.stack, previewOrigin).trim() : '';

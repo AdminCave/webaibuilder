@@ -1,17 +1,17 @@
 /**
- * `gemini-cli`-Adapter (Abo/Google-Login, PLAN §4) — spawnt die vom Nutzer
- * installierte offizielle Gemini-CLI im Headless-Modus:
+ * `gemini-cli` adapter (subscription/Google login, PLAN §4) — spawns the
+ * user-installed official Gemini CLI in headless mode:
  *
  *   gemini --output-format stream-json --approval-mode auto_edit -p "<prompt>"
  *
- * cwd = `<workspace>/site`. Der JSONL-Strom (`init`, `message`, `tool_use`,
- * `tool_result`, `error`, `result`) wird auf core-`AgentEvent`s gemappt.
+ * cwd = `<workspace>/site`. The JSONL stream (`init`, `message`, `tool_use`,
+ * `tool_result`, `error`, `result`) is mapped onto core `AgentEvent`s.
  *
- * Compliance (PLAN §3): Explizit über die Gemini-CLI in den ToS erlaubt. Die App
- * reicht keine Credentials weiter — die CLI nutzt den eigenen Google-Login.
+ * Compliance (PLAN §3): Explicitly permitted for the Gemini CLI in its ToS. The
+ * app passes no credentials through — the CLI uses its own Google login.
  *
- * Hinweis (Capabilities): Headless liefert nur in `init` eine session_id, ein
- * verlässliches Resume gibt es hier nicht → `resume: false` (PLAN-Vorgabe).
+ * Note (capabilities): Headless provides a session_id only in `init`; there is
+ * no reliable resume here → `resume: false` (PLAN requirement).
  */
 
 import type {
@@ -30,9 +30,9 @@ import {
   type TurnState,
 } from './cliEngine';
 
-/** Deep-Link auf die offizielle Installationsanleitung (Onboarding, PLAN §6).
- *  Auf einer erlaubten Vendor-Domain (google.dev), damit der Desktop-Onboarding-
- *  Link ihn öffnen darf. */
+/** Deep link to the official installation guide (onboarding, PLAN §6).
+ *  On an allowed vendor domain (google.dev) so the desktop onboarding link is
+ *  allowed to open it. */
 export const GEMINI_CLI_INSTALL_URL = 'https://ai.google.dev/gemini-api/docs';
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -43,36 +43,36 @@ function asString(value: unknown): string | undefined {
   return typeof value === 'string' ? value : undefined;
 }
 
-/** Übliche Gemini-Tool-Namen → deutsche Anzeige-Labels. */
+/** Common Gemini tool names → display labels. */
 function geminiToolLabel(toolName: string | undefined): string {
   switch (toolName) {
     case 'WriteFile':
     case 'write_file':
-      return 'Datei schreiben';
+      return 'Write file';
     case 'Edit':
     case 'replace':
     case 'edit_file':
-      return 'Datei bearbeiten';
+      return 'Edit file';
     case 'ReadFile':
     case 'read_file':
-      return 'Datei lesen';
+      return 'Read file';
     case 'ReadFolder':
     case 'list_directory':
     case 'LS':
-      return 'Ordner auflisten';
+      return 'List folder';
     case 'FindFiles':
     case 'glob':
     case 'SearchText':
     case 'grep':
-      return 'Dateien suchen';
+      return 'Find files';
     case 'Shell':
     case 'run_shell_command':
     case 'Bash':
-      return 'Shell-Befehl';
+      return 'Shell command';
     case 'WebFetch':
     case 'GoogleSearch':
     case 'web_fetch':
-      return 'Web-Zugriff';
+      return 'Web access';
     default:
       return toolName ?? 'Tool';
   }
@@ -95,15 +95,15 @@ const geminiCliSpec: CliSpec = {
   binary: 'gemini',
 
   capabilities(): AgentCapabilities {
-    // Headless: schwaches Resume (keine verlässliche Session-Fortsetzung),
-    // aber partielle Text-Deltas; Kosten werden für Abo-Nutzung nicht gemeldet.
+    // Headless: weak resume (no reliable session continuation), but partial
+    // text deltas; cost is not reported for subscription usage.
     return { resume: false, partialText: true, cost: false };
   },
 
   notFound(): AgentErrorEvent {
     return {
       type: 'error',
-      message: `Gemini CLI nicht gefunden — installiere sie von ${GEMINI_CLI_INSTALL_URL} und melde dich mit deinem Google-Konto an.`,
+      message: `Gemini CLI not found — install it from ${GEMINI_CLI_INSTALL_URL} and sign in with your Google account.`,
       recoverable: false,
     };
   },
@@ -124,7 +124,7 @@ const geminiCliSpec: CliSpec = {
     const type = asString(json.type);
     switch (type) {
       case 'init': {
-        // session_id nur mitnehmen; Resume ist headless nicht verlässlich.
+        // Only capture session_id; resume is not reliable in headless mode.
         const sid = asString(json.session_id);
         if (sid !== undefined) state.sessionId = sid;
         return [];
@@ -166,7 +166,7 @@ const geminiCliSpec: CliSpec = {
         return [
           {
             type: 'error',
-            message: 'Gemini hat einen Fehler gemeldet.',
+            message: 'Gemini reported an error.',
             recoverable: true,
             ...(message ? { cause: message } : {}),
           },
@@ -188,7 +188,7 @@ const geminiCliSpec: CliSpec = {
   },
 };
 
-/** Erzeugt den gemini-cli-Adapter (Abo/Google-Login, offizielle Vendor-CLI). */
+/** Creates the gemini-cli adapter (subscription/Google login, official vendor CLI). */
 export function createGeminiCliBackend(config: CliBackendConfig = {}): AgentBackend {
   return createCliBackend(geminiCliSpec, config);
 }

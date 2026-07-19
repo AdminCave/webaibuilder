@@ -1,10 +1,10 @@
 /**
- * Deploy-Historie (M3, PLAN §4/§6): append-only Log der Deploys/Rollbacks pro
- * Projekt als JSON-Datei unter `<userData>/deploy-history.json`.
+ * Deploy history (M3, PLAN §4/§6): append-only log of the deploys/rollbacks per
+ * project as a JSON file under `<userData>/deploy-history.json`.
  *
- * Bewusst als schlichte JSON-Datei (kein DB-Schema-Migrationsaufwand) und
- * injizierbarer Pfad → headless mit vitest testbar. Enthält KEINE Secrets, nur
- * Ziel-Name/-Id, deployte SHA, Zeit und die Zähler des Laufs.
+ * Deliberately a simple JSON file (no DB schema migration effort) with an
+ * injectable path → headless testable with vitest. Contains NO secrets, only
+ * the target name/id, deployed SHA, time, and the run's counters.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -13,13 +13,13 @@ import { dirname } from 'node:path';
 
 import type { DeployHistoryRecord } from '../shared/deploy';
 
-/** Ein neuer Historien-Eintrag ohne die vom Store vergebenen Felder. */
+/** A new history entry without the fields assigned by the store. */
 export type DeployHistoryInput = Omit<DeployHistoryRecord, 'id' | 'at'>;
 
 export interface DeployHistoryStoreOptions {
-  /** Eindeutige Eintrags-IDs (Default: randomUUID). */
+  /** Unique entry IDs (default: randomUUID). */
   idFactory?: () => string;
-  /** Zeitquelle (Default: Date.now via new Date()). */
+  /** Time source (default: Date.now via new Date()). */
   now?: () => Date;
 }
 
@@ -37,7 +37,7 @@ export class DeployHistoryStore {
     this.records = this.load();
   }
 
-  /** Hängt einen Eintrag an und persistiert; liefert den vollständigen Datensatz. */
+  /** Appends an entry and persists; returns the complete record. */
   append(input: DeployHistoryInput): DeployHistoryRecord {
     const record: DeployHistoryRecord = {
       ...input,
@@ -49,7 +49,7 @@ export class DeployHistoryStore {
     return record;
   }
 
-  /** Historie (neueste zuerst), optional auf ein Projekt gefiltert. */
+  /** History (newest first), optionally filtered to a project. */
   list(projectId?: string): DeployHistoryRecord[] {
     const filtered =
       projectId === undefined
@@ -58,7 +58,7 @@ export class DeployHistoryStore {
     return [...filtered].sort((a, b) => b.at.localeCompare(a.at));
   }
 
-  /* ---------------- intern ---------------- */
+  /* ---------------- internal ---------------- */
 
   private load(): DeployHistoryRecord[] {
     try {
@@ -67,7 +67,7 @@ export class DeployHistoryStore {
         if (Array.isArray(parsed)) return parsed as DeployHistoryRecord[];
       }
     } catch {
-      /* Kaputte/fehlende Datei → leere Historie, nicht crashen. */
+      /* Corrupt/missing file → empty history, don't crash. */
     }
     return [];
   }
@@ -77,7 +77,7 @@ export class DeployHistoryStore {
       mkdirSync(dirname(this.filePath), { recursive: true });
       writeFileSync(this.filePath, `${JSON.stringify(this.records, null, 2)}\n`);
     } catch {
-      /* Best effort — der In-Memory-Zustand bleibt führend. */
+      /* Best effort — the in-memory state remains authoritative. */
     }
   }
 }

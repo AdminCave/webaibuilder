@@ -1,14 +1,14 @@
 /**
- * `claude-sdk`-Adapter (API-Key) — PLAN §4.
+ * `claude-sdk` adapter (API key) — PLAN §4.
  *
- * Treibt `@anthropic-ai/claude-agent-sdk` `query()` (async generator).
- * cwd = `<workspaceDir>/site/`; PermissionMode aus der PermissionPolicy
- * (acceptEdits für Auto-Approve). Der Message-/Tool-Strom wird auf den
- * core-`AgentEvent`-Strom abgebildet, `canUseTool` auf `permission-request`.
- * Kosten/Session aus der `result`-Nachricht → `turn-complete`.
+ * Drives `@anthropic-ai/claude-agent-sdk` `query()` (async generator).
+ * cwd = `<workspaceDir>/site/`; PermissionMode comes from the PermissionPolicy
+ * (acceptEdits for auto-approve). The message/tool stream is mapped onto the
+ * core `AgentEvent` stream, `canUseTool` onto `permission-request`.
+ * Cost/session from the `result` message → `turn-complete`.
  *
- * Compliance (PLAN §3): Dieser Adapter nutzt den API-Key (kein Abo-OAuth),
- * setzt `ANTHROPIC_API_KEY` nur im Subprozess-Env, fasst keine Tokens an.
+ * Compliance (PLAN §3): This adapter uses the API key (not subscription OAuth),
+ * sets `ANTHROPIC_API_KEY` only in the subprocess env, and never touches tokens.
  */
 
 import { randomUUID } from 'node:crypto';
@@ -36,15 +36,15 @@ import { AsyncQueue } from './asyncQueue';
 import { PathEscapeError, resolveInSite } from './paths';
 import { ruleFor } from './permissions';
 
-/** Konstruktionsdaten für den claude-sdk-Adapter. */
+/** Construction data for the claude-sdk adapter. */
 export interface ClaudeSdkConfig {
-  /** ANTHROPIC_API_KEY; wenn leer, zieht der Subprozess ihn aus der Umgebung. */
+  /** ANTHROPIC_API_KEY; when empty, the subprocess reads it from the environment. */
   apiKey?: string;
-  /** Modell-Override (z. B. "claude-opus-4-8"). */
+  /** Model override (e.g. "claude-opus-4-8"). */
   model?: string;
 }
 
-/** Reine Lese-Tools (immer erlaubt) vs. ein Policy-Scope. */
+/** Read-only tools (always allowed) vs. a policy scope. */
 export type ToolClass = PermissionScope | 'read';
 
 const EDIT_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'Update']);
@@ -52,7 +52,7 @@ const READ_TOOLS = new Set(['Read', 'Glob', 'Grep', 'LS', 'NotebookRead']);
 const SHELL_TOOLS = new Set(['Bash', 'BashOutput', 'KillBash', 'KillShell']);
 const NETWORK_TOOLS = new Set(['WebFetch', 'WebSearch']);
 
-/** PermissionPolicy → SDK-PermissionMode (acceptEdits für Auto-Approve). */
+/** PermissionPolicy → SDK PermissionMode (acceptEdits for auto-approve). */
 export function mapPermissionMode(policy: PermissionPolicy): PermissionMode {
   return ruleFor(policy, 'edit-in-site') === 'allow' ? 'acceptEdits' : 'default';
 }
@@ -63,19 +63,19 @@ export function pathFromInput(input: Record<string, unknown>): string | undefine
 }
 
 /**
- * Synchrone Scope-Klassifikation nur nach Tool-Name (ohne FS/realpath).
- * Für die CLI-Adapter, deren Permission-Prompt aus dem Vendor-Prozess kommt
- * und synchron auf ein `permission-request` gemappt werden muss.
+ * Synchronous scope classification by tool name only (no FS/realpath).
+ * For the CLI adapters, whose permission prompt comes from the vendor process
+ * and must be mapped synchronously onto a `permission-request`.
  */
 export function classifyScopeByName(toolName: string): PermissionScope {
   if (SHELL_TOOLS.has(toolName)) return 'shell';
   if (NETWORK_TOOLS.has(toolName)) return 'network';
   if (EDIT_TOOLS.has(toolName)) return 'edit-in-site';
-  // Unbekannte Tools fail-safe als Shell behandeln → Prompt/Deny.
+  // Treat unknown tools fail-safe as shell → prompt/deny.
   return 'shell';
 }
 
-/** Klassifiziert einen Tool-Aufruf in einen Policy-Scope (bzw. `read`). */
+/** Classifies a tool call into a policy scope (or `read`). */
 export async function classifyTool(
   toolName: string,
   input: Record<string, unknown>,
@@ -95,31 +95,31 @@ export async function classifyTool(
       return 'edit-outside-site';
     }
   }
-  // Unbekannte Tools (z. B. MCP) fail-safe als Shell behandeln → Prompt/Deny.
+  // Treat unknown tools (e.g. MCP) fail-safe as shell → prompt/deny.
   return 'shell';
 }
 
 export function toolDisplayName(toolName: string): string {
-  if (toolName === 'Write') return 'Datei schreiben';
-  if (EDIT_TOOLS.has(toolName)) return 'Datei bearbeiten';
-  if (toolName === 'Read' || toolName === 'NotebookRead') return 'Datei lesen';
-  if (toolName === 'Glob' || toolName === 'Grep') return 'Dateien suchen';
-  if (toolName === 'LS') return 'Ordner auflisten';
-  if (SHELL_TOOLS.has(toolName)) return 'Shell-Befehl';
-  if (NETWORK_TOOLS.has(toolName)) return 'Web-Zugriff';
+  if (toolName === 'Write') return 'Write file';
+  if (EDIT_TOOLS.has(toolName)) return 'Edit file';
+  if (toolName === 'Read' || toolName === 'NotebookRead') return 'Read file';
+  if (toolName === 'Glob' || toolName === 'Grep') return 'Find files';
+  if (toolName === 'LS') return 'List folder';
+  if (SHELL_TOOLS.has(toolName)) return 'Shell command';
+  if (NETWORK_TOOLS.has(toolName)) return 'Web access';
   return toolName;
 }
 
 export function scopeDescription(scope: PermissionScope, toolName: string): string {
   switch (scope) {
     case 'shell':
-      return `Darf ich den Shell-Befehl "${toolName}" ausführen?`;
+      return `May I run the shell command "${toolName}"?`;
     case 'network':
-      return `Darf ich auf das Netz zugreifen ("${toolName}")?`;
+      return `May I access the network ("${toolName}")?`;
     case 'edit-outside-site':
-      return `Darf ich eine Datei außerhalb von site/ ändern ("${toolName}")?`;
+      return `May I modify a file outside of site/ ("${toolName}")?`;
     default:
-      return `Darf ich "${toolName}" ausführen?`;
+      return `May I run "${toolName}"?`;
   }
 }
 
@@ -149,8 +149,8 @@ class ClaudeSdkBackend implements AgentBackend {
   }
 
   capabilities(): AgentCapabilities {
-    // Session-Resume ja, partielle Text-Deltas (includePartialMessages), Kosten
-    // aus der result-Nachricht → cost true.
+    // Session resume yes, partial text deltas (includePartialMessages), cost
+    // from the result message → cost true.
     return { resume: true, partialText: true, cost: true };
   }
 
@@ -160,8 +160,8 @@ class ClaudeSdkBackend implements AgentBackend {
     const turnId = randomUUID();
     const queue = new AsyncQueue<AgentEvent>();
     const toolNames = new Map<string, string>(); // tool_use_id → toolName
-    // Offene Permission-Anfragen: requestId → Resolver, der die Entscheidung des
-    // Nutzers (aus dem `yield`-Rückkanal) an den wartenden canUseTool reicht.
+    // Open permission requests: requestId → resolver that passes the user's
+    // decision (from the `yield` back-channel) to the waiting canUseTool.
     const pending = new Map<string, (decision: PermissionDecision | undefined) => void>();
     let sessionId: string | undefined = req.sessionId;
     let costUsd: number | undefined;
@@ -177,14 +177,14 @@ class ClaudeSdkBackend implements AgentBackend {
           behavior: 'deny',
           message:
             klass === 'edit-outside-site'
-              ? 'Zugriff verweigert: Ich darf nur Dateien unter site/ ändern.'
-              : `Zugriff verweigert (${klass}).`,
+              ? 'Access denied: I may only modify files under site/.'
+              : `Access denied (${klass}).`,
         };
       }
-      // prompt → sichtbar machen UND auf die Nutzer-Entscheidung warten. Der
-      // Rückkanal ist der Rückgabewert des `yield` (Desktop treibt den Iterator
-      // mit `next(decision)`). Wird der Generator ohne Entscheidung durchlaufen,
-      // resolved der Rückkanal auf `undefined` → fail-safe deny.
+      // prompt → surface it AND wait for the user's decision. The back-channel
+      // is the return value of `yield` (the desktop drives the iterator with
+      // `next(decision)`). If the generator is exhausted without a decision, the
+      // back-channel resolves to `undefined` → fail-safe deny.
       const requestId = randomUUID();
       const decision = await new Promise<PermissionDecision | undefined>((resolve) => {
         pending.set(requestId, resolve);
@@ -197,7 +197,7 @@ class ClaudeSdkBackend implements AgentBackend {
         });
       });
       if (decision?.allow) return { behavior: 'allow', updatedInput: input };
-      return { behavior: 'deny', message: 'Vom Nutzer abgelehnt.' };
+      return { behavior: 'deny', message: 'Denied by the user.' };
     };
 
     const options: Options = {
@@ -289,7 +289,7 @@ class ClaudeSdkBackend implements AgentBackend {
           stopReason = 'error';
           queue.push({
             type: 'error',
-            message: 'Der Claude-Turn konnte nicht abgeschlossen werden.',
+            message: 'The Claude turn could not be completed.',
             recoverable: true,
             cause: err instanceof Error ? err.message : String(err),
           });
@@ -302,8 +302,8 @@ class ClaudeSdkBackend implements AgentBackend {
     try {
       for await (const event of queue) {
         const resume = yield event;
-        // Antwort des Nutzers auf ein permission-request an den wartenden
-        // canUseTool zurückreichen (fail-safe deny, wenn `resume` undefined ist).
+        // Pass the user's answer to a permission-request back to the waiting
+        // canUseTool (fail-safe deny when `resume` is undefined).
         if (event.type === 'permission-request') {
           const resolve = pending.get(event.requestId);
           if (resolve) {
@@ -314,8 +314,8 @@ class ClaudeSdkBackend implements AgentBackend {
       }
       await pump;
     } finally {
-      // Noch offene Anfragen fail-safe verwerfen (z. B. bei Abbruch), damit
-      // canUseTool nicht ewig hängt.
+      // Discard any still-open requests fail-safe (e.g. on abort) so that
+      // canUseTool does not hang forever.
       for (const resolve of pending.values()) resolve(undefined);
       pending.clear();
       this.#query = null;
@@ -329,13 +329,13 @@ class ClaudeSdkBackend implements AgentBackend {
     try {
       await this.#query?.interrupt();
     } catch {
-      // Single-shot-Prompt unterstützt evtl. keine Control-Requests — Abort reicht.
+      // A single-shot prompt may not support control requests — abort suffices.
     }
     this.#controller?.abort();
   }
 }
 
-/** Erzeugt den claude-sdk-Adapter. */
+/** Creates the claude-sdk adapter. */
 export function createClaudeSdkBackend(config: ClaudeSdkConfig): AgentBackend {
   return new ClaudeSdkBackend(config);
 }

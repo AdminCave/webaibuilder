@@ -1,8 +1,8 @@
 /**
- * Typisierte IPC-Kanal-Registry — die EINZIGE Quelle für Kanalnamen,
- * geteilt zwischen Main-Prozess und Preload/Renderer.
+ * Typed IPC channel registry — the SINGLE source for channel names,
+ * shared between the main process and preload/renderer.
  *
- * Konvention: `wab:v<version>:<domäne>:<aktion>`.
+ * Convention: `wab:v<version>:<domain>:<action>`.
  */
 
 import type { Project, ProjectCreateInput, ProjectUpdateInput, StarterTemplate } from './project';
@@ -19,7 +19,7 @@ export const IpcChannels = {
 
 export type IpcChannel = (typeof IpcChannels)[keyof typeof IpcChannels];
 
-/** Antwort des Ping-Kanals — beweist, dass die Bridge steht. */
+/** Response of the ping channel — proves the bridge is up. */
 export interface PingResult {
   ok: true;
   time: string;
@@ -32,8 +32,8 @@ export interface PingResult {
 }
 
 /**
- * Request/Response-Vertrag pro Kanal. Main (`ipcMain.handle`) und Preload
- * (`ipcRenderer.invoke`) typisieren sich beide gegen diese Map.
+ * Request/response contract per channel. Main (`ipcMain.handle`) and preload
+ * (`ipcRenderer.invoke`) both type themselves against this map.
  */
 export interface IpcInvokeMap {
   [IpcChannels.ping]: { args: []; result: PingResult };

@@ -30,7 +30,7 @@ function waitForEvent(
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       off();
-      reject(new Error(`Timeout: kein passendes PreviewEvent nach ${timeoutMs}ms`));
+      reject(new Error(`Timeout: no matching PreviewEvent after ${timeoutMs}ms`));
     }, timeoutMs);
     const off = handle.events.on((event) => {
       if (predicate(event)) {
@@ -58,7 +58,7 @@ describe('startPreviewServer', () => {
     await rm(siteDir, { recursive: true, force: true });
   });
 
-  it('bindet loopback-only und liefert eine Token-URL', () => {
+  it('binds loopback-only and returns a token URL', () => {
     const url = new URL(handle.url);
     expect(url.hostname).toBe('127.0.0.1');
     expect(url.port).toBe(String(handle.port));
@@ -66,7 +66,7 @@ describe('startPreviewServer', () => {
     expect(handle.token.length).toBeGreaterThanOrEqual(24);
   });
 
-  it('weist Requests ohne oder mit falschem Token ab', async () => {
+  it('rejects requests without or with a wrong token', async () => {
     const noToken = await fetch(`http://127.0.0.1:${handle.port}/`);
     expect(noToken.status).toBe(403);
 
@@ -74,7 +74,7 @@ describe('startPreviewServer', () => {
     expect(wrongToken.status).toBe(403);
   });
 
-  it('liefert autorisiert injiziertes HTML mit Reload-Client und Console-Shim', async () => {
+  it('serves authorized injected HTML with reload client and console shim', async () => {
     const response = await fetch(handle.url);
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toContain('text/html');
@@ -82,10 +82,10 @@ describe('startPreviewServer', () => {
     const html = await response.text();
     expect(html).toContain(RELOAD_MARKER);
     expect(html).toContain(SHIM_MARKER);
-    // Injektion sitzt vor </body>.
+    // Injection sits before </body>.
     expect(html.indexOf(RELOAD_MARKER)).toBeLessThan(html.toLowerCase().lastIndexOf('</body>'));
 
-    // Subressource per Header-Token, korrekter MIME-Typ, keine Injektion.
+    // Subresource via header token, correct MIME type, no injection.
     const css = await fetch(`http://127.0.0.1:${handle.port}/style.css`, {
       headers: { 'x-wab-token': handle.token },
     });
@@ -94,16 +94,16 @@ describe('startPreviewServer', () => {
     expect(await css.text()).toBe(STYLE_CSS);
   });
 
-  it('liefert eine deutsche 404-Seite für fehlende Dateien', async () => {
+  it('serves a 404 page for missing files', async () => {
     const response = await fetch(`http://127.0.0.1:${handle.port}/gibts-nicht.html?wab=${handle.token}`);
     expect(response.status).toBe(404);
     const html = await response.text();
     expect(html).toContain('404');
-    expect(html).toContain('Sobald du sie anlegst');
+    expect(html).toContain('As soon as you create it');
     expect(html).toContain(RELOAD_MARKER);
   });
 
-  it('emittiert ein reload-PreviewEvent, wenn eine Datei geschrieben wird', async () => {
+  it('emits a reload PreviewEvent when a file is written', async () => {
     const eventPromise = waitForEvent(handle, (event) => event.type === 'reload');
     await writeFile(join(siteDir, 'neu.html'), '<html><body>Neu</body></html>', 'utf8');
 
@@ -114,10 +114,10 @@ describe('startPreviewServer', () => {
     }
   });
 
-  it('authentifiziert WS mit Token, pusht reload/css-update und re-emittiert Shim-Meldungen', async () => {
+  it('authenticates WS with token, pushes reload/css-update and re-emits shim messages', async () => {
     const { WebSocket } = await import('ws');
 
-    // Ohne Token: Upgrade wird abgelehnt.
+    // Without token: upgrade is rejected.
     const rejected = new WebSocket(`ws://127.0.0.1:${handle.port}${WS_PATH}`);
     const status = await new Promise<number | undefined>((resolve) => {
       rejected.once('unexpected-response', (_req, res) => resolve(res.statusCode));
@@ -126,7 +126,7 @@ describe('startPreviewServer', () => {
     });
     expect(status).toBe(403);
 
-    // Mit Token: verbunden.
+    // With token: connected.
     const ws = new WebSocket(`ws://127.0.0.1:${handle.port}${WS_PATH}?wab=${handle.token}`);
     await new Promise<void>((resolve, reject) => {
       ws.once('open', () => resolve());
@@ -142,7 +142,7 @@ describe('startPreviewServer', () => {
             resolve(existing);
             return;
           }
-          const timer = setTimeout(() => reject(new Error('Timeout: keine WS-Nachricht')), 5000);
+          const timer = setTimeout(() => reject(new Error('Timeout: no WS message')), 5000);
           const onMessage = (data: unknown): void => {
             const msg = JSON.parse(String(data)) as Record<string, unknown>;
             messages.push(msg);
@@ -155,18 +155,18 @@ describe('startPreviewServer', () => {
           ws.on('message', onMessage);
         });
 
-      // HTML-Änderung → Full-Reload-Push.
+      // HTML change → full-reload push.
       const reloadMsg = nextMessage((msg) => msg['kind'] === 'reload');
       await writeFile(join(siteDir, 'index.html'), INDEX_HTML.replace('Hallo', 'Moin'), 'utf8');
       expect((await reloadMsg)['kind']).toBe('reload');
 
-      // CSS-only-Änderung → css-update statt Full-Reload.
+      // CSS-only change → css-update instead of full reload.
       const cssMsg = nextMessage((msg) => msg['kind'] === 'css-update');
       await writeFile(join(siteDir, 'style.css'), 'h1 { color: teal; }', 'utf8');
       const cssUpdate = await cssMsg;
       expect(cssUpdate['paths']).toContain('style.css');
 
-      // Shim-Meldungen über den WS → PreviewEvent page-console / page-error.
+      // Shim messages over the WS → PreviewEvent page-console / page-error.
       const consoleEvent = waitForEvent(handle, (event) => event.type === 'page-console');
       ws.send(JSON.stringify({ kind: 'console', level: 'warn', text: 'Hallo Konsole' }));
       const emitted = await consoleEvent;
@@ -186,7 +186,7 @@ describe('startPreviewServer', () => {
     }
   });
 
-  it('blockiert Pfad-Ausbrüche aus dem Docroot', async () => {
+  it('blocks path traversal out of the docroot', async () => {
     const response = await fetch(`http://127.0.0.1:${handle.port}/..%2F..%2Fetc%2Fpasswd?wab=${handle.token}`, {});
     expect([400, 403, 404]).toContain(response.status);
     if (response.status === 404) {
@@ -194,13 +194,13 @@ describe('startPreviewServer', () => {
     }
   });
 
-  it('gibt den Port nach close() wieder frei', async () => {
+  it('frees the port again after close()', async () => {
     const { port } = handle;
     await handle.close();
-    // Doppelt schließen ist ok (idempotent).
+    // Closing twice is ok (idempotent).
     await handle.close();
 
-    // Der Port ist wieder belegbar …
+    // The port can be bound again …
     const probe: Server = createServer();
     await new Promise<void>((resolve, reject) => {
       probe.once('error', reject);
@@ -210,7 +210,7 @@ describe('startPreviewServer', () => {
       probe.close(() => resolve());
     });
 
-    // … und der Event-Strom endet (async iterator läuft leer).
+    // … and the event stream ends (async iterator runs empty).
     const iterator = handle.events[Symbol.asyncIterator]();
     const result = await iterator.next();
     expect(result.done).toBe(true);

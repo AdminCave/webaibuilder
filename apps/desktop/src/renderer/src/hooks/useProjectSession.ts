@@ -17,10 +17,10 @@ export interface ProjectSession {
   preview: PreviewInfo | null;
   chat: ChatState;
   checkpoints: Checkpoint[];
-  /** Zuletzt gemeldeter Seiten-Fehler → „Fehler beheben"-Button. */
+  /** Last reported page error → "Fix error" button. */
   pageError: PageError | null;
   restoringId: string | null;
-  /** Fehlermeldung des letzten Wiederherstellens (vorher stiller Fehlschlag). */
+  /** Error message of the last restore (previously a silent failure). */
   restoreError: string | null;
 
   send(prompt: string): void;
@@ -29,26 +29,26 @@ export interface ProjectSession {
   restore(checkpointId: string): void;
   dismissPageError(): void;
   fixPageError(): void;
-  /** Session neu öffnen — Wiederanlauf-Pfad für Preview-Fehler. */
+  /** Reopen the session — restart path for preview errors. */
   retry(): void;
 }
 
-/** Bridge-Fehler ins lokale Log melden statt still zu verschlucken (best effort). */
+/** Report bridge errors to the local log instead of swallowing them silently (best effort). */
 function reportBridgeError(action: string, error: unknown): void {
   const message = error instanceof Error ? error.message : String(error);
   void window.wab.logs
     .report({
       kind: 'error',
-      message: `Bridge-Aufruf ${action} fehlgeschlagen: ${message}`,
+      message: `Bridge call ${action} failed: ${message}`,
       source: 'useProjectSession',
     })
     .catch(() => undefined);
 }
 
 /**
- * Kapselt die Sitzung eines geöffneten Projekts: startet die Preview über die
- * Bridge, abonniert Agent-/Preview-/Checkpoint-Events und pflegt den Chat-
- * Zustand über den reinen Reducer. Räumt beim Projektwechsel/Unmount auf.
+ * Encapsulates the session of an open project: starts the preview via the
+ * bridge, subscribes to agent/preview/checkpoint events, and maintains the chat
+ * state through the pure reducer. Cleans up on project switch/unmount.
  */
 export function useProjectSession(project: Project): ProjectSession {
   const [chat, dispatch] = useReducer(chatReducer, initialChatState);
@@ -59,10 +59,10 @@ export function useProjectSession(project: Project): ProjectSession {
   const [pageError, setPageError] = useState<PageError | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
-  /** Zähler, der die Session neu öffnet (Preview-Fehler → „Erneut versuchen"). */
+  /** Counter that reopens the session (preview error → "Try again"). */
   const [openNonce, setOpenNonce] = useState(0);
 
-  // Preview-Origin für das Fehler-Templating, ohne den send-Callback neu zu binden.
+  // Preview origin for the error templating, without rebinding the send callback.
   const previewOriginRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
@@ -86,7 +86,7 @@ export function useProjectSession(project: Project): ProjectSession {
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        setOpenError(error instanceof Error ? error.message : 'Die Vorschau konnte nicht starten.');
+        setOpenError(error instanceof Error ? error.message : 'The preview could not start.');
         setStatus('error');
       });
 
@@ -118,11 +118,11 @@ export function useProjectSession(project: Project): ProjectSession {
     const text = prompt.trim();
     if (text === '') return;
     const runId = crypto.randomUUID();
-    // Optimistisch anlegen, damit früh eintreffende Events zugeordnet werden.
+    // Create optimistically so that early-arriving events get associated.
     dispatch({ type: 'user-send', runId, text });
     setPageError(null);
     window.wab.chat.send(text, runId).catch((error: unknown) => {
-      const messageText = error instanceof Error ? error.message : 'Senden fehlgeschlagen.';
+      const messageText = error instanceof Error ? error.message : 'Send failed.';
       dispatch({ type: 'agent-event', runId, event: { type: 'error', message: messageText, recoverable: false } });
       dispatch({
         type: 'agent-event',
@@ -151,9 +151,9 @@ export function useProjectSession(project: Project): ProjectSession {
     window.wab.checkpoints
       .restore(checkpointId)
       .catch((error: unknown) => {
-        // Vorher stiller Fehlschlag — der Nutzer sah nur, dass „nichts passiert".
+        // Previously a silent failure — the user only saw that "nothing happened".
         setRestoreError(
-          error instanceof Error ? error.message : 'Wiederherstellen fehlgeschlagen.',
+          error instanceof Error ? error.message : 'Restore failed.',
         );
       })
       .finally(() => setRestoringId(null));

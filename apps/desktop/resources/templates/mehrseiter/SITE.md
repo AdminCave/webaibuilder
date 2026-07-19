@@ -1,50 +1,50 @@
-# SITE.md — Bauplan dieser Seite
+# SITE.md — Blueprint of this site
 
-Diese Datei ist die Karte der Webseite für KI-Änderungen. Halte sie aktuell,
-wenn Seiten dazukommen, wegfallen oder sich gemeinsame Blöcke ändern.
+This file is the map of the website for AI changes. Keep it up to date
+whenever pages are added, removed or shared blocks change.
 
-## Technik
+## Technology
 
-- Reines statisches HTML/CSS/JS — kein Build-Schritt, keine Abhängigkeiten.
-- Keine externen Ressourcen (Fonts, CDNs, Tracker) einbinden: die Seite bleibt
-  selbstständig und datenschutzfreundlich.
-- Farben, Radien und Schrift hängen an den CSS-Variablen in `styles.css`
-  (`:root`) — Design-Änderungen dort vornehmen, nicht in einzelnen Regeln.
+- Pure static HTML/CSS/JS — no build step, no dependencies.
+- Do not include external resources (fonts, CDNs, trackers): the site stays
+  self-contained and privacy-friendly.
+- Colors, radii and typography live in the CSS variables in `styles.css`
+  (`:root`) — make design changes there, not in individual rules.
 
-## Seiten
+## Pages
 
-| Datei          | Zweck                                              |
+| File           | Purpose                                            |
 | -------------- | -------------------------------------------------- |
-| `index.html`   | Startseite: Begrüßung, Einstieg, wichtigstes Thema |
-| `ueber.html`   | Über-Seite: Geschichte, Grundsätze                 |
-| `kontakt.html` | Kontakt: E-Mail, Telefon, Anschrift                |
+| `index.html`   | Home page: greeting, intro, most important topic   |
+| `ueber.html`   | About page: story, principles                      |
+| `kontakt.html` | Contact: email, phone, address                     |
 
-## Gemeinsame Blöcke — auf ALLEN Seiten synchron halten
+## Shared blocks — keep in sync across ALL pages
 
-Diese Blöcke stehen wörtlich in jeder HTML-Datei. Wer einen davon ändert
-(z. B. eine neue Seite in die Navigation aufnimmt), muss ihn in **allen**
-Seiten gleich ändern:
+These blocks appear verbatim in every HTML file. Whoever changes one of them
+(e.g. adds a new page to the navigation) must change it identically in **all**
+pages:
 
-- `<header class="site-header">` — Markenname + Navigation.
-  Die jeweils aktive Seite bekommt `aria-current="page"` an ihrem Nav-Link
-  (Styling: Gewicht + Unterstrich, keine gefüllte Pille).
-- `<footer class="site-footer">` — Jahr (füllt `site.js` über `[data-year]`)
-  und Kontakt-Link.
-- `<head>`: `styles.css` und `site.js` (mit `defer`) werden von jeder Seite
-  eingebunden.
+- `<header class="site-header">` — brand name + navigation.
+  The current page gets `aria-current="page"` on its nav link
+  (styling: weight + underline, not a filled pill).
+- `<footer class="site-footer">` — year (filled by `site.js` via `[data-year]`)
+  and contact link.
+- `<head>`: `styles.css` and `site.js` (with `defer`) are included by every
+  page.
 
-## Neue Seite anlegen — Checkliste
+## Adding a new page — checklist
 
-1. Bestehende Seite kopieren (z. B. `ueber.html`); Titel, Beschreibung und
-   den Inhalt in `<main class="page">` ersetzen.
-2. Nav-Link in **allen** Seiten ergänzen; `aria-current="page"` nur auf der
-   neuen Seite setzen.
-3. Diese Tabelle in SITE.md ergänzen.
+1. Copy an existing page (e.g. `ueber.html`); replace the title, description and
+   the content in `<main class="page">`.
+2. Add the nav link to **all** pages; set `aria-current="page"` only on the
+   new page.
+3. Add a row to this table in SITE.md.
 
-## Konventionen
+## Conventions
 
-- Sprache: Deutsch, Besucher werden geduzt. Keine Emojis, keine Verläufe.
-- Dunkles Design auf Schwarz, Hairline-Rahmen, genau ein Akzentblau (#4f9dff).
-- Kontakt per `mailto:`/`tel:`-Link — bewusst kein Formular (kein Backend).
-- Platzhalter ("Dein Name", `hallo@example.org`, Musterstraße) durch echte
-  Inhalte ersetzen.
+- Language: English, addressing the visitor directly. No emojis, no gradients.
+- Dark design on black, hairline borders, exactly one accent blue (#4f9dff).
+- Contact via `mailto:`/`tel:` link — deliberately no form (no backend).
+- Replace placeholders ("Your Name", `hello@example.org`, Example Street) with
+  real content.

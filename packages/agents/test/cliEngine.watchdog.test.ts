@@ -1,9 +1,9 @@
 /**
- * Watchdog-Tests der CLI-Engine (fake timers + FakeChild, keine echten CLIs):
- * eine still hängende CLI (Protokoll-Drift, kein result-Event) darf die UI
- * nicht ewig in „Die KI arbeitet …" halten — der Turn bricht mit Fehler ab und
- * der Prozess wird beendet. Regelmäßige Ausgabe und offene Permission-Anfragen
- * lösen dagegen KEINEN Abbruch aus.
+ * Watchdog tests for the CLI engine (fake timers + FakeChild, no real CLIs):
+ * a silently hanging CLI (protocol drift, no result event) must not keep the UI
+ * stuck forever in "The AI is working …" — the turn aborts with an error and the
+ * process is terminated. Regular output and open permission requests, by
+ * contrast, do NOT trigger an abort.
  */
 
 import type { AgentEvent, AgentTurnRequest } from '@webaibuilder/core';
@@ -50,7 +50,7 @@ afterEach(() => {
 });
 
 describe('cliEngine — Watchdog', () => {
-  it('bricht eine still hängende CLI nach dem Timeout ab (error + turn-complete + kill)', async () => {
+  it('aborts a silently hanging CLI after the timeout (error + turn-complete + kill)', async () => {
     vi.useFakeTimers();
     const { child, spawn } = controllableSpawn();
     const backend = createCliBackend(spec, { spawn, idleTimeoutMs: 1000, killGraceMs: 50 });
@@ -60,7 +60,7 @@ describe('cliEngine — Watchdog', () => {
       for await (const ev of backend.runTurn(request())) events.push(ev);
     })();
 
-    // Engine anlaufen lassen (Listener + Watchdog armiert), dann Stille.
+    // Let the engine start up (listeners + watchdog armed), then go silent.
     await vi.advanceTimersByTimeAsync(0);
     await vi.advanceTimersByTimeAsync(1000);
 
@@ -70,11 +70,11 @@ describe('cliEngine — Watchdog', () => {
 
     const error = events.find((e) => e.type === 'error');
     expect(error).toMatchObject({ type: 'error', recoverable: true });
-    expect(error?.type === 'error' ? error.message : '').toMatch(/nicht geantwortet/);
+    expect(error?.type === 'error' ? error.message : '').toMatch(/has not responded/);
     expect(events.at(-1)).toMatchObject({ type: 'turn-complete', stopReason: 'error' });
   });
 
-  it('eskaliert nach der Grace-Zeit auf SIGKILL, wenn die CLI nicht stirbt', async () => {
+  it('escalates to SIGKILL after the grace period when the CLI does not die', async () => {
     vi.useFakeTimers();
     const { child, spawn } = controllableSpawn();
     const backend = createCliBackend(spec, { spawn, idleTimeoutMs: 1000, killGraceMs: 50 });
@@ -84,15 +84,15 @@ describe('cliEngine — Watchdog', () => {
     })();
 
     await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(1000); // Watchdog → SIGTERM
-    await vi.advanceTimersByTimeAsync(50); // Grace verstrichen → SIGKILL
+    await vi.advanceTimersByTimeAsync(1000); // watchdog → SIGTERM
+    await vi.advanceTimersByTimeAsync(50); // grace period elapsed → SIGKILL
     expect(child.killSignals).toEqual(['SIGTERM', 'SIGKILL']);
 
     child.emitClose(null, 'SIGKILL');
     await consumed;
   });
 
-  it('regelmäßige Ausgabe armiert den Watchdog neu — kein Abbruch', async () => {
+  it('regular output re-arms the watchdog — no abort', async () => {
     vi.useFakeTimers();
     const { child, spawn } = controllableSpawn();
     const backend = createCliBackend(spec, { spawn, idleTimeoutMs: 1000 });
@@ -103,7 +103,7 @@ describe('cliEngine — Watchdog', () => {
     })();
 
     await vi.advanceTimersByTimeAsync(0);
-    // Insgesamt 2400 ms > Timeout, aber jeder Chunk liegt unter 1000 ms.
+    // 2400 ms total > timeout, but each chunk stays under 1000 ms.
     for (let i = 0; i < 3; i++) {
       await vi.advanceTimersByTimeAsync(800);
       child.emitLine({ kind: 'text', text: `t${i}` });
@@ -119,24 +119,24 @@ describe('cliEngine — Watchdog', () => {
     expect(events.at(-1)).toMatchObject({ type: 'turn-complete', stopReason: 'end' });
   });
 
-  it('pausiert bei offener Permission-Anfrage (Nutzer darf beliebig lange überlegen)', async () => {
+  it('pauses while a permission request is open (the user may deliberate as long as they like)', async () => {
     vi.useFakeTimers();
     const { child, spawn } = controllableSpawn();
     const backend = createCliBackend(spec, { spawn, idleTimeoutMs: 1000 });
     const iterator = backend.runTurn(request())[Symbol.asyncIterator]();
 
-    const first = iterator.next(); // startet die Engine
+    const first = iterator.next(); // starts the engine
     await vi.advanceTimersByTimeAsync(0);
     child.emitLine({ kind: 'perm' });
     expect((await first).value).toMatchObject({ type: 'permission-request' });
 
-    // Nutzer „überlegt" weit länger als das Timeout — kein Kill, kein Fehler.
+    // The user "deliberates" far longer than the timeout — no kill, no error.
     await vi.advanceTimersByTimeAsync(5000);
     expect(child.killSignals).toHaveLength(0);
 
-    // Nach der Antwort ist der Watchdog wieder aktiv: erneute Stille → Abbruch.
+    // After the answer the watchdog is active again: renewed silence → abort.
     const afterAnswer = iterator.next({ requestId: 'r1', allow: true });
-    await vi.advanceTimersByTimeAsync(0); // Resume-Mikrotask: Watchdog neu armiert
+    await vi.advanceTimersByTimeAsync(0); // resume microtask: watchdog re-armed
     await vi.advanceTimersByTimeAsync(1000);
     expect(child.killSignals).toContain('SIGTERM');
     expect((await afterAnswer).value).toMatchObject({ type: 'error' });
@@ -151,7 +151,7 @@ describe('cliEngine — Watchdog', () => {
     expect(last).toMatchObject({ type: 'turn-complete', stopReason: 'error' });
   });
 
-  it('idleTimeoutMs: 0 schaltet den Watchdog aus', async () => {
+  it('idleTimeoutMs: 0 turns the watchdog off', async () => {
     vi.useFakeTimers();
     const { child, spawn } = controllableSpawn();
     const backend = createCliBackend(spec, { spawn, idleTimeoutMs: 0 });
@@ -162,7 +162,7 @@ describe('cliEngine — Watchdog', () => {
     })();
 
     await vi.advanceTimersByTimeAsync(0);
-    await vi.advanceTimersByTimeAsync(600_000); // lange Stille — nichts passiert
+    await vi.advanceTimersByTimeAsync(600_000); // long silence — nothing happens
     expect(child.killSignals).toHaveLength(0);
 
     child.emitLine({ kind: 'done' });

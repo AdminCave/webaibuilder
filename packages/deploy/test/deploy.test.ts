@@ -1,14 +1,14 @@
 /**
- * Integrationstests der Deploy-Engine gegen ECHTE In-Process-Server:
- * ssh2-SFTP und ftp-srv, jeweils gerootet auf ein Temp-"Remote".
+ * Integration tests of the deploy engine against REAL in-process servers:
+ * ssh2-SFTP and ftp-srv, each rooted at a temp "remote".
  *
- * Für BEIDE Transporte werden die realen Round-Trips geprüft:
- *  (a) Frisch-Deploy (3 Dateien) + Manifest mit korrekter Commit-SHA, Byte-Match
- *  (b) eine Datei ändern → nur die wird neu hochgeladen (Write-Zählung)
- *  (c) eine Datei löschen → remote weg, Manifest listet sie nicht mehr
- *  (d) Rollback auf den ersten Commit → Remote == erster Baum, Manifest-SHA passt
- *  (e) Preflight: ok gegen den Server, klare Fehler bei falschem Pfad/Login
- *  (f) Drift-Erkennung: Match = kein Drift, andere SHA = Drift + korrekte Remote-SHA
+ * For BOTH transports the real round-trips are verified:
+ *  (a) Fresh deploy (3 files) + manifest with correct commit SHA, byte match
+ *  (b) change one file → only that one is re-uploaded (write count)
+ *  (c) delete one file → gone remotely, manifest no longer lists it
+ *  (d) rollback to the first commit → remote == first tree, manifest SHA matches
+ *  (e) preflight: ok against the server, clear errors for wrong path/login
+ *  (f) drift detection: match = no drift, different SHA = drift + correct remote SHA
  */
 
 import nodeFs from 'node:fs';
@@ -37,7 +37,7 @@ import { FTP_PASS, FTP_USER, startFtpServer, type TestFtpServer } from './ftpSer
 
 const REMOTE_ROOT = '/htdocs';
 
-// Datei-Inhalte über die Versionen hinweg (feste Bytes → deterministischer Diff).
+// File contents across the versions (fixed bytes → deterministic diff).
 const INDEX_V1 = '<!doctype html><h1>Startseite v1</h1>\n';
 const INDEX_V2 = '<!doctype html><h1>Startseite v2 (geaendert)</h1>\n';
 const ABOUT = '<!doctype html><p>Ueber uns</p>\n';
@@ -46,14 +46,14 @@ const CONTACT = '<!doctype html><p>Kontakt</p>\n';
 
 const GIT_AUTHOR = { name: 'Test', email: 'test@example.invalid' } as const;
 
-/** Schreibt eine Datei unter `<workspace>/site/<rel>`. */
+/** Writes a file at `<workspace>/site/<rel>`. */
 async function writeSite(workspaceDir: string, rel: string, content: string): Promise<void> {
   const abs = join(workspaceDir, 'site', rel);
   await mkdir(dirname(abs), { recursive: true });
   await writeFile(abs, content, 'utf8');
 }
 
-/** Staged alle Änderungen (inkl. Löschungen) und committet → Commit-SHA. */
+/** Stages all changes (incl. deletions) and commits → commit SHA. */
 async function commitAll(workspaceDir: string, message: string): Promise<string> {
   const status = await git.statusMatrix({ fs: nodeFs, dir: workspaceDir });
   for (const row of status) {
@@ -68,7 +68,7 @@ async function commitAll(workspaceDir: string, message: string): Promise<string>
   return git.commit({ fs: nodeFs, dir: workspaceDir, message, author: { ...GIT_AUTHOR } });
 }
 
-/** Liest einen Verzeichnisbaum in eine Map relPath→Buffer (ohne Manifest/Temp/Probe). */
+/** Reads a directory tree into a Map relPath→Buffer (without manifest/temp/probe). */
 async function readTree(absDir: string): Promise<Map<string, Buffer>> {
   const tree = new Map<string, Buffer>();
   async function walk(dir: string, rel: string): Promise<void> {
@@ -76,7 +76,7 @@ async function readTree(absDir: string): Promise<Map<string, Buffer>> {
     try {
       entries = await readdir(dir, { withFileTypes: true });
     } catch {
-      return; // Verzeichnis existiert (noch) nicht
+      return; // directory does not exist (yet)
     }
     for (const entry of entries) {
       const abs = join(dir, entry.name);
@@ -133,13 +133,13 @@ describe.each(CASES)('Transport: $label', (testCase) => {
   let siteDir: string;
   let target: DeployTarget;
   let creds: DeployCredentials;
-  let remoteFilesRoot: string; // <serverRoot>/htdocs — die "Remote"-Dateien
+  let remoteFilesRoot: string; // <serverRoot>/htdocs — the "remote" files
   let sha1 = '';
   let sha2 = '';
   let sha3 = '';
   let sha4 = '';
 
-  /** Schreib-Ops im aktuellen Fenster, auf site-relative Pfade reduziert & sortiert. */
+  /** Write ops in the current window, reduced to site-relative paths & sorted. */
   function uploadedPaths(): string[] {
     const prefix = `${REMOTE_ROOT}/`;
     return server.writes
@@ -169,7 +169,7 @@ describe.each(CASES)('Transport: $label', (testCase) => {
     siteDir = join(workspaceDir, 'site');
     await git.init({ fs: nodeFs, dir: workspaceDir, defaultBranch: 'main' });
 
-    // Erster Commit (3 Dateien).
+    // First commit (3 files).
     await writeSite(workspaceDir, 'index.html', INDEX_V1);
     await writeSite(workspaceDir, 'about.html', ABOUT);
     await writeSite(workspaceDir, 'assets/app.js', APP_JS);
@@ -194,7 +194,7 @@ describe.each(CASES)('Transport: $label', (testCase) => {
     await rm(workspaceDir, { recursive: true, force: true });
   });
 
-  it('(a) frischer Deploy lädt alle 3 Dateien hoch, schreibt Manifest mit SHA, Byte-Match', async () => {
+  it('(a) fresh deploy uploads all 3 files, writes manifest with SHA, byte match', async () => {
     server.resetWrites();
     const events: string[] = [];
     const result = await deploy(target, creds, {
@@ -210,15 +210,15 @@ describe.each(CASES)('Transport: $label', (testCase) => {
     expect(result.plan.uploads).toEqual(['about.html', 'assets/app.js', 'index.html']);
     expect(result.bytesUploaded).toBeGreaterThan(0);
 
-    // Nur die 3 Dateien wurden wirklich geschrieben.
+    // Only the 3 files were actually written.
     expect(uploadedPaths()).toEqual(['about.html', 'assets/app.js', 'index.html']);
 
-    // Progress ist file-by-file + Manifest zuletzt.
+    // Progress is file-by-file + manifest last.
     expect(events).toContain('uploading');
     expect(events).toContain('manifest-written');
     expect(events.at(-1)).toBe('done');
 
-    // Remote-Baum == lokaler Baum (byte-genau).
+    // Remote tree == local tree (byte-exact).
     await expectRemoteMatches({
       'index.html': INDEX_V1,
       'about.html': ABOUT,
@@ -234,7 +234,7 @@ describe.each(CASES)('Transport: $label', (testCase) => {
     ]);
   });
 
-  it('(b) eine Datei ändern → nur diese wird neu hochgeladen, Manifest-SHA aktualisiert', async () => {
+  it('(b) change one file → only that one is re-uploaded, manifest SHA updated', async () => {
     await writeSite(workspaceDir, 'index.html', INDEX_V2);
     sha2 = await commitAll(workspaceDir, 'Startseite geaendert');
     expect(sha2).not.toBe(sha1);
@@ -247,7 +247,7 @@ describe.each(CASES)('Transport: $label', (testCase) => {
     expect(result.deleted).toBe(0);
     expect(result.plan.uploads).toEqual(['index.html']);
 
-    // Nur index.html wurde geschrieben — about.html & assets/app.js blieben unangetastet.
+    // Only index.html was written — about.html & assets/app.js were left untouched.
     expect(uploadedPaths()).toEqual(['index.html']);
 
     await expectRemoteMatches({
@@ -258,7 +258,7 @@ describe.each(CASES)('Transport: $label', (testCase) => {
     expect((await readRemoteManifest()).commit).toBe(sha2);
   });
 
-  it('(c) eine Datei löschen → remote entfernt, Manifest listet sie nicht mehr', async () => {
+  it('(c) delete one file → removed remotely, manifest no longer lists it', async () => {
     await rm(join(siteDir, 'about.html'));
     sha3 = await commitAll(workspaceDir, 'Ueber-Seite entfernt');
 
@@ -268,7 +268,7 @@ describe.each(CASES)('Transport: $label', (testCase) => {
     expect(result.deleted).toBe(1);
     expect(result.uploaded).toBe(0);
     expect(result.plan.deletes).toEqual(['about.html']);
-    // Kein Upload einer Nutzdatei (nur das Manifest wird geschrieben).
+    // No payload file uploaded (only the manifest is written).
     expect(uploadedPaths()).toEqual([]);
 
     await expectRemoteMatches({
@@ -281,7 +281,7 @@ describe.each(CASES)('Transport: $label', (testCase) => {
     expect(Object.keys(manifest.files)).not.toContain('about.html');
   });
 
-  it('Zwischenschritt: später hinzugefügte Datei deployen (Vorbereitung Rollback)', async () => {
+  it('intermediate step: deploy a file added later (rollback preparation)', async () => {
     await writeSite(workspaceDir, 'contact.html', CONTACT);
     sha4 = await commitAll(workspaceDir, 'Kontaktseite hinzugefuegt');
 
@@ -298,7 +298,7 @@ describe.each(CASES)('Transport: $label', (testCase) => {
     expect((await readRemoteManifest()).commit).toBe(sha4);
   });
 
-  it('(d) Rollback auf den ersten Commit → Remote == erster Baum, Manifest-SHA = erster Commit', async () => {
+  it('(d) rollback to the first commit → remote == first tree, manifest SHA = first commit', async () => {
     server.resetWrites();
     const result = await rollback(target, creds, {
       workspaceDir,
@@ -306,14 +306,14 @@ describe.each(CASES)('Transport: $label', (testCase) => {
     });
 
     expect(result.commit).toBe(sha1);
-    // about.html kehrt zurück, index.html wird zurückgedreht → 2 Uploads.
+    // about.html comes back, index.html is rolled back → 2 uploads.
     expect(result.uploaded).toBe(2);
-    // contact.html (später hinzugefügt) wird entfernt.
+    // contact.html (added later) is removed.
     expect(result.deleted).toBe(1);
     expect(result.plan.deletes).toEqual(['contact.html']);
     expect(uploadedPaths()).toEqual(['about.html', 'index.html']);
 
-    // Remote-Baum == exakt der erste Commit.
+    // Remote tree == exactly the first commit.
     await expectRemoteMatches({
       'index.html': INDEX_V1,
       'about.html': ABOUT,
@@ -322,27 +322,27 @@ describe.each(CASES)('Transport: $label', (testCase) => {
     expect((await readRemoteManifest()).commit).toBe(sha1);
   });
 
-  it('(e) Preflight: ok gegen den Server, klare Fehler bei falschem Login und Pfad', async () => {
+  it('(e) preflight: ok against the server, clear errors for wrong login and path', async () => {
     await mkdir(remoteFilesRoot, { recursive: true });
 
     const ok = await preflight(target, creds);
     expect(ok.ok).toBe(true);
     expect(ok.failures).toEqual([]);
     expect(ok.capabilities.mkdirRecursive).toBe(true);
-    expect(ok.remoteSha).toBe(sha1); // Stand nach Rollback
-    expect(ok.messages.join(' ')).toMatch(/Anmeldung|erreichbar/);
+    expect(ok.remoteSha).toBe(sha1); // state after rollback
+    expect(ok.messages.join(' ')).toMatch(/authentication|reachable/);
 
     const badLogin = await preflight(target, { password: 'falsch' });
     expect(badLogin.ok).toBe(false);
     expect(badLogin.failures.length).toBeGreaterThan(0);
-    expect(badLogin.failures.join(' ')).toMatch(/Anmeldung|Verbindung/);
+    expect(badLogin.failures.join(' ')).toMatch(/Authentication|Connection/);
 
     const badPath = await preflight({ ...target, remotePath: '/gibt-es-nicht' }, creds);
     expect(badPath.ok).toBe(false);
     expect(badPath.failures.length).toBeGreaterThan(0);
   });
 
-  it('(f) Drift-Erkennung: Match = kein Drift, andere SHA = Drift mit korrekter Remote-SHA', async () => {
+  it('(f) drift detection: match = no drift, different SHA = drift with correct remote SHA', async () => {
     const remoteSha = (await readRemoteManifest()).commit;
 
     const match = await detectDrift(target, creds, remoteSha);
@@ -353,15 +353,15 @@ describe.each(CASES)('Transport: $label', (testCase) => {
     expect(drift.drift).toBe(true);
     expect(drift.remoteSha).toBe(remoteSha);
 
-    // Reine Vergleichsfunktion (ohne Netz).
+    // Pure comparison function (no network).
     expect(compareDrift('abc', 'abc')).toEqual({ drift: false, expectedSha: 'abc', remoteSha: 'abc' });
     expect(compareDrift('abc', null)).toEqual({ drift: true, expectedSha: 'abc', remoteSha: null });
   });
 
-  it('planDeploy (reiner Diff, ohne Netz) stimmt mit dem Remote-Manifest überein', async () => {
-    const manifest = await readRemoteManifest(); // Stand: erster Commit
+  it('planDeploy (pure diff, no network) matches the remote manifest', async () => {
+    const manifest = await readRemoteManifest(); // state: first commit
     const plan = await planDeploy(siteDir, manifest);
-    // Arbeitsverzeichnis ist bei sha4 (index v2, assets, contact), Manifest bei sha1.
+    // Working directory is at sha4 (index v2, assets, contact), manifest at sha1.
     expect(plan.uploads).toEqual(['contact.html', 'index.html']);
     expect(plan.deletes).toEqual(['about.html']);
   });

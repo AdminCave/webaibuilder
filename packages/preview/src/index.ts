@@ -1,11 +1,11 @@
 /**
- * Live-Preview (PLAN §4): eigener ~200-Zeilen-Static-Server + chokidar +
- * WebSocket-Reload; Injection-Middleware fügt Reload-Client und
- * Console/Error-Shim in jede Seite ein.
+ * Live preview (PLAN §4): custom ~200-line static server + chokidar +
+ * WebSocket reload; injection middleware adds the reload client and
+ * console/error shim to every page.
  *
- * Sicherheit: loopback-only (127.0.0.1) mit Random-Port + Token — die Preview
- * rendert KI-generiertes HTML/JS und ist unsere größte Angriffsfläche.
- * Electron-frei — dieses Paket darf niemals `electron` importieren.
+ * Security: loopback-only (127.0.0.1) with a random port + token — the preview
+ * renders AI-generated HTML/JS and is our largest attack surface.
+ * Electron-free — this package must never import `electron`.
  */
 
 export type {

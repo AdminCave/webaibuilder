@@ -21,16 +21,16 @@ interface WorkbenchProps {
   settings: AgentSettings | null;
   onCostChange: (costUsd: number | null) => void;
   onDeployStatusChange: (status: string | null) => void;
-  /** Öffnet die Einstellungen an einer bestimmten Stelle (Chat-Empty-State). */
+  /** Opens settings at a specific location (chat empty state). */
   onOpenSettings: (route: SettingsRoute) => void;
-  /** Frisch gespeicherte Einstellungen an die App melden (Chat-Freischaltung). */
+  /** Reports freshly saved settings to the app (unlocks the chat). */
   onSettingsSaved: (settings: AgentSettings) => void;
 }
 
 /**
- * Arbeitsbereich eines geöffneten Projekts: verdrahtet die Sitzung (Preview +
- * Chat + Checkpoints) und rendert die drei Panels. Der useProjectSession-Hook
- * liegt bewusst hier (nicht in App), damit er unbedingt aufgerufen wird.
+ * Workspace of an open project: wires the session (preview + chat + checkpoints)
+ * and renders the three panels. The useProjectSession hook deliberately lives
+ * here (not in App) so that it is always called.
  */
 export function Workbench({
   project,
@@ -45,7 +45,7 @@ export function Workbench({
   const deploy = useDeploy(project.id);
   const [showDeploy, setShowDeploy] = useState(false);
 
-  // Summe der gemeldeten Turn-Kosten für die Statusleiste.
+  // Sum of the reported turn costs for the status bar.
   const totalCost = session.chat.messages.reduce(
     (sum, message) =>
       message.role === 'assistant' && typeof message.costUsd === 'number'
@@ -63,28 +63,28 @@ export function Workbench({
 
   useEffect(() => () => onCostChange(null), [onCostChange]);
 
-  // Deploy-Status für die Statusleiste (aktives Ziel + zuletzt deployte SHA).
+  // Deploy status for the status bar (active target + last deployed SHA).
   const deployStatus = deployStatusLabel(deploy);
   useEffect(() => {
     onDeployStatusChange(deployStatus);
   }, [deployStatus, onDeployStatusChange]);
   useEffect(() => () => onDeployStatusChange(null), [onDeployStatusChange]);
 
-  // Chat-Freischaltung aus der einen geteilten, getesteten Quelle
-  // (shared/backends.ts chatBlockReason): Abo-Backends hat der Main-Prozess bei
-  // der Aktivierung geprüft; API-Key-Backends brauchen einen Key (Schlüsselbund
-  // oder Umgebungsvariable — beides in `hasApiKey` enthalten).
+  // Chat unlock from the one shared, tested source (shared/backends.ts
+  // chatBlockReason): the main process validated subscription backends at
+  // activation; API-key backends need a key (keychain or environment variable —
+  // both covered by `hasApiKey`).
   const backendReady = chatBlockReason(settings) === null;
 
-  // „Deployed"-Badge: den Checkpoint markieren, dessen SHA dem last_deployed-
-  // Stand des aktiven Ziels entspricht (löst den M1-Platzhalter auf).
+  // "Deployed" badge: mark the checkpoint whose SHA matches the active target's
+  // last_deployed state (resolves the M1 placeholder).
   const checkpoints = markDeployedCheckpoints(session.checkpoints, deploy.deployedSha);
   const canDeployVersion = deploy.selectedTarget?.hasCredentials === true && !deploy.deploying;
 
   return (
     <>
-      {/* Boundary pro Panel: ein Panel-Crash reißt nicht die App mit;
-          key={project.id} setzt den Fehlerzustand beim Projektwechsel zurück. */}
+      {/* Boundary per panel: a single panel crash doesn't take the app down;
+          key={project.id} resets the error state when switching projects. */}
       <ErrorBoundary label="Chat" key={`chat:${project.id}`}>
         <ChatPanel
           chat={session.chat}
@@ -100,7 +100,7 @@ export function Workbench({
           onSettingsSaved={onSettingsSaved}
         />
       </ErrorBoundary>
-      <ErrorBoundary label="Vorschau" key={`preview:${project.id}`}>
+      <ErrorBoundary label="Preview" key={`preview:${project.id}`}>
         <PreviewPanel
           theme={theme}
           previewUrl={session.preview?.url ?? null}
@@ -110,7 +110,7 @@ export function Workbench({
           onRetry={session.retry}
         />
       </ErrorBoundary>
-      <ErrorBoundary label="Verlauf" key={`timeline:${project.id}`}>
+      <ErrorBoundary label="History" key={`timeline:${project.id}`}>
         <TimelineSidebar
           checkpoints={checkpoints}
           restoringId={session.restoringId}
@@ -137,11 +137,11 @@ export function Workbench({
   );
 }
 
-/** Kurzlabel fürs Deploy-Feld der Statusleiste. */
+/** Short label for the status bar's deploy field. */
 function deployStatusLabel(deploy: ReturnType<typeof useDeploy>): string | null {
   const target = deploy.selectedTarget;
   if (target === null) return null;
-  if (deploy.deploying) return `${target.name} · veröffentliche …`;
+  if (deploy.deploying) return `${target.name} · publishing …`;
   const sha = target.lastDeployedCommit;
-  return sha !== undefined ? `${target.name} · ${sha.slice(0, 7)}` : `${target.name} · nie deployt`;
+  return sha !== undefined ? `${target.name} · ${sha.slice(0, 7)}` : `${target.name} · never deployed`;
 }

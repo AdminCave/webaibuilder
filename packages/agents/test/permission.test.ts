@@ -1,22 +1,22 @@
 /**
- * Permission-Rückkanal (PLAN §11-Naht, in M4 reconciled).
+ * Permission back-channel (PLAN §11 seam, reconciled in M4).
  *
- * Der Vertrag: `runTurn` ist ein async Generator. Yieldet er ein
- * `permission-request`, kommt die Nutzer-Entscheidung als Rückgabewert des
- * `yield` zurück (Desktop treibt mit `iterator.next(decision)`). Fehlt eine
- * Entscheidung (Generator wird ohne `next(decision)` durchlaufen), gilt
- * fail-safe DENY.
+ * The contract: `runTurn` is an async generator. When it yields a
+ * `permission-request`, the user's decision comes back as the return value of
+ * the `yield` (the desktop drives with `iterator.next(decision)`). If a decision
+ * is missing (the generator is iterated without `next(decision)`), fail-safe
+ * DENY applies.
  *
- * Geprüft an zwei Backends mit echtem Permission-Pfad:
- *   - claude-cli: Antwort geht als `control_response` auf stdin (allow/deny).
- *   - claude-sdk: Antwort steuert das `canUseTool`-Ergebnis (allow/deny).
+ * Checked against two backends with a real permission path:
+ *   - claude-cli: the answer goes to stdin as a `control_response` (allow/deny).
+ *   - claude-sdk: the answer drives the `canUseTool` result (allow/deny).
  */
 
 import type { AgentEvent, AgentTurnRequest, PermissionDecision } from '@webaibuilder/core';
 import { DEFAULT_PERMISSION_POLICY } from '@webaibuilder/core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Vendor-SDK mocken, damit claude-sdk `canUseTool` real aufruft.
+// Mock the vendor SDK so claude-sdk actually calls `canUseTool`.
 const queryMock = vi.fn();
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
   query: (...args: unknown[]) => queryMock(...args),
@@ -56,10 +56,10 @@ function controlResponses(chunks: readonly string[]): ControlResponse[] {
 }
 
 /* ------------------------------------------------------------------ */
-/* claude-cli: control_response über stdin                             */
+/* claude-cli: control_response over stdin                             */
 /* ------------------------------------------------------------------ */
 
-describe('claude-cli Permission-Rückkanal', () => {
+describe('claude-cli permission back-channel', () => {
   async function driveWithDecision(
     decision: PermissionDecision | undefined,
   ): Promise<{ events: AgentEvent[]; stdin: string[] }> {
@@ -82,7 +82,7 @@ describe('claude-cli Permission-Rückkanal', () => {
       const event = step.value;
       events.push(event);
       if (event.type === 'permission-request') {
-        // Nach dem Yield des permission-request Ergebnis-Zeilen nachschieben.
+        // After yielding the permission-request, push the result lines.
         resume = decision;
         child.emitLine({ type: 'result', subtype: 'success', session_id: 's' });
         child.emitClose(0, null);
@@ -93,7 +93,7 @@ describe('claude-cli Permission-Rückkanal', () => {
     return { events, stdin: child.stdinChunks };
   }
 
-  it('allow → control_response mit behavior "allow"', async () => {
+  it('allow → control_response with behavior "allow"', async () => {
     const { events, stdin } = await driveWithDecision({ requestId: 'perm-1', allow: true });
     const perm = events.find((e) => e.type === 'permission-request');
     expect(perm).toMatchObject({ type: 'permission-request', requestId: 'perm-1', scope: 'shell' });
@@ -104,25 +104,25 @@ describe('claude-cli Permission-Rückkanal', () => {
     expect(responses[0]?.response?.response?.behavior).toBe('allow');
   });
 
-  it('deny → control_response mit behavior "deny"', async () => {
+  it('deny → control_response with behavior "deny"', async () => {
     const { stdin } = await driveWithDecision({ requestId: 'perm-1', allow: false });
     const responses = controlResponses(stdin);
     expect(responses[0]?.response?.response?.behavior).toBe('deny');
   });
 
-  it('ohne Entscheidung durchlaufen → fail-safe deny', async () => {
-    // Generator per for-await treiben → yield liefert immer undefined zurück.
+  it('iterated without a decision → fail-safe deny', async () => {
+    // Drive the generator via for-await → yield always returns undefined.
     const { child, spawn } = controllableSpawn();
     const backend = createClaudeCliBackend({ spawn });
     const iterator = backend.runTurn(request('mach was'))[Symbol.asyncIterator]();
     const first = iterator.next();
     child.emitLine(CONTROL_REQUEST);
     await first; // permission-request
-    // Kein next(decision) — direkt Ergebnis + Ende nachschieben.
+    // No next(decision) — push the result + end directly.
     child.emitLine({ type: 'result', subtype: 'success' });
     child.emitClose(0, null);
     for (;;) {
-      const { done } = await iterator.next(); // ohne Argument
+      const { done } = await iterator.next(); // without an argument
       if (done) break;
     }
     const responses = controlResponses(child.stdinChunks);
@@ -131,7 +131,7 @@ describe('claude-cli Permission-Rückkanal', () => {
 });
 
 /* ------------------------------------------------------------------ */
-/* claude-sdk: canUseTool-Ergebnis                                     */
+/* claude-sdk: canUseTool result                                       */
 /* ------------------------------------------------------------------ */
 
 interface FakeOptions {
@@ -160,7 +160,7 @@ function mockQueryThatAsks(): void {
   });
 }
 
-describe('claude-sdk Permission-Rückkanal', () => {
+describe('claude-sdk permission back-channel', () => {
   beforeEach(() => {
     queryMock.mockReset();
     lastBehavior = undefined;
@@ -187,7 +187,7 @@ describe('claude-sdk Permission-Rückkanal', () => {
     return events;
   }
 
-  it('allow → canUseTool erlaubt, Tool läuft', async () => {
+  it('allow → canUseTool allows, tool runs', async () => {
     const events = await driveSdk((e) =>
       e.type === 'permission-request' ? { requestId: e.requestId, allow: true } : undefined,
     );
@@ -196,7 +196,7 @@ describe('claude-sdk Permission-Rückkanal', () => {
     expect(events.some((e) => e.type === 'permission-request' && e.scope === 'shell')).toBe(true);
   });
 
-  it('deny → canUseTool verweigert', async () => {
+  it('deny → canUseTool denies', async () => {
     const events = await driveSdk((e) =>
       e.type === 'permission-request' ? { requestId: e.requestId, allow: false } : undefined,
     );
@@ -204,8 +204,8 @@ describe('claude-sdk Permission-Rückkanal', () => {
     expect(events.some((e) => e.type === 'text-delta' && e.text === 'abgelehnt')).toBe(true);
   });
 
-  it('ohne Entscheidung → fail-safe deny', async () => {
-    await driveSdk(() => undefined); // nie eine Entscheidung liefern
+  it('without a decision → fail-safe deny', async () => {
+    await driveSdk(() => undefined); // never supply a decision
     expect(lastBehavior).toBe('deny');
   });
 });
