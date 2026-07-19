@@ -543,3 +543,52 @@ export function activeBackendStatusLabel(backendId: BackendId, hasApiKey: boolea
   if (isSubscriptionBackend(backendId)) return name;
   return hasApiKey ? name : `${name} (kein Key)`;
 }
+
+/* ------------------------------------------------------------------ */
+/* Chat-Readiness: schaltet den Chat-Composer frei                     */
+/* ------------------------------------------------------------------ */
+
+export type ChatBlockReason = 'no-settings' | 'missing-key' | null;
+
+/**
+ * Warum der Chat gerade NICHT sendbereit ist (oder `null`, wenn bereit) — die
+ * eine geteilte Quelle für die Composer-Freischaltung (vorher Inline-Logik in
+ * Workbench.tsx). Abo-Backends sind als aktives Backend immer bereit, denn ihre
+ * Nutzbarkeit hat der Main-Prozess bei der Aktivierung autoritativ geprüft.
+ * API-Key-Backends brauchen einen Key — Schlüsselbund ODER Umgebungsvariable,
+ * beides steckt bereits in `hasApiKey` (main/settingsStore.ts).
+ */
+export function chatBlockReason(
+  settings: { backendId: BackendId; hasApiKey: boolean } | null,
+): ChatBlockReason {
+  if (settings === null) return 'no-settings';
+  if (isSubscriptionBackend(settings.backendId)) return null;
+  return settings.hasApiKey ? null : 'missing-key';
+}
+
+/** Empfehlung des Chat-Empty-States, wie der Nutzer den Chat freischaltet. */
+export type ChatSetupCta =
+  | { kind: 'use-subscription'; backendId: SubscriptionBackendId; needsAck: boolean }
+  | { kind: 'enter-key' };
+
+/**
+ * Reine Empfehlung für den Chat-Empty-State: das erste installierte, aktive,
+ * nicht-experimentelle Abo-Backend, das nicht ausdrücklich ausgeloggt ist —
+ * sonst der API-Key-Pfad. `needsAck` sagt der UI, dass vor der Aktivierung der
+ * einmalige Hinweis bestätigt werden muss (Compliance, PLAN §3 — der Hinweis
+ * wird geführt angezeigt, nie übersprungen).
+ */
+export function recommendChatSetup(views: readonly BackendAvailabilityView[]): ChatSetupCta {
+  for (const id of SUBSCRIPTION_BACKEND_IDS) {
+    const view = views.find((v) => v.backendId === id);
+    if (view === undefined) continue;
+    if (!view.installed || !view.enabled || view.experimental) continue;
+    if (view.loggedIn === false) continue;
+    return {
+      kind: 'use-subscription',
+      backendId: id,
+      needsAck: view.requiresAck && !view.acknowledged,
+    };
+  }
+  return { kind: 'enter-key' };
+}

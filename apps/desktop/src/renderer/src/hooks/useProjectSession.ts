@@ -20,6 +20,8 @@ export interface ProjectSession {
   /** Zuletzt gemeldeter Seiten-Fehler → „Fehler beheben"-Button. */
   pageError: PageError | null;
   restoringId: string | null;
+  /** Fehlermeldung des letzten Wiederherstellens (vorher stiller Fehlschlag). */
+  restoreError: string | null;
 
   send(prompt: string): void;
   interrupt(): void;
@@ -27,6 +29,20 @@ export interface ProjectSession {
   restore(checkpointId: string): void;
   dismissPageError(): void;
   fixPageError(): void;
+  /** Session neu öffnen — Wiederanlauf-Pfad für Preview-Fehler. */
+  retry(): void;
+}
+
+/** Bridge-Fehler ins lokale Log melden statt still zu verschlucken (best effort). */
+function reportBridgeError(action: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  void window.wab.logs
+    .report({
+      kind: 'error',
+      message: `Bridge-Aufruf ${action} fehlgeschlagen: ${message}`,
+      source: 'useProjectSession',
+    })
+    .catch(() => undefined);
 }
 
 /**
@@ -42,6 +58,9 @@ export function useProjectSession(project: Project): ProjectSession {
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
   const [pageError, setPageError] = useState<PageError | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  /** Zähler, der die Session neu öffnet (Preview-Fehler → „Erneut versuchen"). */
+  const [openNonce, setOpenNonce] = useState(0);
 
   // Preview-Origin für das Fehler-Templating, ohne den send-Callback neu zu binden.
   const previewOriginRef = useRef<string | undefined>(undefined);
@@ -53,6 +72,7 @@ export function useProjectSession(project: Project): ProjectSession {
     setOpenError(null);
     setPreview(null);
     setPageError(null);
+    setRestoreError(null);
     dispatch({ type: 'reset' });
 
     window.wab.session
@@ -90,7 +110,9 @@ export function useProjectSession(project: Project): ProjectSession {
       offCheckpoints();
       void window.wab.session.close().catch(() => undefined);
     };
-  }, [project.id]);
+  }, [project.id, openNonce]);
+
+  const retry = useCallback(() => setOpenNonce((n) => n + 1), []);
 
   const send = useCallback((prompt: string) => {
     const text = prompt.trim();
@@ -111,19 +133,29 @@ export function useProjectSession(project: Project): ProjectSession {
   }, []);
 
   const interrupt = useCallback(() => {
-    void window.wab.chat.interrupt().catch(() => undefined);
+    void window.wab.chat.interrupt().catch((error: unknown) => {
+      reportBridgeError('chat.interrupt', error);
+    });
   }, []);
 
   const respondPermission = useCallback((requestId: string, allow: boolean) => {
     dispatch({ type: 'permission-answered', requestId });
-    void window.wab.chat.respondPermission({ requestId, allow }).catch(() => undefined);
+    void window.wab.chat.respondPermission({ requestId, allow }).catch((error: unknown) => {
+      reportBridgeError('chat.respondPermission', error);
+    });
   }, []);
 
   const restore = useCallback((checkpointId: string) => {
     setRestoringId(checkpointId);
+    setRestoreError(null);
     window.wab.checkpoints
       .restore(checkpointId)
-      .catch(() => undefined)
+      .catch((error: unknown) => {
+        // Vorher stiller Fehlschlag — der Nutzer sah nur, dass „nichts passiert".
+        setRestoreError(
+          error instanceof Error ? error.message : 'Wiederherstellen fehlgeschlagen.',
+        );
+      })
       .finally(() => setRestoringId(null));
   }, []);
 
@@ -146,11 +178,13 @@ export function useProjectSession(project: Project): ProjectSession {
     checkpoints,
     pageError,
     restoringId,
+    restoreError,
     send,
     interrupt,
     respondPermission,
     restore,
     dismissPageError,
     fixPageError,
+    retry,
   };
 }

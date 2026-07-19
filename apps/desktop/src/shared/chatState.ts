@@ -35,6 +35,8 @@ export interface AssistantMessage {
   status: AssistantStatus;
   /** Fehlermeldung bei status === 'error'. */
   errorText?: string;
+  /** Technische Ursache (z. B. 401-Antwort) — aufklappbar in der UI. */
+  errorCause?: string;
   /** Kosten in USD, falls das Backend sie meldet. */
   costUsd?: number;
 }
@@ -155,6 +157,9 @@ function applyEvent(state: ChatState, event: AgentEvent): ChatState {
           ...m,
           status: 'error',
           errorText: event.message,
+          // Die echte Ursache (401, ungültiges Modell, …) nicht mehr wegwerfen —
+          // die UI zeigt sie aufklappbar an.
+          ...(event.cause !== undefined ? { errorCause: event.cause } : {}),
         })),
       };
 

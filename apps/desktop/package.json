@@ -6,10 +6,10 @@
   "author": "AdminCave <mail@kevin-stenzel.de>",
   "main": "./out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "node scripts/rebuild-native.mjs electron --if-needed && electron-vite dev",
     "build": "electron-vite build",
     "start": "electron-vite preview",
-    "test": "vitest run",
+    "test": "node scripts/rebuild-native.mjs node --if-needed && vitest run",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "package": "pnpm rebuild:electron && electron-vite build && electron-builder",
     "package:linux": "pnpm rebuild:electron && electron-vite build && electron-builder --linux",
@@ -26,8 +26,10 @@
     "@webaibuilder/versioning": "workspace:*",
     "better-sqlite3": "^12.11.1",
     "electron-updater": "^6.8.9",
+    "lucide-react": "^1.24.0",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.2.0",

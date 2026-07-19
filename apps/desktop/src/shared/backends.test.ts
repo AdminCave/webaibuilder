@@ -21,6 +21,7 @@ import {
   backendSelectAction,
   buildAvailabilityViews,
   BUNDLED_KILLSWITCH,
+  chatBlockReason,
   coerceKillSwitchConfig,
   coerceRawAvailability,
   isAllowedExternalUrl,
@@ -29,6 +30,7 @@ import {
   mergeAvailability,
   noticeGate,
   pickInstallHint,
+  recommendChatSetup,
   resolveKillSwitch,
   subscriptionActivationError,
   subscriptionStatusLabel,
@@ -415,5 +417,79 @@ describe('isAllowedExternalUrl — nur offizielle Vendor-Domains (https)', () =>
       'https://developers.openai.com/codex/cli/',
     );
     expect(pickInstallHint('byok')).toBeUndefined(); // API-Key-Backend hat keinen Hint
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Chat-Readiness (chatBlockReason)                                    */
+/* ------------------------------------------------------------------ */
+
+describe('chatBlockReason — Composer-Freischaltung', () => {
+  it('null-Settings blockieren mit no-settings', () => {
+    expect(chatBlockReason(null)).toBe('no-settings');
+  });
+
+  it('API-Key-Backends brauchen einen Key (Schlüsselbund oder Umgebung = hasApiKey)', () => {
+    expect(chatBlockReason({ backendId: 'byok', hasApiKey: false })).toBe('missing-key');
+    expect(chatBlockReason({ backendId: 'byok', hasApiKey: true })).toBeNull();
+    expect(chatBlockReason({ backendId: 'claude-sdk', hasApiKey: false })).toBe('missing-key');
+    expect(chatBlockReason({ backendId: 'claude-sdk', hasApiKey: true })).toBeNull();
+  });
+
+  it('Abo-Backends sind als aktives Backend immer bereit (Main hat die Aktivierung geprüft)', () => {
+    expect(chatBlockReason({ backendId: 'claude-cli', hasApiKey: false })).toBeNull();
+    expect(chatBlockReason({ backendId: 'codex', hasApiKey: false })).toBeNull();
+    expect(chatBlockReason({ backendId: 'gemini-cli', hasApiKey: false })).toBeNull();
+    expect(chatBlockReason({ backendId: 'grok-cli', hasApiKey: false })).toBeNull();
+  });
+});
+
+describe('recommendChatSetup — Empfehlung für den Chat-Empty-State', () => {
+  const KS = resolveKillSwitch(null);
+
+  it('empfiehlt das erste installierte Abo-Backend (claude-cli vor codex)', () => {
+    const views = buildAvailabilityViews(
+      [raw('claude-cli', { loggedIn: 'unknown' }), raw('codex')],
+      KS,
+      NONE,
+    );
+    expect(recommendChatSetup(views)).toEqual({
+      kind: 'use-subscription',
+      backendId: 'claude-cli',
+      needsAck: true, // Hinweis noch nicht bestätigt
+    });
+  });
+
+  it('needsAck ist false, wenn der Hinweis schon bestätigt wurde', () => {
+    const views = buildAvailabilityViews([raw('claude-cli')], KS, new Set(['claude-cli']));
+    expect(recommendChatSetup(views)).toEqual({
+      kind: 'use-subscription',
+      backendId: 'claude-cli',
+      needsAck: false,
+    });
+  });
+
+  it('überspringt nicht installierte, ausgeloggte, kill-switched und experimentelle Backends', () => {
+    const remote = coerceKillSwitchConfig({
+      backends: { codex: { enabled: false, reason: 'pausiert' } },
+    });
+    const views = buildAvailabilityViews(
+      [
+        raw('claude-cli', { installed: false }),
+        raw('codex'), // kill-switched
+        raw('gemini-cli', { loggedIn: false }), // ausgeloggt
+        raw('grok-cli'), // experimentell
+      ],
+      resolveKillSwitch(remote),
+      NONE,
+    );
+    expect(recommendChatSetup(views)).toEqual({ kind: 'enter-key' });
+  });
+
+  it('leere Erkennung → API-Key-Pfad', () => {
+    expect(recommendChatSetup([])).toEqual({ kind: 'enter-key' });
+    expect(recommendChatSetup(buildAvailabilityViews([], KS, NONE))).toEqual({
+      kind: 'enter-key',
+    });
   });
 });

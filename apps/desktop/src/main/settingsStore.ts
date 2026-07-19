@@ -20,7 +20,9 @@ import {
 import {
   coerceAgentSettings,
   effectiveModel,
+  effectiveProvider,
   mergeAgentSettings,
+  PROVIDER_ENV_KEYS,
   type AgentSettings,
   type AgentSettingsData,
   type AgentSettingsInput,
@@ -33,6 +35,12 @@ export class AgentSettingsStore {
   constructor(
     private readonly filePath: string,
     private readonly secrets: SecretsService,
+    /**
+     * Umgebung für den env-Key-Fallback (ANTHROPIC_API_KEY & Co.). Bewusst
+     * Default `{}` statt `process.env`: die Kompositionswurzel (ipc.ts) reicht
+     * `process.env` explizit durch, Tests bleiben deterministisch.
+     */
+    private readonly env: Readonly<Record<string, string | undefined>> = {},
   ) {
     this.data = this.load();
   }
@@ -61,20 +69,34 @@ export class AgentSettingsStore {
 
   /**
    * Renderer-taugliche Sicht: secret-frei plus abgeleitete Flags. `hasApiKey`
-   * bezieht sich auf das aktuelle Backend/Provider, `keychainAvailable` meldet,
-   * ob der OS-Schlüsselbund genutzt wird oder der In-Memory-Fallback aktiv ist.
+   * bezieht sich auf das aktuelle Backend/Provider — Schlüsselbund zuerst,
+   * sonst Umgebungsvariable (Konsistenz zur Erkennung: ein per
+   * ANTHROPIC_API_KEY „erkanntes" claude-sdk ist damit auch nutzbar).
+   * `keychainAvailable` meldet, ob der OS-Schlüsselbund genutzt wird oder der
+   * In-Memory-Fallback aktiv ist.
    */
   get(): AgentSettings {
     // Abo-/CLI-Backends haben keinen app-verwalteten Key — `hasApiKey` darf sie
     // nicht gaten (der Login liegt allein bei der Vendor-CLI, PLAN §3).
-    const hasApiKey = isSubscriptionBackend(this.data.backendId)
-      ? false
-      : this.secrets.hasApiKey(this.data.backendId, this.data.provider);
-    return {
+    const subscription = isSubscriptionBackend(this.data.backendId);
+    const keychainKey =
+      !subscription && this.secrets.hasApiKey(this.data.backendId, this.data.provider);
+    const envKey = !subscription && !keychainKey && this.envApiKey() !== undefined;
+    const view: AgentSettings = {
       ...this.data,
-      hasApiKey,
+      hasApiKey: keychainKey || envKey,
       keychainAvailable: this.secrets.keychainAvailable().available,
     };
+    if (keychainKey) view.apiKeySource = 'keychain';
+    else if (envKey) view.apiKeySource = 'env';
+    return view;
+  }
+
+  /** Key aus der Umgebung (Fallback, wenn keiner im Schlüsselbund liegt). */
+  private envApiKey(): string | undefined {
+    const name = PROVIDER_ENV_KEYS[effectiveProvider(this.data.backendId, this.data.provider)];
+    const value = this.env[name]?.trim();
+    return value !== undefined && value !== '' ? value : undefined;
   }
 
   /**
@@ -100,12 +122,13 @@ export class AgentSettingsStore {
 
   /**
    * Der API-Key für `createBackend` (nur im Main-Prozess), oder undefined.
-   * Für Abo-/CLI-Backends immer undefined — sie nutzen den eigenen Login der
-   * Vendor-CLI und bekommen von der App keinen Key (PLAN §3).
+   * Schlüsselbund zuerst, sonst Umgebungsvariable (wichtig für `byok`, das ohne
+   * expliziten Key wirft). Für Abo-/CLI-Backends immer undefined — sie nutzen
+   * den eigenen Login der Vendor-CLI und bekommen von der App keinen Key (PLAN §3).
    */
   currentApiKey(): string | undefined {
     if (isSubscriptionBackend(this.data.backendId)) return undefined;
-    return this.secrets.getApiKey(this.data.backendId, this.data.provider) ?? undefined;
+    return this.secrets.getApiKey(this.data.backendId, this.data.provider) ?? this.envApiKey();
   }
 
   /** Effektiv zu verwendendes Modell (Override oder Provider-Default). */

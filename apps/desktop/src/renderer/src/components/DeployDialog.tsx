@@ -13,6 +13,7 @@ import {
 } from '../../../shared/deploy';
 import { KEYCHAIN_UNAVAILABLE_WARNING } from '../../../shared/settings';
 import type { DeployHook } from '../hooks/useDeploy';
+import { Icon } from './Icon';
 
 interface DeployDialogProps {
   deploy: DeployHook;
@@ -372,6 +373,7 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
                   onClick={() => void deploy.testConnection(selected.id)}
                   disabled={deploy.testing || busy}
                 >
+                  <Icon name="plug" size={14} />
                   {deploy.testing ? 'Teste …' : 'Verbindung testen'}
                 </button>
                 <button
@@ -380,6 +382,7 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
                   onClick={() => void deploy.publish()}
                   disabled={busy || !selected.hasCredentials}
                 >
+                  <Icon name="deploy" size={14} />
                   {busy && deploy.rollbackSha === null ? 'Veröffentliche …' : 'Veröffentlichen'}
                 </button>
               </div>
@@ -394,6 +397,15 @@ export function DeployDialog({ deploy, keychainAvailable, onClose }: DeployDialo
 
               {(deploy.deploying || deploy.progress.phase !== 'idle') && (
                 <ProgressReport progress={deploy.progress} rollbackSha={deploy.rollbackSha} />
+              )}
+
+              {/* Fehler VOR dem ersten Progress-Event (z. B. „Ziel nicht gefunden")
+                  erzeugen keinen ProgressReport — ohne diese Zeile blieben sie
+                  unsichtbar (outcome wurde gesetzt, aber nie gerendert). */}
+              {deploy.outcome?.status === 'error' && deploy.progress.phase === 'idle' && (
+                <p className="form-error" role="alert">
+                  {deploy.outcome.message}
+                </p>
               )}
             </section>
           )}
@@ -448,6 +460,7 @@ function TestReport({ result }: { result: DeployHook['testResult'] }): React.JSX
   return (
     <div className={result.ok ? 'deploy__test deploy__test--ok' : 'deploy__test deploy__test--fail'}>
       <p className="deploy__test-title">
+        <Icon name={result.ok ? 'check' : 'alert'} size={14} />
         {result.ok ? 'Verbindung steht' : 'Verbindung fehlgeschlagen'}
       </p>
       {result.failures.map((line, i) => (

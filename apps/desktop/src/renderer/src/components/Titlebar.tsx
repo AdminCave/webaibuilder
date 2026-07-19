@@ -1,4 +1,5 @@
 import type { Theme } from '../App';
+import { Icon } from './Icon';
 
 interface TitlebarProps {
   swapped: boolean;
@@ -34,6 +35,7 @@ export function Titlebar({
             title="Zur Projektübersicht"
             onClick={onShowProjects}
           >
+            <Icon name="folder" />
             Projekte
           </button>
         )}
@@ -44,6 +46,7 @@ export function Titlebar({
           title="Chat- und Vorschau-Panel tauschen"
           onClick={onSwap}
         >
+          <Icon name="swap" />
           Panels tauschen
         </button>
         <button
@@ -52,14 +55,16 @@ export function Titlebar({
           title={theme === 'dark' ? 'Zum hellen Design wechseln' : 'Zum dunklen Design wechseln'}
           onClick={onToggleTheme}
         >
+          <Icon name={theme === 'dark' ? 'sun' : 'moon'} />
           {theme === 'dark' ? 'Hell' : 'Dunkel'}
         </button>
         <button
           type="button"
           className="btn"
-          title="KI-Backend & API-Key"
+          title="Einstellungen (Strg+,)"
           onClick={onOpenSettings}
         >
+          <Icon name="settings" />
           Einstellungen
         </button>
       </div>

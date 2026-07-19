@@ -109,3 +109,26 @@ describe('chatReducer', () => {
     expect(state).toEqual(initialChatState);
   });
 });
+
+describe('chatReducer — Fehlerursache (errorCause)', () => {
+  it('übernimmt die cause aus dem error-Event in die Assistant-Nachricht', () => {
+    let state = withRun();
+    state = agent(state, {
+      type: 'error',
+      message: 'Der Claude-Turn konnte nicht abgeschlossen werden.',
+      recoverable: false,
+      cause: '401 {"type":"authentication_error"}',
+    });
+    expect(assistant(state)).toMatchObject({
+      status: 'error',
+      errorText: 'Der Claude-Turn konnte nicht abgeschlossen werden.',
+      errorCause: '401 {"type":"authentication_error"}',
+    });
+  });
+
+  it('lässt errorCause weg, wenn das Event keine cause trägt', () => {
+    let state = withRun();
+    state = agent(state, { type: 'error', message: 'Fehler', recoverable: false });
+    expect(assistant(state).errorCause).toBeUndefined();
+  });
+});

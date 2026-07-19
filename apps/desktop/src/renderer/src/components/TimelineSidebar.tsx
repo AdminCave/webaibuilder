@@ -1,10 +1,14 @@
 import type { Checkpoint } from '@webaibuilder/core';
 
+import { Icon } from './Icon';
+
 interface TimelineSidebarProps {
   /** Bereits mit dem „Deployed"-Flag markierte Checkpoints (siehe Workbench). */
   checkpoints: Checkpoint[];
   /** ID des Checkpoints, der gerade wiederhergestellt wird (oder null). */
   restoringId: string | null;
+  /** Fehler des letzten Wiederherstellens (vorher stiller Fehlschlag). */
+  restoreError: string | null;
   onRestore: (checkpointId: string) => void;
   /** Öffnet die Deploy-Oberfläche (Ziele, Test, Veröffentlichen, Historie). */
   onOpenDeploy: () => void;
@@ -27,6 +31,7 @@ interface TimelineSidebarProps {
 export function TimelineSidebar({
   checkpoints,
   restoringId,
+  restoreError,
   onRestore,
   onOpenDeploy,
   driftWarning,
@@ -42,6 +47,7 @@ export function TimelineSidebar({
         <h1 className="panel__title">Verlauf</h1>
         <div className="panel__header-actions">
           <button type="button" className="btn checkpoint__restore" onClick={onOpenDeploy}>
+            <Icon name="deploy" size={14} />
             Veröffentlichen
           </button>
         </div>
@@ -50,6 +56,11 @@ export function TimelineSidebar({
         {driftWarning && (
           <p className="timeline__drift" role="status">
             Der Server weicht vom zuletzt deployten Stand ab.
+          </p>
+        )}
+        {restoreError !== null && (
+          <p className="timeline__error" role="alert">
+            Wiederherstellen fehlgeschlagen: {restoreError}
           </p>
         )}
         {checkpoints.length === 0 ? (
@@ -91,6 +102,7 @@ export function TimelineSidebar({
                   disabled={busy}
                   onClick={() => onRestore(cp.id)}
                 >
+                  <Icon name="history" size={14} />
                   {restoringId === cp.id ? 'Wird wiederhergestellt …' : 'Wiederherstellen'}
                 </button>
               </div>

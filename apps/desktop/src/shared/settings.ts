@@ -59,16 +59,33 @@ export interface AgentSettingsData {
 }
 
 /**
- * Was der Renderer sieht: die secret-freien Daten plus zwei abgeleitete Flags.
+ * Was der Renderer sieht: die secret-freien Daten plus abgeleitete Flags.
  * Der Key selbst wird nie an den Renderer gegeben.
- *  - `hasApiKey`: liegt für das aktuelle Backend/Provider ein Key vor?
+ *  - `hasApiKey`: liegt für das aktuelle Backend/Provider ein Key vor
+ *    (Schlüsselbund ODER Umgebungsvariable, siehe {@link PROVIDER_ENV_KEYS})?
+ *  - `apiKeySource`: woher der Key stammt (nur gesetzt, wenn `hasApiKey`).
  *  - `keychainAvailable`: gibt es einen OS-Schlüsselbund? Ist er false, hält der
  *    Main-Prozess Secrets nur sitzungsweise im Speicher (siehe Warnung unten).
  */
 export interface AgentSettings extends AgentSettingsData {
   hasApiKey: boolean;
+  apiKeySource?: 'keychain' | 'env';
   keychainAvailable: boolean;
 }
+
+/**
+ * Umgebungsvariablen, aus denen ein API-Key pro Provider gelesen wird, wenn
+ * keiner im Schlüsselbund liegt. Hält die Freischaltung konsistent zur
+ * Erkennung in @webaibuilder/agents (die `claude-sdk` bei gesetztem
+ * ANTHROPIC_API_KEY als verfügbar meldet) — vorher galt: „erkannt", aber der
+ * Chat blieb gesperrt.
+ */
+export const PROVIDER_ENV_KEYS: Record<ByokProvider, string> = {
+  anthropic: 'ANTHROPIC_API_KEY',
+  openai: 'OPENAI_API_KEY',
+  google: 'GEMINI_API_KEY',
+  xai: 'XAI_API_KEY',
+};
 
 /**
  * Deutsche Warnung für die UI, wenn kein Systemschlüsselbund gefunden wurde

@@ -100,23 +100,40 @@ export function makeDefaultWhich(env: NodeJS.ProcessEnv = process.env): WhichFn 
   };
 }
 
-/** Startet `<binary> --version` und liefert die erste Ausgabezeile (best-effort). */
-function probeVersion(binaryPath: string, spawnFn: SpawnFn, timeoutMs = 3000): Promise<string | undefined> {
+/** Ausgabe eines seiteneffektfreien Probe-Kommandos. */
+export interface ProbeCommandResult {
+  stdout: string;
+  stderr: string;
+  exitCode: number | null;
+}
+
+/**
+ * Startet `<binary> <args…>` und sammelt stdout/stderr + Exit-Code — best
+ * effort, nie blockierend (Timeout → SIGKILL → undefined), wirft nie. Basis für
+ * die Versions-Probe und die vendor-spezifischen Login-Proben (loginProbes.ts).
+ */
+export function probeCommand(
+  binaryPath: string,
+  args: readonly string[],
+  spawnFn: SpawnFn = defaultSpawn,
+  timeoutMs = 3000,
+): Promise<ProbeCommandResult | undefined> {
   return new Promise((resolve) => {
     let settled = false;
-    const finish = (value?: string): void => {
+    const finish = (value?: ProbeCommandResult): void => {
       if (settled) return;
       settled = true;
       resolve(value);
     };
     let child: CliChild;
     try {
-      child = spawnFn(binaryPath, ['--version'], { cwd: process.cwd(), env: process.env });
+      child = spawnFn(binaryPath, args, { cwd: process.cwd(), env: process.env });
     } catch {
       finish(undefined);
       return;
     }
     let out = '';
+    let err = '';
     const timer = setTimeout(() => {
       try {
         child.kill('SIGKILL');
@@ -129,16 +146,30 @@ function probeVersion(binaryPath: string, spawnFn: SpawnFn, timeoutMs = 3000): P
     child.stdout?.on('data', (chunk) => {
       out += chunk.toString();
     });
+    child.stderr?.on('data', (chunk) => {
+      err += chunk.toString();
+    });
     child.on('error', () => {
       clearTimeout(timer);
       finish(undefined);
     });
-    child.on('close', () => {
+    child.on('close', (code) => {
       clearTimeout(timer);
-      const line = out.split('\n')[0]?.trim();
-      finish(line !== undefined && line.length > 0 ? line : undefined);
+      finish({ stdout: out, stderr: err, exitCode: code });
     });
   });
+}
+
+/** Startet `<binary> --version` und liefert die erste Ausgabezeile (best-effort). */
+async function probeVersion(
+  binaryPath: string,
+  spawnFn: SpawnFn,
+  timeoutMs = 3000,
+): Promise<string | undefined> {
+  const result = await probeCommand(binaryPath, ['--version'], spawnFn, timeoutMs);
+  if (result === undefined) return undefined;
+  const line = result.stdout.split('\n')[0]?.trim();
+  return line !== undefined && line.length > 0 ? line : undefined;
 }
 
 /**

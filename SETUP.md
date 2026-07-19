@@ -29,22 +29,20 @@ Installer werden mit **electron-builder** gebaut (Konfiguration: `apps/desktop/e
 ### App im Dev-Modus starten (mit Display)
 
 ```bash
-pnpm install                                          # nur beim ersten Mal / nach Änderungen
-pnpm --filter @webaibuilder/desktop rebuild:electron  # better-sqlite3 auf Electron-ABI bauen
-pnpm dev                                              # Vite + Electron
-
-# Wenn du danach wieder Tests fahren willst:
-pnpm --filter @webaibuilder/desktop rebuild:node      # better-sqlite3 zurück auf node-ABI
+pnpm install   # nur beim ersten Mal / nach Änderungen
+pnpm dev       # baut better-sqlite3 bei Bedarf automatisch auf Electron-ABI, dann Vite + Electron
 ```
+
+Der ABI-Toggle läuft automatisch: `pnpm dev` und `pnpm test` prüfen vor dem Start einen Marker (`node_modules/better-sqlite3/build/.wab-abi`) und bauen better-sqlite3 nur um, wenn die ABI nicht zur Ziel-Laufzeit passt. Manuelles `rebuild:electron`/`rebuild:node` ist nur noch für Sonderfälle nötig (erzwungener Neubau).
 
 ### natives Modul (better-sqlite3) & Electron-ABI
 
 Nur **ein** Modul ist ABI-empfindlich:
 
-- **`better-sqlite3`** (Projekt-Registry) ist NAN-basiert — die kompilierte `.node`-Datei muss zur **ABI der Laufzeit** passen. Node 22 und Electron 43 haben unterschiedliche ABIs (127 vs. 148), dieselbe Binärdatei läuft **nicht** in beiden. Deshalb der Toggle: `rebuild:electron` vor `pnpm dev`/`package`, `rebuild:node` vor `pnpm -r test`. Beide Skripte rufen `scripts/rebuild-native.mjs` auf, das better-sqlite3 gezielt (und nur dieses Modul) mit node-gyp neu baut — plattformübergreifend, ohne den kaputten `install-app-deps`-Pfad (der an der optionalen ssh2-Abhängigkeit `cpu-features` scheitert).
+- **`better-sqlite3`** (Projekt-Registry) ist NAN-basiert — die kompilierte `.node`-Datei muss zur **ABI der Laufzeit** passen. Node 22 und Electron 43 haben unterschiedliche ABIs (127 vs. 148), dieselbe Binärdatei läuft **nicht** in beiden. Deshalb der Toggle: Electron-ABI für `pnpm dev`/`package`, node-ABI für die Vitest-Tests. `scripts/rebuild-native.mjs` baut better-sqlite3 gezielt (und nur dieses Modul) mit node-gyp neu — plattformübergreifend, ohne den kaputten `install-app-deps`-Pfad (der an der optionalen ssh2-Abhängigkeit `cpu-features` scheitert). Die dev-/test-Skripte rufen es mit `--if-needed` auf (Marker-Datei entscheidet), die package-Skripte erzwingen den Electron-Build.
 - **`@napi-rs/keyring`** ist dagegen **N-API** (ABI-stabil) und läuft in Node **und** Electron ohne Neubau.
 
-Nach `pnpm install` ist better-sqlite3 für **System-Node** gebaut, also laufen die Vitest-Tests direkt. Wer die App starten will, schaltet einmal mit `rebuild:electron` um; wer danach testet, mit `rebuild:node` zurück. Kommt je eine `NODE_MODULE_VERSION`-Meldung, sagt sie dir genau, welche ABI erwartet wird — dann das passende `rebuild:*` laufen lassen.
+Kommt trotzdem je eine `NODE_MODULE_VERSION`- oder „Module did not self-register"-Meldung, sagt sie dir genau, welche ABI erwartet wird — dann das passende `rebuild:*` laufen lassen.
 
 **Packaging:** `pnpm package` baut better-sqlite3 vorab für Electron (`rebuild:electron`) und packt dann mit `npmRebuild: false` — electron-builder baut also **nichts** nativ neu (und stolpert nicht über `cpu-features`), sondern bündelt die bereits passenden Binärdateien. Voraussetzung dafür, dass electron-builder im pnpm-Monorepo alle Produktions-Deps findet, ist `nodeLinker: hoisted` in `pnpm-workspace.yaml` (flaches `node_modules`; documented pnpm-Fix, electron-builder#6389).
 

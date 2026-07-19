@@ -5,6 +5,7 @@ import '../styles/vendor/styles.css';
 import './app.css';
 
 import { App } from './App';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Dark-mode-first: Light nur bei explizit gespeicherter Wahl (data-theme="light").
 if (localStorage.getItem('wab:theme') === 'light') {
@@ -45,6 +46,8 @@ if (rootElement === null) throw new Error('#root fehlt in index.html');
 
 createRoot(rootElement).render(
   <React.StrictMode>
-    <App />
+    <ErrorBoundary label="App">
+      <App />
+    </ErrorBoundary>
   </React.StrictMode>,
 );

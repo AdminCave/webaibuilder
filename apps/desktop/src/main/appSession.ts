@@ -210,7 +210,15 @@ export class AppSession {
     } catch (error) {
       if (this.runId === runId) {
         const message = error instanceof Error ? error.message : String(error);
-        this.emitAgentEvent(project.id, runId, { type: 'error', message, recoverable: false });
+        // `cause` mitgeben, damit die UI die echte Ursache aufklappbar zeigen kann.
+        const cause =
+          error instanceof Error && error.cause !== undefined ? String(error.cause) : undefined;
+        this.emitAgentEvent(project.id, runId, {
+          type: 'error',
+          message,
+          recoverable: false,
+          ...(cause !== undefined ? { cause } : {}),
+        });
         // Synthetischer Abschluss, damit die UI den Laufzustand verlässt.
         this.emitAgentEvent(project.id, runId, {
           type: 'turn-complete',

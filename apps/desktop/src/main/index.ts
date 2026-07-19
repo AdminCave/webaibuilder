@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 
-import { BrowserWindow, app } from 'electron';
+import { BrowserWindow, app, dialog } from 'electron';
 
 import { getAppSession } from './appSession';
 import { installErrorReporting } from './errorReporting';
@@ -68,18 +68,38 @@ function createMainWindow(): void {
 // Härtung gilt für JEDEN WebContents, auch künftig erzeugte.
 app.on('web-contents-created', (_event, contents) => hardenWebContents(contents));
 
-void app.whenReady().then(() => {
-  installPermissionHandlers();
-  registerIpcHandlers();
-  if (process.env['WAB_SMOKE'] === '1') {
-    console.log('[smoke] App bereit — Security-Handler und IPC registriert.');
+// Scheitert die Initialisierung (z. B. korrupte Registry-DB oder ein natives
+// Modul mit falscher ABI), gäbe es sonst nie ein Fenster und keine Meldung —
+// der Prozess stünde stumm da. Deshalb: Fehler loggen, dem Nutzer zeigen, beenden.
+function failStartup(error: unknown): void {
+  const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  logger.error('startup', 'App-Start fehlgeschlagen', { detail });
+  console.error('[startup] App-Start fehlgeschlagen:', detail);
+  if (process.env['WAB_SMOKE'] !== '1') {
+    dialog.showErrorBox(
+      'Web AI Builder konnte nicht starten',
+      `Beim Start ist ein Fehler aufgetreten:\n\n${detail}\n\nLogs: ${logsDir()}`,
+    );
   }
-  createMainWindow();
+  app.exit(1);
+}
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
-  });
-});
+void app.whenReady().then(() => {
+  try {
+    installPermissionHandlers();
+    registerIpcHandlers();
+    if (process.env['WAB_SMOKE'] === '1') {
+      console.log('[smoke] App bereit — Security-Handler und IPC registriert.');
+    }
+    createMainWindow();
+
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+    });
+  } catch (error) {
+    failStartup(error);
+  }
+}, failStartup);
 
 // Preview-Server, Watcher und laufende Turns sauber herunterfahren.
 app.on('before-quit', () => {

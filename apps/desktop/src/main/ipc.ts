@@ -5,7 +5,7 @@
 
 import { app, ipcMain, shell } from 'electron';
 
-import { detectBackends } from '@webaibuilder/agents';
+import { detectBackends, makeLoginProbe } from '@webaibuilder/agents';
 import type { IpcArgs, IpcChannel, IpcResult } from '@webaibuilder/core';
 import { IpcChannels } from '@webaibuilder/core';
 
@@ -20,6 +20,7 @@ import {
 } from '../shared/channels';
 import { initAppSession } from './appSession';
 import { BackendService, FileAckStore } from './backendService';
+import { validateIpcArgs } from './ipcSchemas';
 import { realDeployEngine } from './deployEngine';
 import { DeployHistoryStore } from './deployHistory';
 import { DeployService } from './deployService';
@@ -42,17 +43,34 @@ import { getSecretsService } from './secrets';
 import { isTrustedIpcSender } from './security';
 import { applySettingsUpdate, AgentSettingsStore } from './settingsStore';
 
-/** `ipcMain.handle` mit Typen aus der IpcInvokeMap + Sender-Validierung. */
+/**
+ * Gemeinsamer Guard vor jedem Handler: (1) Sender-Validierung — nur der eigene
+ * Haupt-Frame; (2) Payload-Validierung gegen die zod-Schemas (Defense-in-Depth,
+ * siehe ipcSchemas.ts). Fehlgeformte Nutzlasten werden geloggt und abgelehnt,
+ * BEVOR sie einen Service erreichen.
+ */
+function guardIpc(channel: string, event: Electron.IpcMainInvokeEvent, args: unknown[]): void {
+  if (!isTrustedIpcSender(event)) {
+    throw new Error(`IPC-Aufruf auf "${channel}" von nicht vertrauenswürdigem Absender blockiert.`);
+  }
+  const issue = validateIpcArgs(channel, args);
+  if (issue !== null) {
+    try {
+      getLogger().warn('ipc', `Ungültige Argumente auf "${channel}"`, { issue });
+    } catch {
+      /* Logger noch nicht initialisiert — Ablehnung reicht. */
+    }
+    throw new Error(`Ungültige Anfrage an "${channel}".`);
+  }
+}
+
+/** `ipcMain.handle` mit Typen aus der IpcInvokeMap + Sender-/Payload-Validierung. */
 function handle<C extends IpcChannel>(
   channel: C,
   handler: (...args: IpcArgs<C>) => IpcResult<C> | Promise<IpcResult<C>>,
 ): void {
   ipcMain.handle(channel, (event, ...args) => {
-    if (!isTrustedIpcSender(event)) {
-      throw new Error(
-        `IPC-Aufruf auf "${channel}" von nicht vertrauenswürdigem Absender blockiert.`,
-      );
-    }
+    guardIpc(channel, event, args);
     return handler(...(args as IpcArgs<C>));
   });
 }
@@ -63,11 +81,7 @@ function handleDesktop<C extends DesktopIpcChannel>(
   handler: (...args: DesktopIpcArgs<C>) => DesktopIpcResult<C> | Promise<DesktopIpcResult<C>>,
 ): void {
   ipcMain.handle(channel, (event, ...args) => {
-    if (!isTrustedIpcSender(event)) {
-      throw new Error(
-        `IPC-Aufruf auf "${channel}" von nicht vertrauenswürdigem Absender blockiert.`,
-      );
-    }
+    guardIpc(channel, event, args);
     return handler(...(args as DesktopIpcArgs<C>));
   });
 }
@@ -79,7 +93,9 @@ export function registerIpcHandlers(): void {
   // Secrets (API-Keys, später Deploy-Credentials) laufen über den
   // OS-Schlüsselbund; der Store hält nur die secret-freien Einstellungen.
   const secrets = getSecretsService();
-  const settings = new AgentSettingsStore(settingsFilePath(), secrets);
+  // process.env explizit durchreichen: ermöglicht den env-Key-Fallback
+  // (ANTHROPIC_API_KEY & Co.), ohne dass Tests am realen env hängen.
+  const settings = new AgentSettingsStore(settingsFilePath(), secrets, process.env);
   const session = initAppSession(registry, settings);
 
   // --- M3: Deploy-Ziele, Deploy-Orchestrierung, Historie ---
@@ -105,7 +121,9 @@ export function registerIpcHandlers(): void {
   const backends = new BackendService({
     // Lose typisiert übernommen — resilient gegen additive Änderungen an
     // BackendAvailability in @webaibuilder/agents (paralleler Umbau).
-    detect: () => detectBackends(),
+    // Login-Probe: fragt die offizielle CLI seiteneffektfrei nach ihrem
+    // Login-Status („eingeloggt als …" statt ewig „gefunden", PLAN §6).
+    detect: () => detectBackends({ probe: makeLoginProbe() }),
     killSwitch,
     acks: new FileAckStore(backendAcksFilePath()),
   });

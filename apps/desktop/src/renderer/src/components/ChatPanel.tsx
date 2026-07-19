@@ -2,9 +2,20 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { BackendId } from '@webaibuilder/core';
 
-import { activeBackendStatusLabel } from '../../../shared/backends';
+import {
+  activeBackendStatusLabel,
+  backendDisplayName,
+  recommendChatSetup,
+  type BackendAvailabilityView,
+  type SubscriptionBackendId,
+} from '../../../shared/backends';
 import type { AssistantMessage, ChatState, PendingPermission } from '../../../shared/chatState';
+import { humanizeAgentError } from '../../../shared/errorHints';
 import type { WabPreviewEvent } from '../../../shared/preview';
+import type { AgentSettings } from '../../../shared/settings';
+import type { SettingsRoute } from '../../../shared/settingsNav';
+import { Icon } from './Icon';
+import { BackendNoticePanel } from './settings/BackendNoticePanel';
 
 type PageError = Extract<WabPreviewEvent, { type: 'page-error' }>;
 
@@ -18,6 +29,10 @@ interface ChatPanelProps {
   pageError: PageError | null;
   onFixError: () => void;
   onDismissError: () => void;
+  /** Öffnet die Einstellungen an einer bestimmten Stelle (Deep-Link). */
+  onOpenSettings: (route: SettingsRoute) => void;
+  /** Meldet frisch gespeicherte Einstellungen an die App (schaltet den Chat frei). */
+  onSettingsSaved: (settings: AgentSettings) => void;
 }
 
 export function ChatPanel({
@@ -30,6 +45,8 @@ export function ChatPanel({
   pageError,
   onFixError,
   onDismissError,
+  onOpenSettings,
+  onSettingsSaved,
 }: ChatPanelProps): React.JSX.Element {
   const [draft, setDraft] = useState('');
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -68,9 +85,7 @@ export function ChatPanel({
               rechts sofort die Vorschau.
             </p>
             {!backendReady && (
-              <p className="chat__hint">
-                Hinterleg zuerst ein KI-Backend samt API-Key unter „Einstellungen".
-              </p>
+              <ChatSetup onOpenSettings={onOpenSettings} onSettingsSaved={onSettingsSaved} />
             )}
           </div>
         ) : (
@@ -124,6 +139,7 @@ export function ChatPanel({
         />
         {running ? (
           <button type="button" className="btn" onClick={onInterrupt}>
+            <Icon name="stop" size={14} />
             Stopp
           </button>
         ) : (
@@ -133,6 +149,7 @@ export function ChatPanel({
             onClick={submit}
             disabled={draft.trim() === '' || !backendReady}
           >
+            <Icon name="send" size={14} />
             Senden
           </button>
         )}
@@ -173,14 +190,163 @@ function AssistantBubble({
         message.text !== '' && <div className="msg__text">{message.text}</div>
       )}
 
-      {message.status === 'error' && (
-        <p className="msg__error">{message.errorText ?? 'Es ist ein Fehler aufgetreten.'}</p>
-      )}
+      {message.status === 'error' && <ErrorDetails message={message} />}
       {message.status === 'interrupted' && !running && (
         <p className="msg__note">Abgebrochen.</p>
       )}
       {typeof message.costUsd === 'number' && (
         <p className="msg__cost">{formatCost(message.costUsd)}</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Geführter Einrichtungs-Pfad im leeren Chat (statt totem Disabled-Zustand):
+ * empfiehlt das erste nutzbare Abo-Backend („gefunden — jetzt einrichten",
+ * inkl. Hinweis-Bestätigung, Compliance PLAN §3) oder führt zum API-Key in den
+ * Einstellungen. Genau die Lücke, die vorher „erkennt Claude, aber man kann
+ * nichts machen" erzeugte.
+ */
+function ChatSetup({
+  onOpenSettings,
+  onSettingsSaved,
+}: {
+  onOpenSettings: (route: SettingsRoute) => void;
+  onSettingsSaved: (settings: AgentSettings) => void;
+}): React.JSX.Element {
+  const [views, setViews] = useState<readonly BackendAvailabilityView[] | null>(null);
+  const [noticeBackend, setNoticeBackend] = useState<SubscriptionBackendId | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    window.wab.backends
+      .list()
+      .then((state) => {
+        if (!cancelled) setViews(state.backends);
+      })
+      .catch(() => {
+        // Erkennung nicht verfügbar → auf den API-Key-Pfad zurückfallen.
+        if (!cancelled) setViews([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function activate(id: BackendId, withAck: boolean): Promise<void> {
+    setBusy(true);
+    setError(null);
+    try {
+      // Compliance: erst die explizite Bestätigung persistieren, DANN aktivieren —
+      // der Main-Prozess prüft die Aktivierung autoritativ (applySettingsUpdate).
+      if (withAck) await window.wab.backends.acknowledge(id);
+      const next = await window.wab.settings.set({ backendId: id });
+      onSettingsSaved(next);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Aktivierung fehlgeschlagen.');
+    } finally {
+      setBusy(false);
+      setNoticeBackend(null);
+    }
+  }
+
+  if (views === null) {
+    return <p className="chat__hint">Prüfe verfügbare KI-Backends …</p>;
+  }
+  const cta = recommendChatSetup(views);
+
+  return (
+    <div className="chat__setup">
+      {cta.kind === 'use-subscription' ? (
+        <>
+          <p className="chat__hint">
+            {backendDisplayName(cta.backendId)} ist auf deinem Rechner installiert — du kannst den
+            Chat direkt über dein Abo nutzen.
+          </p>
+          <div className="chat__setup-actions">
+            <button
+              type="button"
+              className="btn btn--primary"
+              disabled={busy}
+              onClick={() => {
+                if (cta.needsAck) setNoticeBackend(cta.backendId);
+                else void activate(cta.backendId, false);
+              }}
+            >
+              <Icon name="terminal" size={14} />
+              {busy
+                ? 'Aktiviere …'
+                : `${backendDisplayName(cta.backendId)} ${cta.needsAck ? 'jetzt einrichten' : 'verwenden'}`}
+            </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => onOpenSettings({ section: 'backends' })}
+            >
+              Andere Backends
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="chat__hint">
+            Hinterleg zuerst ein KI-Backend samt API-Key — oder installiere eine der
+            unterstützten Anbieter-CLIs für den Abo-Modus.
+          </p>
+          <div className="chat__setup-actions">
+            <button
+              type="button"
+              className="btn btn--primary"
+              onClick={() => onOpenSettings({ section: 'backends', backendId: 'byok' })}
+            >
+              <Icon name="key" size={14} />
+              API-Key hinterlegen
+            </button>
+          </div>
+        </>
+      )}
+
+      {error !== null && (
+        <p className="msg__error" role="alert">
+          {error}
+        </p>
+      )}
+
+      {noticeBackend !== null && (
+        <BackendNoticePanel
+          backendId={noticeBackend}
+          busy={busy}
+          onOpenHint={(url) => void window.wab.backends.openHint(url).catch(() => undefined)}
+          onConfirm={() => void activate(noticeBackend, true)}
+          onCancel={() => setNoticeBackend(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Fehleranzeige einer Assistant-Bubble: Meldung, dazu (falls erkannt) ein
+ * handlungsleitender Hinweis und die aufklappbare technische Ursache — vorher
+ * ging die echte Ursache (401, ungültiges Modell, …) verloren.
+ */
+function ErrorDetails({ message }: { message: AssistantMessage }): React.JSX.Element {
+  const hint = humanizeAgentError(`${message.errorText ?? ''}\n${message.errorCause ?? ''}`);
+  return (
+    <div className="msg__error-block">
+      <p className="msg__error">
+        <Icon name="alert" size={14} />
+        {message.errorText ?? 'Es ist ein Fehler aufgetreten.'}
+      </p>
+      {hint !== null && <p className="msg__error-hint">{hint}</p>}
+      {message.errorCause !== undefined && message.errorCause !== '' && (
+        <details className="msg__error-details">
+          <summary>Details anzeigen</summary>
+          <pre>{message.errorCause}</pre>
+        </details>
       )}
     </div>
   );

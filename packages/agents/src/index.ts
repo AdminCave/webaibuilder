@@ -50,12 +50,15 @@ export {
   detectCliBackends,
   makeDefaultProbe,
   makeDefaultWhich,
+  probeCommand,
   type CliMeta,
   type DetectCliOptions,
+  type ProbeCommandResult,
   type ProbeFn,
   type ProbeResult,
   type WhichFn,
 } from './detect';
+export { makeLoginProbe } from './loginProbes';
 
 /**
  * Ergebnis der Backend-Erkennung ("Claude Code gefunden, eingeloggt als …").

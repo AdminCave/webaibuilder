@@ -137,6 +137,28 @@ export function useDeploy(projectId: string): DeployHook {
       .catch(() => undefined);
   }, [projectId]);
 
+  // Proaktive Drift-Erkennung (fail-safe, fire-and-forget): der dedizierte
+  // deploy.drift-Kanal war vollständig verdrahtet, wurde aber nie aufgerufen —
+  // die Drift-Warnung erschien nur nach manuellem „Verbindung testen". Jetzt
+  // wird beim Zielwechsel/Projektöffnen im Hintergrund geprüft; Netz-/Auth-
+  // Fehler bleiben still (Warnung nur bei echtem Befund).
+  useEffect(() => {
+    if (selectedTargetId === null || deploying) return;
+    const target = targets.find((t) => t.id === selectedTargetId);
+    if (target === undefined || !target.hasCredentials) return;
+    if (target.lastDeployedCommit === undefined) return; // nie deployt → nichts zu prüfen
+    let cancelled = false;
+    window.wab.deploy
+      .drift(projectId, selectedTargetId)
+      .then((result) => {
+        if (!cancelled) setDrift(result);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, selectedTargetId, targets, deploying]);
+
   const selectTarget = useCallback((targetId: string) => {
     setSelectedTargetId(targetId);
     setTestResult(null);

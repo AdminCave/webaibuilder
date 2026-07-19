@@ -114,6 +114,60 @@ describe('AgentSettingsStore — abgeleitete Flags', () => {
   });
 });
 
+describe('AgentSettingsStore — env-Key-Fallback', () => {
+  it('hasApiKey/currentApiKey fallen auf die Umgebungsvariable zurück', () => {
+    const secrets = new SecretsService({ forceFallback: true });
+    const store = new AgentSettingsStore(filePath, secrets, { ANTHROPIC_API_KEY: 'sk-env' });
+
+    // Default byok/anthropic ohne Keychain-Key → env-Key schaltet frei.
+    const view = store.get();
+    expect(view.hasApiKey).toBe(true);
+    expect(view.apiKeySource).toBe('env');
+    expect(store.currentApiKey()).toBe('sk-env');
+  });
+
+  it('Schlüsselbund gewinnt vor der Umgebung', () => {
+    const secrets = new SecretsService({ forceFallback: true });
+    const store = new AgentSettingsStore(filePath, secrets, { ANTHROPIC_API_KEY: 'sk-env' });
+
+    store.set({ apiKey: 'sk-keychain' });
+    expect(store.get().apiKeySource).toBe('keychain');
+    expect(store.currentApiKey()).toBe('sk-keychain');
+  });
+
+  it('zählt pro EFFEKTIVEM Provider (claude-sdk → anthropic, byok/openai → OPENAI_API_KEY)', () => {
+    const secrets = new SecretsService({ forceFallback: true });
+    const store = new AgentSettingsStore(filePath, secrets, { OPENAI_API_KEY: 'sk-oai' });
+
+    // byok/anthropic: kein ANTHROPIC_API_KEY in der Umgebung → gesperrt.
+    expect(store.get().hasApiKey).toBe(false);
+    // byok/openai: OPENAI_API_KEY greift.
+    store.set({ provider: 'openai' });
+    expect(store.get().hasApiKey).toBe(true);
+    expect(store.currentApiKey()).toBe('sk-oai');
+    // claude-sdk spricht immer Anthropic — der OpenAI-Key zählt dort nicht.
+    store.set({ backendId: 'claude-sdk' });
+    expect(store.get().hasApiKey).toBe(false);
+  });
+
+  it('Abo-Backends bleiben vom env-Key unberührt; leere Werte zählen nicht', () => {
+    const secrets = new SecretsService({ forceFallback: true });
+    const subscription = new AgentSettingsStore(filePath, secrets, {
+      ANTHROPIC_API_KEY: 'sk-env',
+    });
+    subscription.set({ backendId: 'codex' });
+    expect(subscription.get().hasApiKey).toBe(false);
+    expect(subscription.currentApiKey()).toBeUndefined();
+
+    const blank = new AgentSettingsStore(join(tmp, 'blank.json'), secrets, {
+      ANTHROPIC_API_KEY: '   ',
+    });
+    expect(blank.get().hasApiKey).toBe(false);
+    expect(blank.get().apiKeySource).toBeUndefined();
+    expect(blank.currentApiKey()).toBeUndefined();
+  });
+});
+
 describe('AgentSettingsStore — Abo-/CLI-Backends brauchen keinen Key', () => {
   it('hasApiKey ist false und currentApiKey undefined, obwohl ein Anthropic-Key vorliegt', () => {
     const secrets = new SecretsService({ forceFallback: true });

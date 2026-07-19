@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 
 import type { Theme } from '../App';
+import { Icon } from './Icon';
 
 interface PreviewPanelProps {
   theme: Theme;
@@ -9,6 +10,8 @@ interface PreviewPanelProps {
   port: number | null;
   status: 'opening' | 'ready' | 'error';
   openError: string | null;
+  /** Öffnet die Projekt-Session neu — Wiederanlauf nach Preview-Fehler. */
+  onRetry: () => void;
 }
 
 /** Platzhalter-Inhalt, solange keine Preview-URL vorliegt. */
@@ -35,6 +38,7 @@ export function PreviewPanel({
   port,
   status,
   openError,
+  onRetry,
 }: PreviewPanelProps): React.JSX.Element {
   const [reloadNonce, setReloadNonce] = useState(0);
 
@@ -52,15 +56,25 @@ export function PreviewPanel({
         <h1 className="panel__title">Vorschau</h1>
         <span className="chip">{portLabel}</span>
         <div className="panel__header-actions">
-          <button
-            type="button"
-            className="btn"
-            disabled={previewUrl === null}
-            title="Vorschau neu laden"
-            onClick={() => setReloadNonce((n) => n + 1)}
-          >
-            Neu laden
-          </button>
+          {status === 'error' ? (
+            // Wiederanlauf-Pfad: „Neu laden" wäre hier genau dann tot, wenn man
+            // es braucht (previewUrl === null) — stattdessen die Session neu öffnen.
+            <button type="button" className="btn" title="Vorschau neu starten" onClick={onRetry}>
+              <Icon name="refresh" size={14} />
+              Erneut versuchen
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn"
+              disabled={previewUrl === null}
+              title="Vorschau neu laden"
+              onClick={() => setReloadNonce((n) => n + 1)}
+            >
+              <Icon name="refresh" size={14} />
+              Neu laden
+            </button>
+          )}
         </div>
       </header>
       {previewUrl === null ? (

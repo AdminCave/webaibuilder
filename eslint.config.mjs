@@ -10,6 +10,17 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    // Node-ESM-Skripte (z. B. apps/desktop/scripts/rebuild-native.mjs) laufen
+    // unter Node — process/console sind dort echte Globals.
+    files: ['**/*.mjs'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        console: 'readonly',
+      },
+    },
+  },
+  {
     rules: {
       '@typescript-eslint/no-unused-vars': [
         'error',

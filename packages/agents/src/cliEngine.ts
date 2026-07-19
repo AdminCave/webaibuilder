@@ -83,6 +83,14 @@ export interface CliBackendConfig {
    * WICHTIG (PLAN §3): hier NIEMALS `ANTHROPIC_BASE_URL` o. Ä. oder Tokens setzen.
    */
   env?: NodeJS.ProcessEnv;
+  /**
+   * Watchdog: liefert die CLI so lange keinerlei Ausgabe (stdout/stderr) und
+   * wartet dabei nicht auf eine Permission-Antwort, wird der Turn mit Fehler
+   * abgebrochen und der Prozess beendet — sonst hinge die UI bei Protokoll-
+   * Drift (z. B. fehlendes result-Event) ewig in „Die KI arbeitet …".
+   * 0 = aus. Default 120 000 ms.
+   */
+  idleTimeoutMs?: number;
 }
 
 /** Was die Engine über einen laufenden Turn mitführt; von `mapLine` mutierbar. */
@@ -137,9 +145,11 @@ export interface CliSpec {
 type EngineItem =
   | { kind: 'json'; value: Record<string, unknown> }
   | { kind: 'spawn-error'; error: NodeJS.ErrnoException }
+  | { kind: 'idle-timeout' }
   | { kind: 'exit'; code: number | null; signal: NodeJS.Signals | null };
 
 const DEFAULT_KILL_GRACE_MS = 2000;
+const DEFAULT_IDLE_TIMEOUT_MS = 120_000;
 
 class CliBackend implements AgentBackend {
   readonly id: BackendId;
@@ -148,6 +158,7 @@ class CliBackend implements AgentBackend {
   readonly #command: string;
   readonly #env: NodeJS.ProcessEnv;
   readonly #killGraceMs: number;
+  readonly #idleTimeoutMs: number;
 
   #child: CliChild | null = null;
   #exited = false;
@@ -162,6 +173,7 @@ class CliBackend implements AgentBackend {
     // Env unverändert durchreichen (PLAN §3: keine base-url/token-Injektion).
     this.#env = config.env ?? process.env;
     this.#killGraceMs = config.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
+    this.#idleTimeoutMs = config.idleTimeoutMs ?? DEFAULT_IDLE_TIMEOUT_MS;
   }
 
   capabilities(): AgentCapabilities {
@@ -201,6 +213,26 @@ class CliBackend implements AgentBackend {
     }
     this.#child = child;
 
+    // --- Watchdog: neu armiert bei jedem stdout/stderr-CHUNK (echtes
+    // Lebenszeichen), pausiert bei offener Permission-Anfrage (der Nutzer darf
+    // beliebig lange überlegen — die CLI ist dann legitim still).
+    let watchdogPaused = false;
+    let idleTimer: ReturnType<typeof setTimeout> | null = null;
+    const stopWatchdog = (): void => {
+      if (idleTimer !== null) {
+        clearTimeout(idleTimer);
+        idleTimer = null;
+      }
+    };
+    const armWatchdog = (): void => {
+      if (this.#idleTimeoutMs <= 0 || watchdogPaused) return;
+      stopWatchdog();
+      // push nach queue.close() ist ein No-op — ein spät feuernder Timer
+      // kann einen beendeten Turn nicht stören.
+      idleTimer = setTimeout(() => queue.push({ kind: 'idle-timeout' }), this.#idleTimeoutMs);
+      idleTimer.unref?.();
+    };
+
     // --- stdout zeilenweise puffern → JSONL parsen (kaputte Zeilen skippen) ---
     let buffer = '';
     const pushLine = (raw: string): void => {
@@ -217,6 +249,7 @@ class CliBackend implements AgentBackend {
       }
     };
     child.stdout?.on('data', (chunk) => {
+      armWatchdog();
       buffer += chunk.toString();
       let idx = buffer.indexOf('\n');
       while (idx >= 0) {
@@ -234,6 +267,7 @@ class CliBackend implements AgentBackend {
 
     let stderrTail = '';
     child.stderr?.on('data', (chunk) => {
+      armWatchdog();
       stderrTail = (stderrTail + chunk.toString()).slice(-2000);
     });
 
@@ -248,6 +282,7 @@ class CliBackend implements AgentBackend {
     child.on('error', (err) => settle({ kind: 'spawn-error', error: err }));
     child.on('close', (code, signal) => {
       this.#exited = true;
+      stopWatchdog();
       if (this.#killTimer) {
         clearTimeout(this.#killTimer);
         this.#killTimer = null;
@@ -267,8 +302,25 @@ class CliBackend implements AgentBackend {
       }
     }
 
+    // Initial armieren — fängt auch eine CLI, die nie irgendetwas ausgibt.
+    armWatchdog();
+
     try {
       for await (const item of queue) {
+        if (item.kind === 'idle-timeout') {
+          state.stopReason = 'error';
+          // Erst den Prozess beenden (VOR dem yield — der Konsument könnte den
+          // Strom sonst fallen lassen und die CLI liefe weiter); das close-Event
+          // schließt anschließend die Queue.
+          this.#terminate();
+          const seconds = Math.round(this.#idleTimeoutMs / 1000);
+          yield {
+            type: 'error',
+            message: `Die CLI hat seit ${seconds} Sekunden nicht geantwortet und wurde beendet.`,
+            recoverable: true,
+          };
+          continue;
+        }
         if (item.kind === 'spawn-error') {
           state.stopReason = 'error';
           yield item.error.code === 'ENOENT'
@@ -300,21 +352,30 @@ class CliBackend implements AgentBackend {
         // item.kind === 'json'
         const events = this.#spec.mapLine(item.value, state);
         for (const event of events) {
+          // Solange eine Permission-Antwort aussteht, pausiert der Watchdog.
+          if (event.type === 'permission-request') {
+            watchdogPaused = true;
+            stopWatchdog();
+          }
           // Der Rückgabewert des yield ist die Nutzer-Entscheidung (Desktop
           // treibt mit `next(decision)`); für Nicht-Permission-Events undefined.
           const decision = yield event;
-          if (event.type === 'permission-request' && this.#spec.answerPermission) {
-            const response = this.#spec.answerPermission(
-              event,
-              decision as PermissionDecision | undefined,
-            );
-            if (response != null) {
-              try {
-                child.stdin?.write(`${JSON.stringify(response)}\n`);
-              } catch {
-                /* stdin evtl. schon zu — Entscheidung nicht zustellbar */
+          if (event.type === 'permission-request') {
+            if (this.#spec.answerPermission) {
+              const response = this.#spec.answerPermission(
+                event,
+                decision as PermissionDecision | undefined,
+              );
+              if (response != null) {
+                try {
+                  child.stdin?.write(`${JSON.stringify(response)}\n`);
+                } catch {
+                  /* stdin evtl. schon zu — Entscheidung nicht zustellbar */
+                }
               }
             }
+            watchdogPaused = false;
+            armWatchdog();
           }
         }
 
@@ -329,6 +390,7 @@ class CliBackend implements AgentBackend {
       }
     } finally {
       this.#child = null;
+      stopWatchdog();
       if (this.#killTimer) {
         clearTimeout(this.#killTimer);
         this.#killTimer = null;
@@ -346,9 +408,14 @@ class CliBackend implements AgentBackend {
 
   interrupt(): Promise<void> {
     this.#interrupted = true;
+    this.#terminate();
+    return Promise.resolve();
+  }
+
+  /** Erst höflich (SIGTERM), dann nach Grace hart (SIGKILL) — von `interrupt()` und dem Watchdog genutzt. */
+  #terminate(): void {
     const child = this.#child;
-    if (child === null || this.#exited) return Promise.resolve();
-    // Erst höflich (SIGTERM), dann nach Grace hart (SIGKILL).
+    if (child === null || this.#exited) return;
     try {
       child.kill('SIGTERM');
     } catch {
@@ -365,7 +432,6 @@ class CliBackend implements AgentBackend {
     }, this.#killGraceMs);
     timer.unref?.();
     this.#killTimer = timer;
-    return Promise.resolve();
   }
 }
 
