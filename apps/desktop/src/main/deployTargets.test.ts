@@ -44,7 +44,7 @@ function input(overrides: Partial<DeployTargetInput> = {}): DeployTargetInput {
     port: 22,
     username: 'w012345',
     remotePath: '/htdocs',
-    password: 'geheim',
+    password: 'secret',
     ...overrides,
   };
 }
@@ -68,7 +68,7 @@ beforeEach(async () => {
   service = new DeployTargetService(registry, secrets.port, {
     idFactory: () => `target-${(seq += 1)}`,
   });
-  project = await registry.create({ name: 'Vereinsseite', templateId: 'leer' });
+  project = await registry.create({ name: 'Club website', templateId: 'blank' });
 });
 
 afterEach(() => {
@@ -99,9 +99,9 @@ describe('save', () => {
     expect(fetched?.deployTargets[0]?.host).toBe('ssh.example.org');
 
     // Password as JSON in the keychain, not in the DB.
-    expect(secrets.store.get('deploy:target-1')).toBe(JSON.stringify({ password: 'geheim' }));
+    expect(secrets.store.get('deploy:target-1')).toBe(JSON.stringify({ password: 'secret' }));
     const creds = service.getCredentials('target-1');
-    expect(creds).toEqual({ password: 'geheim' });
+    expect(creds).toEqual({ password: 'secret' });
   });
 
   it('creates a target without a password (hasCredentials=false)', async () => {
@@ -112,7 +112,7 @@ describe('save', () => {
 
   it('stores a passphrase in addition to the password (SFTP)', async () => {
     await service.save(project.id, input({ passphrase: 'pp' }));
-    expect(service.getCredentials('target-1')).toEqual({ password: 'geheim', passphrase: 'pp' });
+    expect(service.getCredentials('target-1')).toEqual({ password: 'secret', passphrase: 'pp' });
   });
 
   it('changes secret-free fields, keeps last_deployed, and leaves the password unchanged', async () => {
@@ -121,21 +121,21 @@ describe('save', () => {
 
     const edited = await service.save(
       project.id,
-      input({ id: created.id, host: 'neu.example.org', password: undefined }),
+      input({ id: created.id, host: 'new.example.org', password: undefined }),
     );
 
-    expect(edited.host).toBe('neu.example.org');
+    expect(edited.host).toBe('new.example.org');
     // last_deployed is preserved (a pure edit does not reset the state).
     expect(edited.lastDeployedCommit).toBe('abc1234');
     // Password unchanged (undefined = don't touch).
-    expect(service.getCredentials(created.id)).toEqual({ password: 'geheim' });
+    expect(service.getCredentials(created.id)).toEqual({ password: 'secret' });
     expect(edited.hasCredentials).toBe(true);
   });
 
   it('replaces the password when one is sent along', async () => {
     const created = await service.save(project.id, input());
-    await service.save(project.id, input({ id: created.id, password: 'neu' }));
-    expect(service.getCredentials(created.id)).toEqual({ password: 'neu' });
+    await service.save(project.id, input({ id: created.id, password: 'new' }));
+    expect(service.getCredentials(created.id)).toEqual({ password: 'new' });
   });
 
   it('rejects invalid input without writing anything', async () => {
@@ -145,7 +145,7 @@ describe('save', () => {
   });
 
   it('rejects editing an unknown target ID', async () => {
-    await expect(service.save(project.id, input({ id: 'gibts-nicht' }))).rejects.toThrow(
+    await expect(service.save(project.id, input({ id: 'does-not-exist' }))).rejects.toThrow(
       /does not exist in this project/,
     );
   });

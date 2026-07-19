@@ -73,9 +73,9 @@ describe.each([['system'], ['isomorphic']] as const)('Backend: %s', (backendKind
   it('createCheckpoint commits everything and reads back trailer metadata', async () => {
     await initWorkspace(ws);
     await mkdir(join(ws, 'site'), { recursive: true });
-    await writeFile(join(ws, 'site', 'index.html'), '<h1>Hallo</h1>');
+    await writeFile(join(ws, 'site', 'index.html'), '<h1>Hello</h1>');
 
-    const cp = await createCheckpoint(ws, 'Bau mir eine Vereinsseite\nMit Terminen und Kontakt.', {
+    const cp = await createCheckpoint(ws, 'Build me a club website\nWith dates and contact.', {
       turnId: 'turn-1',
       backend: 'claude-sdk',
       sessionId: 'sess-abc',
@@ -83,7 +83,7 @@ describe.each([['system'], ['isomorphic']] as const)('Backend: %s', (backendKind
     });
 
     expect(cp.id).toMatch(FULL_SHA);
-    expect(cp.message).toBe('Bau mir eine Vereinsseite');
+    expect(cp.message).toBe('Build me a club website');
     expect(Number.isNaN(Date.parse(cp.createdAt))).toBe(false);
     expect(cp.turnId).toBe('turn-1');
     expect(cp.backend).toBe('claude-sdk');
@@ -93,7 +93,7 @@ describe.each([['system'], ['isomorphic']] as const)('Backend: %s', (backendKind
     // Round-trip via git log (newest first).
     const list = await listCheckpoints(ws);
     expect(list[0]?.id).toBe(cp.id);
-    expect(list[0]?.message).toBe('Bau mir eine Vereinsseite');
+    expect(list[0]?.message).toBe('Build me a club website');
     expect(list[0]?.turnId).toBe('turn-1');
     expect(list[0]?.backend).toBe('claude-sdk');
     expect(list[0]?.sessionId).toBe('sess-abc');
@@ -109,7 +109,7 @@ describe.each([['system'], ['isomorphic']] as const)('Backend: %s', (backendKind
     await writeFile(join(ws, 'project.json'), '{"id":"p1"}');
     await mkdir(join(ws, 'site'), { recursive: true });
     await writeFile(join(ws, 'site', 'index.html'), '<h1>Test</h1>');
-    await createCheckpoint(ws, 'Erste Seite');
+    await createCheckpoint(ws, 'First page');
 
     const tracked = await git.listFiles({ fs: nodeFs, dir: ws, ref: 'HEAD' });
     expect(tracked).toContain('site/index.html');
@@ -120,33 +120,33 @@ describe.each([['system'], ['isomorphic']] as const)('Backend: %s', (backendKind
     await initWorkspace(ws);
     await mkdir(join(ws, 'site'), { recursive: true });
     await writeFile(join(ws, 'site', 'index.html'), '<h1>v1</h1>');
-    const cp = await createCheckpoint(ws, 'Erste Seite');
+    const cp = await createCheckpoint(ws, 'First page');
 
-    const named = await nameVersion(ws, cp.id, 'Schöne Startversion');
+    const named = await nameVersion(ws, cp.id, 'Nice initial version');
     expect(named.sha).toBe(cp.id);
-    expect(named.name).toBe('Schöne Startversion');
-    expect(named.tagName).toBe('wab/schoene-startversion');
+    expect(named.name).toBe('Nice initial version');
+    expect(named.tagName).toBe('wab/nice-initial-version');
 
     const list = await listCheckpoints(ws);
-    expect(list.find((c) => c.id === cp.id)?.versionName).toBe('Schöne Startversion');
+    expect(list.find((c) => c.id === cp.id)?.versionName).toBe('Nice initial version');
 
     // Name collision → unique tag name.
-    const named2 = await nameVersion(ws, cp.id, 'Schöne Startversion');
-    expect(named2.tagName).toBe('wab/schoene-startversion-2');
+    const named2 = await nameVersion(ws, cp.id, 'Nice initial version');
+    expect(named2.tagName).toBe('wab/nice-initial-version-2');
   });
 
   it('restore = new commit: linear, lossless, no detached HEAD', async () => {
     await initWorkspace(ws);
     await mkdir(join(ws, 'site'), { recursive: true });
     await writeFile(join(ws, 'site', 'index.html'), '<h1>v1</h1>');
-    const cp1 = await createCheckpoint(ws, 'Erste Seite');
+    const cp1 = await createCheckpoint(ws, 'First page');
 
     await writeFile(join(ws, 'site', 'index.html'), '<h1>v2</h1>');
     await writeFile(join(ws, 'site', 'extra.html'), '<p>extra</p>');
-    const cp2 = await createCheckpoint(ws, 'Zweite Seite');
+    const cp2 = await createCheckpoint(ws, 'Second page');
 
     // Dirty state that must not be lost during the restore.
-    await writeFile(join(ws, 'site', 'index.html'), '<h1>ungespeichert</h1>');
+    await writeFile(join(ws, 'site', 'index.html'), '<h1>unsaved</h1>');
 
     const restored = await restoreCheckpoint(ws, cp1.id);
 
@@ -186,15 +186,15 @@ describe.each([['system'], ['isomorphic']] as const)('Backend: %s', (backendKind
     await initWorkspace(ws);
     await mkdir(join(ws, 'site'), { recursive: true });
     await writeFile(join(ws, 'site', 'index.html'), '<h1>v1</h1>');
-    const cp1 = await createCheckpoint(ws, 'Erste Seite');
-    await nameVersion(ws, cp1.id, 'Startversion');
+    const cp1 = await createCheckpoint(ws, 'First page');
+    await nameVersion(ws, cp1.id, 'Initial version');
 
     await writeFile(join(ws, 'site', 'index.html'), '<h1>v2</h1>');
-    await createCheckpoint(ws, 'Zweite Seite');
+    await createCheckpoint(ws, 'Second page');
 
     // Restore via short SHA; label comes from the annotated tag.
     const restored = await restoreCheckpoint(ws, cp1.id.slice(0, 7));
-    expect(restored.message).toBe('Restored: Startversion');
+    expect(restored.message).toBe('Restored: Initial version');
     expect(await readFile(join(ws, 'site', 'index.html'), 'utf8')).toBe('<h1>v1</h1>');
   });
 
@@ -202,7 +202,7 @@ describe.each([['system'], ['isomorphic']] as const)('Backend: %s', (backendKind
     await initWorkspace(ws);
     await expect(restoreCheckpoint(ws, 'deadbeef')).rejects.toThrow(/does not exist in this project/);
 
-    const empty = await makeWorkspace('wab-versioning-kein-repo-');
+    const empty = await makeWorkspace('wab-versioning-no-repo-');
     try {
       await expect(listCheckpoints(empty)).rejects.toThrow(/Versioning is not set up/);
     } finally {
@@ -223,12 +223,12 @@ describe('Backend compatibility', () => {
       await initWorkspace(ws);
       await mkdir(join(ws, 'site'), { recursive: true });
       await writeFile(join(ws, 'site', 'index.html'), '<h1>v1</h1>');
-      const cp = await createCheckpoint(ws, 'Erste Seite', {
+      const cp = await createCheckpoint(ws, 'First page', {
         turnId: 'turn-9',
         backend: 'byok',
         costUsd: 0.01,
       });
-      await nameVersion(ws, cp.id, 'Startversion');
+      await nameVersion(ws, cp.id, 'Initial version');
 
       process.env['WAB_GIT_BACKEND'] = 'isomorphic';
       const list = await listCheckpoints(ws);
@@ -236,12 +236,12 @@ describe('Backend compatibility', () => {
       expect(list[0]?.turnId).toBe('turn-9');
       expect(list[0]?.backend).toBe('byok');
       expect(list[0]?.costUsd).toBeCloseTo(0.01, 6);
-      expect(list[0]?.versionName).toBe('Startversion');
+      expect(list[0]?.versionName).toBe('Initial version');
 
       await writeFile(join(ws, 'site', 'index.html'), '<h1>v2</h1>');
-      await createCheckpoint(ws, 'Zweite Seite');
+      await createCheckpoint(ws, 'Second page');
       const restored = await restoreCheckpoint(ws, cp.id);
-      expect(restored.message).toBe('Restored: Startversion');
+      expect(restored.message).toBe('Restored: Initial version');
       expect(await readFile(join(ws, 'site', 'index.html'), 'utf8')).toBe('<h1>v1</h1>');
     } finally {
       await rm(ws, { recursive: true, force: true });

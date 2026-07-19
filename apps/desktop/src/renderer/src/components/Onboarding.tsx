@@ -92,7 +92,7 @@ function StepContent({
   onOpenSettings: () => void;
 }): React.JSX.Element {
   switch (step) {
-    case 'willkommen':
+    case 'welcome':
       return (
         <section className="onboarding__screen">
           <h2 className="onboarding__title">Welcome to Web AI Builder</h2>
@@ -108,7 +108,7 @@ function StepContent({
           </p>
         </section>
       );
-    case 'ki':
+    case 'ai':
       return (
         <section className="onboarding__screen">
           <h2 className="onboarding__title">Choose your AI</h2>

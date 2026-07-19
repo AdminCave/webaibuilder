@@ -1,17 +1,17 @@
 {
   "templates": [
     {
-      "id": "einseiter",
+      "id": "one-pager",
       "name": "One-Pager",
       "description": "A landing page with hero, offerings and contact — all on a single page."
     },
     {
-      "id": "mehrseiter",
+      "id": "multi-page",
       "name": "Multi-Page",
       "description": "Three pages (Home, About, Contact) with shared navigation and footer."
     },
     {
-      "id": "leer",
+      "id": "blank",
       "name": "Blank",
       "description": "Just a minimal home page — for when you want to start from scratch."
     }

@@ -78,7 +78,7 @@ describe('coerceKillSwitchConfig — defensive validation', () => {
     const config = coerceKillSwitchConfig({
       version: 7,
       backends: {
-        codex: { enabled: false, reason: 'Anbieter pausiert.', noticeMarkdown: 'Bald wieder da.' },
+        codex: { enabled: false, reason: 'Provider paused.', noticeMarkdown: 'Back soon.' },
         'grok-cli': { enabled: true },
       },
     });
@@ -86,16 +86,16 @@ describe('coerceKillSwitchConfig — defensive validation', () => {
     expect(config?.version).toBe(7);
     expect(config?.backends.codex).toEqual({
       enabled: false,
-      reason: 'Anbieter pausiert.',
-      noticeMarkdown: 'Bald wieder da.',
+      reason: 'Provider paused.',
+      noticeMarkdown: 'Back soon.',
     });
   });
 
   it('ignores unknown backend keys and entries without enabled', () => {
     const config = coerceKillSwitchConfig({
       backends: {
-        codex: { reason: 'kein enabled' },
-        'gibts-nicht': { enabled: false },
+        codex: { reason: 'no enabled field' },
+        'does-not-exist': { enabled: false },
       },
     });
     expect(config).not.toBeNull();
@@ -105,7 +105,7 @@ describe('coerceKillSwitchConfig — defensive validation', () => {
 
   it('returns null when the structure is broken (malformed → ignore)', () => {
     expect(coerceKillSwitchConfig(null)).toBeNull();
-    expect(coerceKillSwitchConfig('kaputt')).toBeNull();
+    expect(coerceKillSwitchConfig('broken')).toBeNull();
     expect(coerceKillSwitchConfig(42)).toBeNull();
     expect(coerceKillSwitchConfig({})).toBeNull(); // no backends object
     expect(coerceKillSwitchConfig({ backends: null })).toBeNull();
@@ -115,12 +115,12 @@ describe('coerceKillSwitchConfig — defensive validation', () => {
 describe('resolveKillSwitch — default vs. remote override', () => {
   it('overrides one backend via remote, others stay default', () => {
     const remote = coerceKillSwitchConfig({
-      backends: { 'claude-cli': { enabled: false, reason: 'Über Nacht deaktiviert.' } },
+      backends: { 'claude-cli': { enabled: false, reason: 'Disabled overnight.' } },
     });
     const effective = resolveKillSwitch(remote);
     expect(killSwitchFor(effective, 'claude-cli')).toEqual({
       enabled: false,
-      reason: 'Über Nacht deaktiviert.',
+      reason: 'Disabled overnight.',
     });
     // Non-overridden ones stay active (default).
     expect(killSwitchFor(effective, 'codex').enabled).toBe(true);
@@ -162,7 +162,7 @@ describe('coerceRawAvailability — defensive against shape changes', () => {
 
   it('returns null for unknown/missing input', () => {
     expect(coerceRawAvailability(null)).toBeNull();
-    expect(coerceRawAvailability({ id: 'gibts-nicht' })).toBeNull();
+    expect(coerceRawAvailability({ id: 'does-not-exist' })).toBeNull();
     expect(coerceRawAvailability({})).toBeNull();
   });
 });
@@ -170,14 +170,14 @@ describe('coerceRawAvailability — defensive against shape changes', () => {
 describe('mergeAvailability — kill switch + metadata', () => {
   it('reports a kill-switch-disabled backend with a reason', () => {
     const remote = coerceKillSwitchConfig({
-      backends: { codex: { enabled: false, reason: 'Codex pausiert.' } },
+      backends: { codex: { enabled: false, reason: 'Codex paused.' } },
     });
     const view = viewOf('codex', {}, resolveKillSwitch(remote));
     expect(view.enabled).toBe(false);
-    expect(view.disabledReason).toBe('Codex pausiert.');
+    expect(view.disabledReason).toBe('Codex paused.');
     expect(isBackendSelectable(view)).toBe(false);
     expect(backendBlockReason(view)).toBe('kill-switch');
-    expect(subscriptionStatusLabel(view)).toBe('Codex pausiert.');
+    expect(subscriptionStatusLabel(view)).toBe('Codex paused.');
   });
 
   it('marks grok as experimental — even without a detection flag', () => {
@@ -197,10 +197,10 @@ describe('mergeAvailability — kill switch + metadata', () => {
 
   it('passes the kill-switch noticeMarkdown through (even for an active backend)', () => {
     const remote = coerceKillSwitchConfig({
-      backends: { 'gemini-cli': { enabled: true, noticeMarkdown: 'Bitte CLI aktualisieren.' } },
+      backends: { 'gemini-cli': { enabled: true, noticeMarkdown: 'Please update the CLI.' } },
     });
     expect(viewOf('gemini-cli', {}, resolveKillSwitch(remote)).noticeMarkdown).toBe(
-      'Bitte CLI aktualisieren.',
+      'Please update the CLI.',
     );
   });
 
@@ -310,11 +310,11 @@ describe('subscriptionActivationError — actionable message', () => {
 
   it('reports the kill-switch reason', () => {
     const remote = coerceKillSwitchConfig({
-      backends: { 'grok-cli': { enabled: false, reason: 'xAI-Pfad pausiert.' } },
+      backends: { 'grok-cli': { enabled: false, reason: 'xAI path paused.' } },
     });
     expect(
       subscriptionActivationError(viewOf('grok-cli', { installed: true, loggedIn: true }, resolveKillSwitch(remote))),
-    ).toBe('xAI-Pfad pausiert.');
+    ).toBe('xAI path paused.');
   });
 
   it('requires acknowledgment first for claude-cli', () => {
@@ -408,7 +408,7 @@ describe('isAllowedExternalUrl — official vendor domains only (https)', () => 
     expect(isAllowedExternalUrl('https://evil.example.com')).toBe(false);
     expect(isAllowedExternalUrl('https://claude.com.evil.com')).toBe(false); // suffix trick
     expect(isAllowedExternalUrl('https://notclaude.com')).toBe(false);
-    expect(isAllowedExternalUrl('nicht-mal-eine-url')).toBe(false);
+    expect(isAllowedExternalUrl('not-even-a-url')).toBe(false);
   });
 
   it('pickInstallHint falls back to the fallback for a disallowed detection URL', () => {
@@ -471,7 +471,7 @@ describe('recommendChatSetup — recommendation for the chat empty-state', () =>
 
   it('skips not-installed, logged-out, kill-switched, and experimental backends', () => {
     const remote = coerceKillSwitchConfig({
-      backends: { codex: { enabled: false, reason: 'pausiert' } },
+      backends: { codex: { enabled: false, reason: 'paused' } },
     });
     const views = buildAvailabilityViews(
       [

@@ -51,7 +51,7 @@ export interface Checkpoint {
 
 /** A starter template for new projects (static HTML/CSS/JS, PLAN §2). */
 export interface StarterTemplate {
-  /** Folder name under resources/templates, e.g. "einseiter". */
+  /** Folder name under resources/templates, e.g. "one-pager". */
   id: string;
   /** Display name, e.g. "One-Pager". */
   name: string;

@@ -71,7 +71,7 @@ describe('onboardingReducer — step navigation', () => {
   it('starts at the first step', () => {
     expect(INITIAL_ONBOARDING_VIEW).toEqual({ index: 0 });
     expect(isFirstStep(INITIAL_ONBOARDING_VIEW)).toBe(true);
-    expect(currentStep(INITIAL_ONBOARDING_VIEW)).toBe('willkommen');
+    expect(currentStep(INITIAL_ONBOARDING_VIEW)).toBe('welcome');
   });
 
   it('moves forward with "next" and stops at the last step', () => {

@@ -34,8 +34,8 @@ function fixedClock(): () => Date {
 describe('FileLogger — writing & scrubbing', () => {
   it('writes one JSON line per entry', () => {
     const logger = new FileLogger({ dir, now: fixedClock() });
-    logger.info('main', 'App bereit');
-    logger.error('main', 'kaputt');
+    logger.info('main', 'App ready');
+    logger.error('main', 'broken');
 
     const content = readFileSync(logger.filePath, 'utf8');
     const lines = content.trim().split('\n');
@@ -43,23 +43,23 @@ describe('FileLogger — writing & scrubbing', () => {
     const first = JSON.parse(lines[0] as string) as Record<string, unknown>;
     expect(first['level']).toBe('info');
     expect(first['source']).toBe('main');
-    expect(first['message']).toBe('App bereit');
+    expect(first['message']).toBe('App ready');
     expect(first['time']).toBe('2026-07-13T00:00:01.000Z');
   });
 
   it('redacts secret-shaped context (no plaintext in the log)', () => {
     const logger = new FileLogger({ dir });
-    logger.error('deploy', 'Verbindung fehlgeschlagen', {
+    logger.error('deploy', 'Connection failed', {
       host: 'ssh.example.org',
       password: 'hunter2',
-      apiKey: 'sk-ant-geheim',
+      apiKey: 'sk-ant-secret',
     });
 
     const content = readFileSync(logger.filePath, 'utf8');
     expect(content).toContain('ssh.example.org');
     expect(content).toContain('[redacted]');
     expect(content).not.toContain('hunter2');
-    expect(content).not.toContain('sk-ant-geheim');
+    expect(content).not.toContain('sk-ant-secret');
   });
 
   it('does not throw when an Error object is passed as context', () => {
@@ -74,7 +74,7 @@ describe('FileLogger — rotation & capping', () => {
   it('rotates when maxBytes is exceeded and keeps only maxFiles rotate files', () => {
     const logger = new FileLogger({ dir, maxBytes: 300, maxFiles: 2, now: fixedClock() });
     for (let i = 0; i < 80; i++) {
-      logger.info('main', `Zeile Nummer ${i} mit etwas Fülltext zum Aufblähen der Zeile`);
+      logger.info('main', `Line number ${i} with some filler text to pad out the line`);
     }
 
     const logFiles = readdirSync(dir).filter((f) => f.endsWith('.log'));
@@ -89,7 +89,7 @@ describe('FileLogger — rotation & capping', () => {
   it('does not rotate an empty file', () => {
     const logger = new FileLogger({ dir, maxBytes: 1 });
     // First line: the file is still empty → no rotation before the first write.
-    logger.info('main', 'erste');
+    logger.info('main', 'first');
     expect(existsSync(join(dir, 'app.1.log'))).toBe(false);
     expect(existsSync(logger.filePath)).toBe(true);
   });

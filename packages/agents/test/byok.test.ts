@@ -85,19 +85,19 @@ describe('byok adapter (event mapping)', () => {
   it('maps text-delta, tool-activity and turn-complete and writes into site/', async () => {
     const model = mockModel([
       [
-        ...textParts('0', 'Ich baue die Startseite.'),
-        toolCallPart('c1', 'write_file', { path: 'index.html', content: '<h1>Hallo</h1>' }),
+        ...textParts('0', 'I am building the home page.'),
+        toolCallPart('c1', 'write_file', { path: 'index.html', content: '<h1>Hello</h1>' }),
         finishPart('tool-calls'),
       ],
-      [...textParts('1', 'Fertig.'), finishPart('stop')],
+      [...textParts('1', 'Done.'), finishPart('stop')],
     ]);
     const backend = createByokBackend({ provider: 'anthropic', apiKey: '', languageModel: model });
 
-    const events = await collect(backend.runTurn(request('Bau mir eine Startseite')));
+    const events = await collect(backend.runTurn(request('Build me a home page')));
 
     const textDeltas = events.filter((e) => e.type === 'text-delta');
     expect(textDeltas.length).toBeGreaterThan(0);
-    expect(textDeltas.map((e) => (e.type === 'text-delta' ? e.text : '')).join('')).toContain('Startseite');
+    expect(textDeltas.map((e) => (e.type === 'text-delta' ? e.text : '')).join('')).toContain('home page');
 
     const activity = events.filter((e) => e.type === 'tool-activity');
     expect(activity.some((e) => e.type === 'tool-activity' && e.tool === 'Write file')).toBe(true);
@@ -112,7 +112,7 @@ describe('byok adapter (event mapping)', () => {
 
     // The file really landed in site/ (ground truth: the file system).
     const written = await readFile(join(siteDir, 'index.html'), 'utf8');
-    expect(written).toBe('<h1>Hallo</h1>');
+    expect(written).toBe('<h1>Hello</h1>');
   });
 
   it('CRITICAL: denies write access outside of site/ (containment)', async () => {
@@ -125,7 +125,7 @@ describe('byok adapter (event mapping)', () => {
     ]);
     const backend = createByokBackend({ provider: 'anthropic', apiKey: '', languageModel: model });
 
-    const events = await collect(backend.runTurn(request('Schreib außerhalb')));
+    const events = await collect(backend.runTurn(request('Write outside')));
 
     // The file must NOT exist outside of site/.
     expect(existsSync(join(workspaceDir, 'evil.html'))).toBe(false);
@@ -139,14 +139,14 @@ describe('byok adapter (event mapping)', () => {
       { type: 'stream-start', warnings: [] },
       { type: 'text-start', id: '0' },
     ];
-    for (let i = 0; i < 12; i += 1) manyDeltas.push({ type: 'text-delta', id: '0', delta: `Teil ${i} ` });
+    for (let i = 0; i < 12; i += 1) manyDeltas.push({ type: 'text-delta', id: '0', delta: `Part ${i} ` });
     manyDeltas.push({ type: 'text-end', id: '0' });
     manyDeltas.push(finishPart('stop'));
 
     const model = mockModel([manyDeltas], 25);
     const backend = createByokBackend({ provider: 'anthropic', apiKey: '', languageModel: model });
 
-    const iterator = backend.runTurn(request('Erzähl viel'))[Symbol.asyncIterator]();
+    const iterator = backend.runTurn(request('Tell me a lot'))[Symbol.asyncIterator]();
     const collected: AgentEvent[] = [];
     let didInterrupt = false;
     for (;;) {

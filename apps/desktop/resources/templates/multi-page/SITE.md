@@ -16,8 +16,8 @@ whenever pages are added, removed or shared blocks change.
 | File           | Purpose                                            |
 | -------------- | -------------------------------------------------- |
 | `index.html`   | Home page: greeting, intro, most important topic   |
-| `ueber.html`   | About page: story, principles                      |
-| `kontakt.html` | Contact: email, phone, address                     |
+| `about.html`   | About page: story, principles                      |
+| `contact.html` | Contact: email, phone, address                     |
 
 ## Shared blocks — keep in sync across ALL pages
 
@@ -35,7 +35,7 @@ pages:
 
 ## Adding a new page — checklist
 
-1. Copy an existing page (e.g. `ueber.html`); replace the title, description and
+1. Copy an existing page (e.g. `about.html`); replace the title, description and
    the content in `<main class="page">`.
 2. Add the nav link to **all** pages; set `aria-current="page"` only on the
    new page.

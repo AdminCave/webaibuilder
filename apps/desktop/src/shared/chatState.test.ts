@@ -12,7 +12,7 @@ import {
 const RUN = 'run-1';
 
 function withRun(): ChatState {
-  return chatReducer(initialChatState, { type: 'user-send', runId: RUN, text: 'Bau eine Landingpage' });
+  return chatReducer(initialChatState, { type: 'user-send', runId: RUN, text: 'Build a landing page' });
 }
 
 function agent(state: ChatState, event: AgentEvent, runId = RUN): ChatState {
@@ -31,15 +31,15 @@ describe('chatReducer', () => {
     expect(state.status).toBe('running');
     expect(state.runId).toBe(RUN);
     expect(state.messages).toHaveLength(2);
-    expect(state.messages[0]).toMatchObject({ role: 'user', text: 'Bau eine Landingpage' });
+    expect(state.messages[0]).toMatchObject({ role: 'user', text: 'Build a landing page' });
     expect(assistant(state)).toMatchObject({ role: 'assistant', text: '', status: 'streaming' });
   });
 
   it('assembles text-delta events into the reply text', () => {
     let state = withRun();
-    state = agent(state, { type: 'text-delta', text: 'Hallo ' });
-    state = agent(state, { type: 'text-delta', text: 'Welt' });
-    expect(assistant(state).text).toBe('Hallo Welt');
+    state = agent(state, { type: 'text-delta', text: 'Hello ' });
+    state = agent(state, { type: 'text-delta', text: 'World' });
+    expect(assistant(state).text).toBe('Hello World');
   });
 
   it('tracks tool activity across start/update/end as a single chip', () => {
@@ -47,14 +47,14 @@ describe('chatReducer', () => {
     state = agent(state, {
       type: 'tool-activity',
       toolCallId: 't1',
-      tool: 'Datei schreiben',
+      tool: 'Write file',
       phase: 'start',
       detail: 'index.html',
     });
     expect(assistant(state).tools).toEqual([
-      { toolCallId: 't1', tool: 'Datei schreiben', detail: 'index.html', done: false },
+      { toolCallId: 't1', tool: 'Write file', detail: 'index.html', done: false },
     ]);
-    state = agent(state, { type: 'tool-activity', toolCallId: 't1', tool: 'Datei schreiben', phase: 'end' });
+    state = agent(state, { type: 'tool-activity', toolCallId: 't1', tool: 'Write file', phase: 'end' });
     expect(assistant(state).tools).toHaveLength(1);
     expect(assistant(state).tools[0]).toMatchObject({ done: true, detail: 'index.html' });
   });
@@ -65,7 +65,7 @@ describe('chatReducer', () => {
       type: 'permission-request',
       requestId: 'p1',
       scope: 'shell',
-      description: 'Darf ich npm install ausführen?',
+      description: 'May I run npm install?',
     });
     expect(state.pendingPermission).toMatchObject({ requestId: 'p1', scope: 'shell' });
     state = chatReducer(state, { type: 'permission-answered', requestId: 'p1' });
@@ -74,7 +74,7 @@ describe('chatReducer', () => {
 
   it('turn-complete ends the turn and adopts the cost', () => {
     let state = withRun();
-    state = agent(state, { type: 'text-delta', text: 'fertig' });
+    state = agent(state, { type: 'text-delta', text: 'done' });
     state = agent(state, { type: 'turn-complete', turnId: 't', stopReason: 'end', costUsd: 0.012 });
     expect(state.status).toBe('idle');
     expect(state.runId).toBeNull();
@@ -90,17 +90,17 @@ describe('chatReducer', () => {
 
   it('marks an error and keeps it across completion', () => {
     let state = withRun();
-    state = agent(state, { type: 'error', message: 'Kein Guthaben', recoverable: false });
-    expect(assistant(state)).toMatchObject({ status: 'error', errorText: 'Kein Guthaben' });
+    state = agent(state, { type: 'error', message: 'Out of credit', recoverable: false });
+    expect(assistant(state)).toMatchObject({ status: 'error', errorText: 'Out of credit' });
     state = agent(state, { type: 'turn-complete', turnId: 't', stopReason: 'error' });
     expect(assistant(state).status).toBe('error');
-    expect(assistant(state).errorText).toBe('Kein Guthaben');
+    expect(assistant(state).errorText).toBe('Out of credit');
     expect(state.status).toBe('idle');
   });
 
   it('ignores events from a foreign (stale) turn', () => {
     let state = withRun();
-    state = agent(state, { type: 'text-delta', text: 'X' }, 'anderer-run');
+    state = agent(state, { type: 'text-delta', text: 'X' }, 'other-run');
     expect(assistant(state).text).toBe('');
   });
 
@@ -115,20 +115,20 @@ describe('chatReducer — error cause (errorCause)', () => {
     let state = withRun();
     state = agent(state, {
       type: 'error',
-      message: 'Der Claude-Turn konnte nicht abgeschlossen werden.',
+      message: 'The Claude turn could not be completed.',
       recoverable: false,
       cause: '401 {"type":"authentication_error"}',
     });
     expect(assistant(state)).toMatchObject({
       status: 'error',
-      errorText: 'Der Claude-Turn konnte nicht abgeschlossen werden.',
+      errorText: 'The Claude turn could not be completed.',
       errorCause: '401 {"type":"authentication_error"}',
     });
   });
 
   it('omits errorCause when the event carries no cause', () => {
     let state = withRun();
-    state = agent(state, { type: 'error', message: 'Fehler', recoverable: false });
+    state = agent(state, { type: 'error', message: 'Error', recoverable: false });
     expect(assistant(state).errorCause).toBeUndefined();
   });
 });

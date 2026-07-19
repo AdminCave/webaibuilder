@@ -44,7 +44,7 @@ describe('KillSwitchStore — default without remote/cache', () => {
 describe('KillSwitchStore — remote override', () => {
   it('adopts a valid remote config and writes the cache', async () => {
     const fetchConfig = vi.fn(async () => ({
-      backends: { codex: { enabled: false, reason: 'Über Nacht deaktiviert.' } },
+      backends: { codex: { enabled: false, reason: 'Disabled overnight.' } },
     }));
     const store = new KillSwitchStore({ cacheFilePath: cacheFile, remoteUrl: REMOTE_URL, fetchConfig });
 
@@ -53,7 +53,7 @@ describe('KillSwitchStore — remote override', () => {
     expect(fetchConfig).toHaveBeenCalledWith(REMOTE_URL);
     expect(killSwitchFor(store.effective(), 'codex')).toEqual({
       enabled: false,
-      reason: 'Über Nacht deaktiviert.',
+      reason: 'Disabled overnight.',
     });
     // Cache was written.
     expect(existsSync(cacheFile)).toBe(true);
@@ -65,7 +65,7 @@ describe('KillSwitchStore — remote override', () => {
 describe('KillSwitchStore — malformed remote is ignored', () => {
   it('keeps the last good state on a broken response', async () => {
     const responses: unknown[] = [
-      { backends: { codex: { enabled: false, reason: 'aus' } } }, // good
+      { backends: { codex: { enabled: false, reason: 'off' } } }, // good
       { total: 'garbage' }, // broken → ignore
     ];
     let call = 0;
@@ -93,7 +93,7 @@ describe('KillSwitchStore — network error → last-known-good', () => {
       cacheFile,
       JSON.stringify({
         fetchedAt: 1000,
-        config: { backends: { 'grok-cli': { enabled: false, reason: 'xAI-Pfad pausiert.' } } },
+        config: { backends: { 'grok-cli': { enabled: false, reason: 'xAI path paused.' } } },
       }),
     );
     const fetchConfig = vi.fn(async () => {
@@ -148,18 +148,18 @@ describe('KillSwitchStore — cache round-trip', () => {
       cacheFile,
       JSON.stringify({
         fetchedAt: 42,
-        config: { version: 3, backends: { 'gemini-cli': { enabled: false, reason: 'Wartung.' } } },
+        config: { version: 3, backends: { 'gemini-cli': { enabled: false, reason: 'Maintenance.' } } },
       }),
     );
     const store = new KillSwitchStore({ cacheFilePath: cacheFile, remoteUrl: REMOTE_URL });
     expect(killSwitchFor(store.effective(), 'gemini-cli')).toEqual({
       enabled: false,
-      reason: 'Wartung.',
+      reason: 'Maintenance.',
     });
   });
 
   it('ignores a corrupt cache and uses the default', () => {
-    writeFileSync(cacheFile, '{ kaputt');
+    writeFileSync(cacheFile, '{ broken');
     const store = new KillSwitchStore({ cacheFilePath: cacheFile });
     expect(killSwitchFor(store.effective(), 'gemini-cli').enabled).toBe(true);
   });

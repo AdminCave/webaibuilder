@@ -51,7 +51,7 @@ function makeTarget(overrides: Partial<DeployTarget> & { id: string }): DeployTa
 describe('starter templates', () => {
   it('returns the templates from the manifest (id, name, description)', async () => {
     const templates = await registry.listTemplates();
-    expect(templates.map((t) => t.id)).toEqual(['einseiter', 'mehrseiter', 'leer']);
+    expect(templates.map((t) => t.id)).toEqual(['one-pager', 'multi-page', 'blank']);
     for (const t of templates) {
       expect(t.name).not.toBe('');
       expect(t.description).not.toBe('');
@@ -61,11 +61,11 @@ describe('starter templates', () => {
 
 describe('create', () => {
   it('creates the workspace, site/ docroot, and project.json and copies the template', async () => {
-    const project = await registry.create({ name: 'Vereinsseite Müller', templateId: 'einseiter' });
+    const project = await registry.create({ name: 'Club Website', templateId: 'one-pager' });
 
-    expect(project.name).toBe('Vereinsseite Müller');
-    expect(project.templateId).toBe('einseiter');
-    expect(project.workspaceDir).toBe(join(workspaceRoot, 'vereinsseite-mueller'));
+    expect(project.name).toBe('Club Website');
+    expect(project.templateId).toBe('one-pager');
+    expect(project.workspaceDir).toBe(join(workspaceRoot, 'club-website'));
     expect(project.siteDir).toBe(join(project.workspaceDir, 'site'));
     expect(project.deployTargets).toEqual([]);
 
@@ -79,16 +79,16 @@ describe('create', () => {
       readFileSync(join(project.workspaceDir, 'project.json'), 'utf8'),
     ) as Record<string, unknown>;
     expect(projectFile['id']).toBe(project.id);
-    expect(projectFile['name']).toBe('Vereinsseite Müller');
-    expect(projectFile['templateId']).toBe('einseiter');
+    expect(projectFile['name']).toBe('Club Website');
+    expect(projectFile['templateId']).toBe('one-pager');
   });
 
   it('copies all pages including shared files for the multi-page template', async () => {
-    const project = await registry.create({ name: 'Drei Seiten', templateId: 'mehrseiter' });
+    const project = await registry.create({ name: 'Three Pages', templateId: 'multi-page' });
     for (const file of [
       'index.html',
-      'ueber.html',
-      'kontakt.html',
+      'about.html',
+      'contact.html',
       'styles.css',
       'site.js',
       'SITE.md',
@@ -98,22 +98,22 @@ describe('create', () => {
   });
 
   it('rejects an unknown template without creating anything', async () => {
-    await expect(registry.create({ name: 'Kaputt', templateId: 'gibts-nicht' })).rejects.toThrow(
+    await expect(registry.create({ name: 'Broken', templateId: 'does-not-exist' })).rejects.toThrow(
       'Unknown template',
     );
     expect(await registry.list()).toEqual([]);
-    expect(existsSync(join(workspaceRoot, 'kaputt'))).toBe(false);
+    expect(existsSync(join(workspaceRoot, 'broken'))).toBe(false);
   });
 
   it('rejects an empty name', async () => {
-    await expect(registry.create({ name: '   ', templateId: 'leer' })).rejects.toThrow(
+    await expect(registry.create({ name: '   ', templateId: 'blank' })).rejects.toThrow(
       'project name',
     );
   });
 
   it('resolves name collisions via unique directories', async () => {
-    const first = await registry.create({ name: 'Test', templateId: 'leer' });
-    const second = await registry.create({ name: 'Test', templateId: 'leer' });
+    const first = await registry.create({ name: 'Test', templateId: 'blank' });
+    const second = await registry.create({ name: 'Test', templateId: 'blank' });
     expect(first.workspaceDir).toBe(join(workspaceRoot, 'test'));
     expect(second.workspaceDir).toBe(join(workspaceRoot, 'test-2'));
     expect(existsSync(join(second.siteDir, 'index.html'))).toBe(true);
@@ -122,7 +122,7 @@ describe('create', () => {
 
 describe('list / get / update / delete', () => {
   it('create → list → get Roundtrip', async () => {
-    const created = await registry.create({ name: 'Roundtrip', templateId: 'leer' });
+    const created = await registry.create({ name: 'Roundtrip', templateId: 'blank' });
 
     const listed = await registry.list();
     expect(listed).toHaveLength(1);
@@ -131,34 +131,34 @@ describe('list / get / update / delete', () => {
     const fetched = await registry.get(created.id);
     expect(fetched).toEqual(created);
 
-    expect(await registry.get('unbekannt')).toBeNull();
+    expect(await registry.get('unknown')).toBeNull();
   });
 
   it('update changes the name and the last used backend', async () => {
-    const created = await registry.create({ name: 'Alt', templateId: 'leer' });
-    const updated = await registry.update(created.id, { name: 'Neu', lastBackend: 'claude-sdk' });
+    const created = await registry.create({ name: 'Old', templateId: 'blank' });
+    const updated = await registry.update(created.id, { name: 'New', lastBackend: 'claude-sdk' });
 
-    expect(updated.name).toBe('Neu');
+    expect(updated.name).toBe('New');
     expect(updated.lastBackend).toBe('claude-sdk');
     // Renaming does NOT move the workspace.
     expect(updated.workspaceDir).toBe(created.workspaceDir);
     expect(Date.parse(updated.updatedAt)).toBeGreaterThanOrEqual(Date.parse(created.updatedAt));
 
     const fetched = await registry.get(created.id);
-    expect(fetched?.name).toBe('Neu');
+    expect(fetched?.name).toBe('New');
     expect(fetched?.lastBackend).toBe('claude-sdk');
   });
 
   it('update on an unknown ID fails', async () => {
-    await expect(registry.update('unbekannt', { name: 'x' })).rejects.toThrow('Project not found');
+    await expect(registry.update('unknown', { name: 'x' })).rejects.toThrow('Project not found');
   });
 
   it('stores the deployed commit SHA per deploy target', async () => {
-    const created = await registry.create({ name: 'Deploy', templateId: 'einseiter' });
+    const created = await registry.create({ name: 'Deploy', templateId: 'one-pager' });
 
-    const ionos = makeTarget({ id: 'ziel-ionos', name: 'IONOS', lastDeployedCommit: 'aaa111' });
+    const ionos = makeTarget({ id: 'target-ionos', name: 'IONOS', lastDeployedCommit: 'aaa111' });
     const hetzner = makeTarget({
-      id: 'ziel-hetzner',
+      id: 'target-hetzner',
       name: 'Hetzner',
       lastDeployedCommit: 'bbb222',
       lastDeployedAt: '2026-07-12T10:00:00.000Z',
@@ -167,13 +167,13 @@ describe('list / get / update / delete', () => {
 
     let fetched = await registry.get(created.id);
     expect(fetched?.deployTargets).toHaveLength(2);
-    expect(fetched?.deployTargets.find((t) => t.id === 'ziel-ionos')?.lastDeployedCommit).toBe(
+    expect(fetched?.deployTargets.find((t) => t.id === 'target-ionos')?.lastDeployedCommit).toBe(
       'aaa111',
     );
-    expect(fetched?.deployTargets.find((t) => t.id === 'ziel-hetzner')?.lastDeployedCommit).toBe(
+    expect(fetched?.deployTargets.find((t) => t.id === 'target-hetzner')?.lastDeployedCommit).toBe(
       'bbb222',
     );
-    expect(fetched?.deployTargets.find((t) => t.id === 'ziel-hetzner')?.lastDeployedAt).toBe(
+    expect(fetched?.deployTargets.find((t) => t.id === 'target-hetzner')?.lastDeployedAt).toBe(
       '2026-07-12T10:00:00.000Z',
     );
 
@@ -182,23 +182,23 @@ describe('list / get / update / delete', () => {
       deployTargets: [{ ...ionos, lastDeployedCommit: 'ccc333' }, hetzner],
     });
     fetched = await registry.get(created.id);
-    expect(fetched?.deployTargets.find((t) => t.id === 'ziel-ionos')?.lastDeployedCommit).toBe(
+    expect(fetched?.deployTargets.find((t) => t.id === 'target-ionos')?.lastDeployedCommit).toBe(
       'ccc333',
     );
-    expect(fetched?.deployTargets.find((t) => t.id === 'ziel-hetzner')?.lastDeployedCommit).toBe(
+    expect(fetched?.deployTargets.find((t) => t.id === 'target-hetzner')?.lastDeployedCommit).toBe(
       'bbb222',
     );
 
     // Target without a deploy: SHA stays empty.
-    await registry.update(created.id, { deployTargets: [makeTarget({ id: 'ziel-neu' })] });
+    await registry.update(created.id, { deployTargets: [makeTarget({ id: 'target-new' })] });
     fetched = await registry.get(created.id);
     expect(fetched?.deployTargets).toHaveLength(1);
     expect(fetched?.deployTargets[0]?.lastDeployedCommit).toBeUndefined();
   });
 
   it('delete removes the registry entry but leaves the workspace in place', async () => {
-    const created = await registry.create({ name: 'Weg damit', templateId: 'leer' });
-    await registry.update(created.id, { deployTargets: [makeTarget({ id: 'ziel-1' })] });
+    const created = await registry.create({ name: 'Delete me', templateId: 'blank' });
+    await registry.update(created.id, { deployTargets: [makeTarget({ id: 'target-1' })] });
 
     await registry.delete(created.id);
 
@@ -213,9 +213,9 @@ describe('list / get / update / delete', () => {
 
 describe('persistence', () => {
   it('projects incl. deploy targets survive reopening the DB', async () => {
-    const created = await registry.create({ name: 'Bleibt', templateId: 'mehrseiter' });
+    const created = await registry.create({ name: 'Stays', templateId: 'multi-page' });
     await registry.update(created.id, {
-      deployTargets: [makeTarget({ id: 'ziel-1', lastDeployedCommit: 'abc123' })],
+      deployTargets: [makeTarget({ id: 'target-1', lastDeployedCommit: 'abc123' })],
     });
     registry.close();
 
@@ -223,8 +223,8 @@ describe('persistence', () => {
     // idempotently).
     registry = new SqliteProjectRegistry({ dbPath, workspaceRoot, templatesRoot: TEMPLATES_ROOT });
     const fetched = await registry.get(created.id);
-    expect(fetched?.name).toBe('Bleibt');
-    expect(fetched?.templateId).toBe('mehrseiter');
+    expect(fetched?.name).toBe('Stays');
+    expect(fetched?.templateId).toBe('multi-page');
     expect(fetched?.deployTargets[0]?.lastDeployedCommit).toBe('abc123');
   });
 });

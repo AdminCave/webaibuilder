@@ -45,7 +45,7 @@ afterEach(() => {
 describe('BackendService — availability + kill-switch merge', () => {
   it('returns all six backends and reports a disabled one with a reason', async () => {
     const remote = coerceKillSwitchConfig({
-      backends: { 'grok-cli': { enabled: false, reason: 'xAI-Pfad pausiert.' } },
+      backends: { 'grok-cli': { enabled: false, reason: 'xAI path paused.' } },
     });
     const service = new BackendService({
       detect: async () => [
@@ -69,7 +69,7 @@ describe('BackendService — availability + kill-switch merge', () => {
 
     const grok = state.backends.find((b) => b.backendId === 'grok-cli');
     expect(grok?.enabled).toBe(false);
-    expect(grok?.disabledReason).toBe('xAI-Pfad pausiert.');
+    expect(grok?.disabledReason).toBe('xAI path paused.');
     expect(grok?.experimental).toBe(true);
 
     const codex = state.backends.find((b) => b.backendId === 'codex');
@@ -99,7 +99,7 @@ describe('BackendService — availability + kill-switch merge', () => {
   it('reports all backends as not installed on a detection error (fail-safe)', async () => {
     const service = new BackendService({
       detect: async () => {
-        throw new Error('CLI-Probe abgestürzt');
+        throw new Error('CLI probe crashed');
       },
       killSwitch: killSwitchSource(),
       acks: memoryAckStore(),
@@ -146,11 +146,11 @@ describe('FileAckStore — persistence', () => {
 
   it('ignores corrupt/invalid contents', () => {
     const file = join(tmp, 'acks.json');
-    writeFileSync(file, JSON.stringify(['claude-cli', 'gibts-nicht', 42]));
+    writeFileSync(file, JSON.stringify(['claude-cli', 'does-not-exist', 42]));
     const store = new FileAckStore(file);
     expect(store.list()).toEqual(['claude-cli']); // only valid BackendIds
 
-    writeFileSync(file, '{ kaputt');
+    writeFileSync(file, '{ broken');
     expect(new FileAckStore(file).list()).toEqual([]);
   });
 

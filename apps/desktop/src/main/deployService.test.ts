@@ -48,7 +48,7 @@ function targetInput(overrides: Partial<DeployTargetInput> = {}): DeployTargetIn
     port: 22,
     username: 'w012345',
     remotePath: '/htdocs',
-    password: 'geheim',
+    password: 'secret',
     ...overrides,
   };
 }
@@ -56,7 +56,7 @@ function targetInput(overrides: Partial<DeployTargetInput> = {}): DeployTargetIn
 function okPreflight(remoteSha: string | null): PreflightResult {
   return {
     ok: true,
-    messages: ['Verbindung steht.'],
+    messages: ['Connection established.'],
     failures: [],
     capabilities: { mkdirRecursive: true, rename: true },
     remoteManifest: null,
@@ -143,7 +143,7 @@ beforeEach(async () => {
   });
 
   seq = 0;
-  const project = await registry.create({ name: 'Vereinsseite', templateId: 'leer' });
+  const project = await registry.create({ name: 'Club website', templateId: 'blank' });
   projectId = project.id;
   target = await makeTarget();
 });
@@ -164,7 +164,7 @@ describe('run (publish)', () => {
     expect(deployMock).toHaveBeenCalledTimes(1);
     const [, , opts] = deployMock.mock.calls[0] as [DeployTarget, unknown, { siteDir: string; commitSha: string }];
     expect(opts.commitSha).toBe('headsha1234567');
-    expect(opts.siteDir.endsWith(join('WebAIBuilder', 'vereinsseite', 'site'))).toBe(true);
+    expect(opts.siteDir.endsWith(join('WebAIBuilder', 'club-website', 'site'))).toBe(true);
 
     // last_deployed per target in the registry.
     const fresh = await registry.get(projectId);
@@ -201,7 +201,7 @@ describe('run (publish)', () => {
     engine.preflight = vi.fn(async () => ({
       ok: false,
       messages: [],
-      failures: ['Anmeldung fehlgeschlagen.'],
+      failures: ['Login failed.'],
       capabilities: { mkdirRecursive: false, rename: false },
       remoteManifest: null,
       remoteSha: null,
@@ -211,7 +211,7 @@ describe('run (publish)', () => {
 
     expect(outcome.status).toBe('preflight-failed');
     if (outcome.status === 'preflight-failed') {
-      expect(outcome.preflight.failures).toContain('Anmeldung fehlgeschlagen.');
+      expect(outcome.preflight.failures).toContain('Login failed.');
     }
     expect(engine.deploy).not.toHaveBeenCalled();
     const fresh = await registry.get(projectId);
@@ -220,7 +220,7 @@ describe('run (publish)', () => {
   });
 
   it('fails cleanly without stored credentials', async () => {
-    const noCreds = await makeTarget(targetInput({ name: 'Ohne', password: undefined }));
+    const noCreds = await makeTarget(targetInput({ name: 'Without', password: undefined }));
     const outcome = await service.run(projectId, noCreds.id, 'run-x');
 
     expect(outcome.status).toBe('preflight-failed');
@@ -233,15 +233,15 @@ describe('run (publish)', () => {
 
   it('reports an engine error as an error outcome + history entry', async () => {
     engine.deploy = vi.fn(async () => {
-      throw new Error('Upload abgebrochen.');
+      throw new Error('Upload aborted.');
     });
 
     const outcome = await service.run(projectId, target.id, 'run-1');
 
-    expect(outcome).toEqual({ status: 'error', message: 'Upload abgebrochen.' });
+    expect(outcome).toEqual({ status: 'error', message: 'Upload aborted.' });
     expect(progress.some((m) => m.event.type === 'error')).toBe(true);
     const list = history.list(projectId);
-    expect(list[0]).toMatchObject({ ok: false, error: 'Upload abgebrochen.', kind: 'deploy' });
+    expect(list[0]).toMatchObject({ ok: false, error: 'Upload aborted.', kind: 'deploy' });
     // No last_deployed on failure.
     const fresh = await registry.get(projectId);
     expect(fresh?.deployTargets[0]?.lastDeployedCommit).toBeUndefined();
@@ -270,7 +270,7 @@ describe('testConnection', () => {
   });
 
   it('reports missing credentials structured instead of throwing', async () => {
-    const noCreds = await makeTarget(targetInput({ name: 'Ohne', password: undefined }));
+    const noCreds = await makeTarget(targetInput({ name: 'Without', password: undefined }));
     const result = await service.testConnection(projectId, noCreds.id);
     expect(result.ok).toBe(false);
     expect(result.failures[0]).toMatch(/No credentials/);
@@ -288,7 +288,7 @@ describe('drift', () => {
   });
 
   it('no network access, no drift without credentials', async () => {
-    const noCreds = await makeTarget(targetInput({ name: 'Ohne', password: undefined }));
+    const noCreds = await makeTarget(targetInput({ name: 'Without', password: undefined }));
     const drift = await service.drift(projectId, noCreds.id);
     expect(drift.remoteSha).toBeNull();
     expect(engine.detectDrift).not.toHaveBeenCalled();

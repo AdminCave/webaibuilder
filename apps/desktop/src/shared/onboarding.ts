@@ -72,7 +72,7 @@ export function mergeOnboardingState(
  * (PLAN §6): Welcome · Choose AI · Webspace notice. "Done" is the action on the
  * last step, not a screen of its own.
  */
-export const ONBOARDING_STEPS = ['willkommen', 'ki', 'webspace'] as const;
+export const ONBOARDING_STEPS = ['welcome', 'ai', 'webspace'] as const;
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 
 export interface OnboardingViewState {
