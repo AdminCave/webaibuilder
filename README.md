@@ -1,104 +1,111 @@
-<!-- AdminCave-Logo: assets/logo im DesignSystem-Repo (github.com/AdminCave/DesignSystem). -->
+<!-- AdminCave logo: assets/logo in the DesignSystem repo (github.com/AdminCave/DesignSystem). -->
 <!-- ![AdminCave](https://raw.githubusercontent.com/AdminCave/DesignSystem/main/assets/logo.svg) -->
 
 # Web AI Builder
 
-**Deine Webseite. Deine KI. Dein Webspace.**
+**Your website. Your AI. Your web space.**
 
-Web AI Builder ist ein Desktop-Client, mit dem du per KI-Chat Webseiten baust und sie **per Knopfdruck auf deinen eigenen Webspace deployst** — inklusive Rollback. Alles läuft lokal auf deinem Rechner: die KI über deine eigenen Abos oder API-Keys, die Seite auf deinem eigenen Hosting. Keine Cloud dazwischen, kein Zwischenspeicher, keine fremden Server.
+Web AI Builder is a desktop client that lets you build websites through an AI chat and **deploy them to your own web space at the push of a button** — rollback included. Everything runs locally on your machine: the AI through your own subscriptions or API keys, the site on your own hosting. No cloud in between, no intermediate storage, no third-party servers.
 
-Ein AdminCave-Projekt. Deutsch-first, DSGVO- und Local-first.
+An AdminCave project. Local-first and GDPR-conscious, built for the German-speaking (DACH) market.
 
-> Status: v1 (M0–M5 fertig). Siehe [Status / Roadmap](#status--roadmap).
+> Status: v1 (milestones M0–M5 complete). See [Status / Roadmap](#status--roadmap).
 
-<!-- TODO(Screenshot): Drei-Panel-Ansicht — Chat ⟷ Live-Vorschau ⟷ Timeline — hier einfügen. -->
-<!-- ![Web AI Builder — Screenshot](docs/screenshot.png) -->
-_Screenshot folgt._
+> **Note on language:** the source, docs, and commit history of this project are in **English**. The shipped **app UI is German** on purpose — the target audience is the DACH region. See [Localization](#localization).
 
-## Warum
+<!-- TODO(screenshot): three-panel view — Chat ⟷ Live Preview ⟷ Timeline. -->
+<!-- ![Web AI Builder — screenshot](docs/screenshot.png) -->
+_Screenshot coming soon._
 
-Für die DACH-„IT-Person, die der Verein oder die Familie fragt": klassisches Shared Hosting (IONOS, Strato, all-inkl, Netcup, Hetzner), eine kleine Seite, wenig Lust auf Build-Pipelines und Cloud-Abos. Web AI Builder kombiniert polierte Desktop-UX, KI über dein eigenes Abo und — das Herzstück — SFTP-Deploy mit Rollback. Diese Kombination gibt es sonst nirgends.
+## Why
 
-## Dein Modell: eigenes Abo ODER eigener API-Key
+For the DACH "IT person the club or the family asks": classic shared hosting (IONOS, Strato, all-inkl, Netcup, Hetzner), a small site, little appetite for build pipelines and cloud subscriptions. Web AI Builder combines a polished desktop UX, AI through your own subscription, and — the heart of it — SFTP deploy with rollback. That combination does not exist anywhere else.
 
-Du entscheidest, wie die KI läuft, und du kannst beide Wege mischen:
+## Your model: your own subscription OR your own API key
 
-- **Eigener API-Key** — du hinterlegst einen Schlüssel von Anthropic, OpenAI, Google oder xAI. Der Key liegt im **Systemschlüsselbund deines Betriebssystems**, nie im Klartext auf der Platte.
-- **Eigenes Abo per CLI** — nutzt dein bestehendes Abo (Claude, Codex, Gemini, Grok) über die **offizielle CLI des Anbieters**, die du selbst installierst und in die du dich selbst einloggst.
+You decide how the AI runs, and you can mix both paths:
 
-**Compliance-Hinweis (wichtig):** Diese App liest, speichert, proxied oder überträgt **niemals** deine Anbieter-Token. Es gibt kein „Login mit Claude/ChatGPT" in dieser App — beim Abo-Weg läuft der Login ausschließlich in der offiziellen CLI des Anbieters. Web AI Builder startet nur, was du selbst eingerichtet und eingeloggt hast, und leitet keine Backends um. Der API-Key-Modus ist immer das Fundament und der Fallback.
+- **Your own API key** — you store a key from Anthropic, OpenAI, Google, or xAI. The key lives in your **operating system's keychain**, never in plaintext on disk. A key present in the environment (e.g. `ANTHROPIC_API_KEY`) is picked up automatically.
+- **Your own subscription via CLI** — uses your existing subscription (Claude, Codex, Gemini, Grok) through the provider's **official CLI**, which you install and log into yourself.
+
+**Compliance note (important):** this app **never** reads, stores, proxies, or transmits your provider tokens. There is no "log in with Claude/ChatGPT" inside this app — on the subscription path the login happens exclusively in the provider's official CLI. Web AI Builder only launches what you have set up and logged into yourself, and never redirects any backend. The API-key mode is always the foundation and the fallback.
 
 ## Features
 
-- **KI-Chat** — beschreib, was du willst; die KI ändert die Dateien deiner Seite. Tool-Aktivität, Permission-Prompts und ein „Fehler beheben"-Knopf inklusive.
-- **Live-Vorschau** — jede Änderung erscheint sofort in einer sandboxed Vorschau (loopback-Server, Token-geschützt). Chat- und Vorschau-Panel sind tauschbar.
-- **git-Checkpoints** — pro Chat-Turn ein Checkpoint (echtes git im Hintergrund). Wiederherstellen als neuer Commit — linear, verlustfrei, kein Frickeln.
-- **SFTP/FTP-Deploy mit Rollback** — nur geänderte Dateien werden hochgeladen (Hash-Manifest-Sync). Der deployte Stand wird gemerkt; auf eine frühere Version rollst du sekundenschnell zurück.
+- **AI chat** — describe what you want; the AI edits your site's files. Tool activity, permission prompts, and a "fix error" button included. If no backend is ready yet, the empty chat guides you through a one-click setup instead of sitting there disabled.
+- **Live preview** — every change appears instantly in a sandboxed preview (loopback server, token-protected). The chat and preview panels are swappable.
+- **Git checkpoints** — one checkpoint per chat turn (real git under the hood). Restore-as-a-new-commit — linear, lossless, no fiddling.
+- **SFTP/FTP deploy with rollback** — only changed files are uploaded (hash-manifest sync). The deployed state is remembered; roll back to an earlier version in seconds.
 
-## Unterstützte KI-Backends
+## Supported AI backends
 
-| Weg | Backend | Anbieter | Hinweis |
+| Path | Backend | Provider | Note |
 |---|---|---|---|
-| API-Key | `byok` | Anthropic, OpenAI, Google, xAI | Eigener Schlüssel, Modell frei wählbar |
-| API-Key | `claude-sdk` | Anthropic | Claude Agent SDK mit API-Key |
-| Abo (eigene CLI) | `claude-cli` | Claude | Hinter Feature-Flag + In-App-Hinweis |
-| Abo (eigene CLI) | `codex` | OpenAI Codex | Abo **und** API-Key |
-| Abo (eigene CLI) | `gemini-cli` | Google Gemini | Per ToS über die CLI erlaubt |
-| Abo (eigene CLI) | `grok-cli` | xAI Grok | **experimentell** |
+| API key | `byok` | Anthropic, OpenAI, Google, xAI | Your own key, model freely selectable |
+| API key | `claude-sdk` | Anthropic | Claude Agent SDK with an API key |
+| Subscription (own CLI) | `claude-cli` | Claude | Behind a feature flag + in-app notice |
+| Subscription (own CLI) | `codex` | OpenAI Codex | Subscription **and** API key |
+| Subscription (own CLI) | `gemini-cli` | Google Gemini | Allowed through the CLI per ToS |
+| Subscription (own CLI) | `grok-cli` | xAI Grok | **experimental** |
 
-Bei jedem Abo-Backend erkennt die App, ob die CLI installiert und eingeloggt ist, und verlinkt sonst die offizielle Installations-/Anmeldeanleitung. Ein Remote-Kill-Switch pro Anbieter erlaubt es, einen Abo-Pfad über Nacht zu deaktivieren, falls ein Anbieter seine Regeln ändert.
+For every subscription backend the app detects whether the CLI is installed and logged in (e.g. "logged in as …"), and otherwise links the official install/sign-in guide. A per-provider remote kill switch makes it possible to disable a subscription path overnight if a provider changes its rules.
 
-## Unterstützte Deploy-Ziele
+## Supported deploy targets
 
-Klassisches Shared Hosting per **SFTP**, **FTP** und **FTPS** (FTP über TLS, inkl. Session-Reuse, den viele Hoster verlangen). Getestet gegen die Hoster-Matrix: Hetzner, IONOS, all-inkl, Strato, Netcup. Zugangsdaten liegen im Systemschlüsselbund. Deploy-Ziele richtest du **pro Projekt** ein.
+Classic shared hosting via **SFTP**, **FTP**, and **FTPS** (FTP over TLS, including the session reuse many hosts require). Tested against the host matrix: Hetzner, IONOS, all-inkl, Strato, Netcup. Credentials live in the OS keychain. Deploy targets are configured **per project**.
 
-## Architektur
+## Architecture
 
-Electron-Shell mit gehärtetem Renderer (contextIsolation + Sandbox, typisierte Preload-Bridge). Die Fach-Logik steckt in Electron-freien TypeScript-Paketen — das hält einen späteren Tauri-Wechsel und Headless-Ableger offen.
+An Electron shell with a hardened renderer (contextIsolation + sandbox, typed preload bridge). The domain logic lives in Electron-free TypeScript packages — which keeps a later Tauri swap and a headless offshoot open.
 
-- [`apps/desktop`](apps/desktop) — Electron-App (main, preload, React-Renderer im AdminCave-Design-System)
-- [`packages/core`](packages/core) — geteilte Typen, `AgentEvent`, Permission-Policy, IPC-Registry
-- [`packages/agents`](packages/agents) — die sechs Agent-Adapter (byok + fünf Vendor-Pfade)
-- [`packages/preview`](packages/preview) — Live-Preview-Server + Watcher + Reload + Fehler-Shim
-- [`packages/versioning`](packages/versioning) — git pro Workspace, Checkpoints, Restore
-- [`packages/deploy`](packages/deploy) — Hash-Manifest-Sync über SFTP/FTPS, Rollback, Preflight
+- [`apps/desktop`](apps/desktop) — Electron app (main, preload, React renderer on the AdminCave design system)
+- [`packages/core`](packages/core) — shared types, `AgentEvent`, permission policy, IPC registry
+- [`packages/agents`](packages/agents) — the six agent adapters (`byok` + five vendor paths)
+- [`packages/preview`](packages/preview) — live-preview server + watcher + reload + error shim
+- [`packages/versioning`](packages/versioning) — git per workspace, checkpoints, restore
+- [`packages/deploy`](packages/deploy) — hash-manifest sync over SFTP/FTPS, rollback, preflight
 
-Mehr Hintergrund: [`PLAN.md`](PLAN.md).
+More background: [`PLAN.md`](PLAN.md).
 
-## Datenschutz & Fehlerberichte
+## Privacy & error reports
 
-Local-first, kein Telemetrie-Versand. Läuft etwas schief, landen die Details in einem **lokalen, rotierenden Log** unter `<userData>/logs/` auf deinem Rechner. Über **Einstellungen → Fehler & Logs** öffnest du den Ordner oder kopierst die letzten Zeilen — es wird **nichts an einen Server gesendet**. Bekannte secret-förmige Felder (API-Keys, Passwörter, Token) werden vor dem Schreiben aus den Logs entfernt.
+Local-first, no telemetry. When something goes wrong, the details land in a **local, rotating log** under `<userData>/logs/` on your machine. From **Settings → Errors & Logs** you can open the folder or copy the last lines — **nothing is sent to any server**. Known secret-shaped fields (API keys, passwords, tokens) are scrubbed from the logs before they are written.
 
-## Installation & Entwicklung
+## Localization
 
-Voraussetzungen und alle Skripte stehen in [`SETUP.md`](SETUP.md). Kurz:
+The **app UI is German** — a deliberate product decision for the DACH target audience (informal "du", no emojis). Everything a developer touches — source code, comments, docs, commit messages, identifiers — is **English**. If broader UI localization becomes a goal, the user-facing strings are the layer to internationalize; the surrounding code already reads as English.
+
+## Install & development
+
+Prerequisites and all scripts are in [`SETUP.md`](SETUP.md). In short:
 
 ```bash
 pnpm install
-pnpm dev        # App im Dev-Modus (braucht ein Display)
-pnpm test       # Tests (headless)
-pnpm package    # Installer für die aktuelle Plattform
+pnpm dev        # app in dev mode (needs a display)
+pnpm test       # tests (headless)
+pnpm package    # installer for the current platform
 ```
 
-Installer werden mit electron-builder gebaut (Linux `AppImage` + `deb`, Windows `nsis`, macOS `dmg`), Auto-Update über GitHub Releases.
+`pnpm dev` and `pnpm test` automatically rebuild the one ABI-sensitive native module (`better-sqlite3`) for the right runtime (Electron vs. Node) when needed — no manual toggle. Installers are built with electron-builder (Linux `AppImage` + `deb`, Windows `nsis`, macOS `dmg`), with auto-update over GitHub Releases.
 
 ## Status / Roadmap
 
-**v1 — fertig:**
+**v1 — complete:**
 
-- **M0** Fundament: gehärtete Electron-Shell, React-Renderer, Design-Tokens, CI
-- **M1** Workspace-Kern: git-Checkpoints, Live-Preview, Starter-Vorlagen
-- **M2** KI-Chat: `byok` + `claude-sdk`, Streaming, Tool-Activity, „Fehler beheben"
-- **M3** Deploy-Engine: SFTP/FTPS, Manifest-Sync, Rollback, Drift-Erkennung, Keychain
-- **M4** Abo-Backends: `claude-cli`, `codex`, `gemini-cli`, `grok-cli`, Erkennung, Kill-Switch
-- **M5** Release-Politur: Onboarding, Auto-Update, Packaging, Fehlerberichte, Docs
+- **M0** Foundation: hardened Electron shell, React renderer, design tokens, CI
+- **M1** Workspace core: git checkpoints, live preview, starter templates
+- **M2** AI chat: `byok` + `claude-sdk`, streaming, tool activity, "fix error"
+- **M3** Deploy engine: SFTP/FTPS, manifest sync, rollback, drift detection, keychain
+- **M4** Subscription backends: `claude-cli`, `codex`, `gemini-cli`, `grok-cli`, detection, kill switch
+- **M5** Release polish: onboarding, auto-update, packaging, error reports, docs
+- **Polish pass:** guided chat setup (env-key readiness, real login detection, visible error causes, CLI watchdog), settings redesign with side navigation, an icon set, crash-safe startup, a React error boundary, and runtime IPC validation
 
-**v1.1 — als Nächstes:** Push-to-talk-Voice (Cloud-STT mit eigenem Key), Diff-Viewer pro Checkpoint, Netlify-/Cloudflare-Pages-Targets.
+**v1.1 — next:** push-to-talk voice (cloud STT with your own key), per-checkpoint diff viewer, Netlify/Cloudflare Pages targets.
 
-**Später:** lokales Whisper, Astro-Projekttyp, MSP-Fleet-Ausbau.
+**Later:** local Whisper, an Astro project type, MSP fleet expansion.
 
-## Lizenz
+## License
 
-**Noch offen (TBD).** Die Lizenz-/OSS-Frage ist eine bewusste Entscheidung des Projekt-Owners und noch nicht getroffen — offen (z. B. Apache 2.0, ggf. mit FSL für spätere Pro-Teile wie bei Dyad) oder closed. Bis dahin liegt **keine** `LICENSE`-Datei bei; alle Rechte vorbehalten.
+**Undecided (TBD).** The license/OSS question is a deliberate owner decision that has not been made yet — open (e.g. Apache 2.0, possibly with an FSL for later pro parts, à la Dyad) or closed. Until then there is **no** `LICENSE` file; all rights reserved.
 
-<!-- TODO(LICENSE): Lizenz-Entscheidung durch den Owner treffen und LICENSE-Datei ergänzen (PLAN.md §10). -->
+<!-- TODO(LICENSE): owner to decide the license and add a LICENSE file (PLAN.md §10). -->
